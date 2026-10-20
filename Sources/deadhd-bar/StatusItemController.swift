@@ -42,6 +42,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         model.$sessionsUnavailable
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
+        model.$theme
+            .sink { [weak self] _ in self?.updateStatusItem() }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -68,7 +71,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.image = MenuBarIcon.image(
             counts: model.groups.counts,
             phase: spinPhase,
-            unavailable: model.sessionsUnavailable
+            unavailable: model.sessionsUnavailable,
+            appearance: button.effectiveAppearance
         )
     }
 
@@ -145,14 +149,30 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func handleKey(_ event: NSEvent) -> Bool {
         guard popover.isShown else { return false }
         if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "," {
+            state.settingsOpen.toggle()
             return true
+        }
+
+        switch event.keyCode {
+        case 53:
+            if state.settingsOpen {
+                state.settingsOpen = false
+            } else {
+                popover.performClose(nil)
+            }
+            return true
+        case 126, 125, 36, 76, 51, 117:
+            // 설정 시트가 열려 있는 동안에는 목록 단축키를 넘기지 않는다.
+            if state.settingsOpen { return true }
+        default:
+            break
+        }
+        if state.settingsOpen {
+            return false
         }
 
         let items = state.filter.selectableItems(in: model.groups)
         switch event.keyCode {
-        case 53:
-            popover.performClose(nil)
-            return true
         case 126, 125:
             let step = event.keyCode == 126 ? -1 : 1
             state.selectedIndex = KeyboardSelection.move(

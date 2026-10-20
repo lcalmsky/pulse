@@ -39,6 +39,7 @@ struct PopoverIconButton: View {
     let symbol: String
     let help: String
     var enabled = true
+    var selected = false
     let action: () -> Void
 
     @State private var hovering = false
@@ -48,10 +49,10 @@ struct PopoverIconButton: View {
             Image(systemName: symbol)
                 .font(.system(size: 13))
                 .frame(width: 26, height: 26)
-                .foregroundColor(hovering && enabled ? .primary : PopoverPalette.secondary)
+                .foregroundColor(hovering && enabled || selected ? .primary : PopoverPalette.secondary)
                 .background(
                     RoundedRectangle(cornerRadius: 7)
-                        .fill(hovering && enabled ? Color.primary.opacity(0.07) : Color.clear)
+                        .fill(hovering && enabled || selected ? Color.primary.opacity(0.07) : Color.clear)
                 )
                 .contentShape(Rectangle())
         }

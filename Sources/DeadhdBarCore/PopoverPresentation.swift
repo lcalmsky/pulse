@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Density: Equatable {
+public enum Density: String, CaseIterable, Equatable {
     case rich
     case compact
 }

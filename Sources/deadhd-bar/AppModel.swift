@@ -17,7 +17,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var recentAcknowledgedCount = 0
     @Published private(set) var recentAcknowledgedGeneration = 0
     @Published private(set) var lastSuccess: Date?
-    @Published var density: Density = .rich
+    @Published private(set) var density: Density
+    @Published private(set) var theme: ThemePreference
+    @Published private(set) var attentionNotifications: Bool
 
     weak var detailPresenter: DetailPresenting?
 
@@ -42,10 +44,39 @@ final class AppModel: ObservableObject {
     private var remoteFetching = false
 
     init() {
+        let settings = AppSettings(
+            densityRaw: defaults.string(forKey: AppSettings.densityKey),
+            themeRaw: defaults.string(forKey: AppSettings.themeKey),
+            attentionNotifications: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool
+        )
+        density = settings.density
+        theme = settings.theme
+        attentionNotifications = settings.attentionNotifications
+
         port = ProcessInfo.processInfo.environment["DEADHD_PORT"] ?? "47320"
         acknowledgements = DoneAcknowledgements(
             keys: Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
         )
+    }
+
+    // MARK: - 설정
+
+    func setDensity(_ value: Density) {
+        guard density != value else { return }
+        density = value
+        defaults.set(value.rawValue, forKey: AppSettings.densityKey)
+    }
+
+    func setTheme(_ value: ThemePreference) {
+        guard theme != value else { return }
+        theme = value
+        defaults.set(value.rawValue, forKey: AppSettings.themeKey)
+    }
+
+    func setAttentionNotifications(_ enabled: Bool) {
+        guard attentionNotifications != enabled else { return }
+        attentionNotifications = enabled
+        defaults.set(enabled, forKey: AppSettings.attentionNotificationsKey)
     }
 
     func start() {

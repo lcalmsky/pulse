@@ -7,7 +7,7 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PopoverHeader(model: model)
+            PopoverHeader(model: model, state: state)
             banners
 
             if !model.sessionsUnavailable, model.groups.totalCount == 0 {
@@ -22,6 +22,7 @@ struct PopoverView: View {
             PopoverFooter(model: model)
         }
         .frame(width: model.density == .compact ? 340 : 400)
+        .overlay(alignment: .topTrailing) { settingsSheet }
         .overlay(alignment: .bottom) { toast }
         .animation(.easeOut(duration: 0.18), value: model.recentAcknowledgedCount)
         .onAppear { state.selectedIndex = nil }
@@ -124,6 +125,15 @@ struct PopoverView: View {
         guard items.indices.contains(index) else { return }
         withAnimation(.easeOut(duration: 0.12)) {
             proxy.scrollTo(items[index].sessionId, anchor: .center)
+        }
+    }
+
+    @ViewBuilder
+    private var settingsSheet: some View {
+        if state.settingsOpen {
+            SettingsSheet(model: model, state: state)
+                .padding(.top, 58)
+                .padding(.trailing, 12)
         }
     }
 

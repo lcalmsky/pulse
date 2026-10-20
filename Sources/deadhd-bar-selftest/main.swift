@@ -1063,5 +1063,26 @@ singleAck.undoRecent()
 expectEqual(singleAck.hiddenCount(in: SessionsResponse(sessions: [doneSession]), now: now), 0,
             "항목 확인: 되돌리면 다시 보인다")
 
+// MARK: - 앱 설정
+
+expectEqual(AppSettings.default.density, .rich, "설정: 기본 밀도는 풍부")
+expectEqual(AppSettings.default.theme, .system, "설정: 기본 테마는 시스템")
+expectEqual(AppSettings.default.attentionNotifications, true, "설정: 기본 알림은 켜짐")
+
+let storedSettings = AppSettings(densityRaw: "compact", themeRaw: "dark", attentionNotifications: false)
+expectEqual(storedSettings.density, .compact, "설정: 저장된 밀도를 읽는다")
+expectEqual(storedSettings.theme, .dark, "설정: 저장된 테마를 읽는다")
+expectEqual(storedSettings.attentionNotifications, false, "설정: 저장된 알림 값을 읽는다")
+
+let unknownSettings = AppSettings(densityRaw: "dense", themeRaw: "sepia", attentionNotifications: nil)
+expectEqual(unknownSettings, AppSettings.default, "설정: 알 수 없는 값과 없는 값은 기본값")
+expectEqual(AppSettings(densityRaw: "", themeRaw: " ", attentionNotifications: nil), AppSettings.default,
+            "설정: 빈 문자열과 공백은 기본값")
+
+expectEqual(Density.allCases.map(\.rawValue), ["rich", "compact"], "설정: 밀도 저장값")
+expectEqual(ThemePreference.allCases.map(\.rawValue), ["system", "light", "dark"], "설정: 테마 저장값")
+expectEqual(AppSettings(densityRaw: "light", themeRaw: nil, attentionNotifications: true).density, .rich,
+            "설정: 밀도 키에 테마 값이 와도 기본값")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PopoverHeader: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var state: PopoverState
 
     var body: some View {
         HStack(spacing: 10) {
@@ -38,9 +39,11 @@ struct PopoverHeader: View {
                 }
                 PopoverIconButton(
                     symbol: "gearshape",
-                    help: "보기 설정 (준비 중)",
-                    enabled: false
-                ) {}
+                    help: "보기 설정 (⌘,)",
+                    selected: state.settingsOpen
+                ) {
+                    state.settingsOpen.toggle()
+                }
             }
         }
         .padding(.horizontal, 14)
