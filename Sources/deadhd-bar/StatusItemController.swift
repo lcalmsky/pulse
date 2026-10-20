@@ -21,7 +21,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         model.$groups
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
-        model.$serverOff
+        model.$sessionsUnavailable
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
         model.$errorMessage
@@ -49,9 +49,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func updateBadge() {
         guard let button = statusItem.button else { return }
-        if model.serverOff {
+        if model.sessionsUnavailable {
             button.attributedTitle = NSAttributedString(
-                string: "◌ deadhd",
+                string: "◌ Claude 세션",
                 attributes: [.foregroundColor: NSColor.tertiaryLabelColor]
             )
             return
@@ -108,15 +108,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if let error = model.errorMessage {
             info(error, color: .systemRed)
         }
-        if model.serverOff {
-            info("deadhd 서버가 꺼져 있어요", color: .secondaryLabelColor)
-            action("서버 시작", #selector(startServer))
+        if model.sessionsUnavailable {
+            info("Claude 세션을 읽지 못했어요", color: .secondaryLabelColor)
             menu.addItem(.separator())
         }
 
         let groups = model.groups
         if groups.totalCount == 0 {
-            info(model.serverOff ? "세션 정보를 받지 못했어요" : "지금은 조용해요", color: .secondaryLabelColor)
+            info(model.sessionsUnavailable ? "Claude 세션을 읽지 못했어요" : "지금은 조용해요", color: .secondaryLabelColor)
         }
 
         for group in DisplayGroup.allCases {
@@ -268,10 +267,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func togglePanel() {
         model.togglePanel()
-    }
-
-    @objc private func startServer() {
-        model.startServer()
     }
 
     @objc private func quit() {

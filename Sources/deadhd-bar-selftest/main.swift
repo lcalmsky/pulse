@@ -508,5 +508,370 @@ let zeroTotal = Grouping.group(
 )
 expectEqual(zeroTotal.working.first?.progress, nil, "진행도: total 0 은 표시하지 않는다")
 
+// MARK: - Claude 세션 파일 파싱
+
+let sessionFileJSON = """
+{"pid":20837,"sessionId":"1121d7e7-9881-4c8c-8605-b1ffb8ea14fa","cwd":"/Users/alex/git-repo/deadhd-bar",
+ "startedAt":1792488392202,"kind":"interactive","entrypoint":"cli","name":"deadhdbar",
+ "status":"waiting","statusUpdatedAt":1792490397838,"waitingFor":"permission prompt",
+ "unknownKey":{"nested":true},"peerFeatures":["notify_idle"]}
+"""
+if let record = LocalSessions.parseRecord(Data(sessionFileJSON.utf8)) {
+    expectEqual(record.pid, 20837, "세션 파일: pid")
+    expectEqual(record.sessionId, "1121d7e7-9881-4c8c-8605-b1ffb8ea14fa", "세션 파일: sessionId")
+    expectEqual(record.startedAt, Date(timeIntervalSince1970: 1792488392202 / 1000),
+                "세션 파일: 시작 시각은 밀리초 epoch")
+    expectEqual(record.statusUpdatedAt, Date(timeIntervalSince1970: 1792490397838 / 1000),
+                "세션 파일: 상태 시각은 밀리초 epoch")
+    expectEqual(record.name, "deadhdbar", "세션 파일: name")
+    expectEqual(record.entrypoint, "cli", "세션 파일: entrypoint")
+    expectEqual(record.waitingFor, "permission prompt", "세션 파일: waitingFor")
+    expectEqual(record.status, "waiting", "세션 파일: status")
+    expectEqual(LocalSessions.shouldInclude(record), true, "세션 파일: cli 는 포함")
+} else {
+    expect(false, "세션 파일: 정상 파일을 읽지 못했다")
+}
+
+expectEqual(LocalSessions.parseRecord(Data("{\"pid\":1}".utf8)), nil, "세션 파일: sessionId 없으면 버린다")
+expectEqual(LocalSessions.parseRecord(Data("{\"sessionId\":\"s\"}".utf8)), nil, "세션 파일: pid 없으면 버린다")
+expectEqual(LocalSessions.parseRecord(Data("not json".utf8)), nil, "세션 파일: JSON 이 아니면 버린다")
+
+let sdkRecord = LocalSessionRecord(pid: 2, sessionId: "sdk", entrypoint: "sdk-cli", status: "busy")
+expectEqual(LocalSessions.shouldInclude(sdkRecord), false, "세션 파일: sdk-cli 는 기본으로 뺀다")
+expectEqual(LocalSessions.shouldInclude(LocalSessionRecord(pid: 3, sessionId: "x")), false,
+            "세션 파일: entrypoint 가 없으면 뺀다")
+
+expectEqual(LocalSessions.isSessionFileName("20837.json"), true, "파일 이름: <pid>.json 만 읽는다")
+expectEqual(LocalSessions.isSessionFileName("20837.abc.key"), false, "파일 이름: 키 파일은 읽지 않는다")
+expectEqual(LocalSessions.isSessionFileName("abc.json"), false, "파일 이름: 숫자가 아니면 뺀다")
+expectEqual(LocalSessions.isSessionFileName("20837.json.bak"), false, "파일 이름: 확장자가 다르면 뺀다")
+expectEqual(LocalSessions.isSessionFileName(".json"), false, "파일 이름: pid 가 비면 뺀다")
+
+// MARK: - 프로젝트 슬러그
+
+expectEqual(
+    LocalSessions.projectSlug(forCwd: "/Users/alex/git-repo/deadhd-bar"),
+    "-Users-alex-git-repo-deadhd-bar",
+    "슬러그: 일반 경로"
+)
+expectEqual(
+    LocalSessions.projectSlug(
+        forCwd: "/Users/alex/Library/Mobile Documents/iCloud~md~obsidian/Documents/notes"
+    ),
+    "-Users-alex-Library-Mobile-Documents-iCloud-md-obsidian-Documents-notes",
+    "슬러그: 공백과 ~ 도 - 로 바꾼다"
+)
+
+// MARK: - 트랜스크립트 끝 요약
+
+let transcriptJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"잘린 답변"}]},"timestamp":"2026-10-20T08:00:00.000Z"}
+{"type":"custom-title","customTitle":"첫 제목"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"  첫 답변  "}]},"timestamp":"2026-10-20T09:01:00.000Z"}
+{"type":"custom-title","customTitle":"마지막 제목"}
+{"type":"agent-name","agentName":"에이전트"}
+{"type":"last-prompt","lastPrompt":"마지막 요청"}
+{"type":"attachment","attachment":{"type":"mode"}}
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"생각"},{"type":"text","text":"  최종 답변입니다  "},{"type":"tool_use","name":"Bash","input":{"command":"ls"}}]},"timestamp":"2026-10-20T09:03:00.000Z"}
+{"type":"user","message":{"role":"user","content":"질문"},"timestamp":"2026-10-20T09:04:00.000Z"}
+"""
+let transcriptSummary = LocalSessions.summarizeTranscriptTail(
+    Data(transcriptJSON.utf8),
+    droppingPartialFirstLine: true
+)
+expectEqual(transcriptSummary.customTitle, "마지막 제목", "요약: 마지막 custom-title 우선")
+expectEqual(transcriptSummary.agentName, "에이전트", "요약: agent-name")
+expectEqual(transcriptSummary.lastPrompt, "마지막 요청", "요약: last-prompt")
+expectEqual(transcriptSummary.lastAssistantText, "최종 답변입니다", "요약: 마지막 text 앞뒤 공백 정리")
+expectEqual(transcriptSummary.lastToolName, "Bash", "요약: 마지막 tool_use 이름")
+expectEqual(transcriptSummary.lastToolAt, utcDate(2026, 10, 20, 9, 3), "요약: 마지막 tool_use 시각")
+expectEqual(transcriptSummary.lastMeaningfulAt, utcDate(2026, 10, 20, 9, 4), "요약: 마지막 assistant/user 줄 시각")
+
+let notDropped = LocalSessions.summarizeTranscriptTail(
+    Data(transcriptJSON.utf8),
+    droppingPartialFirstLine: false
+)
+expectEqual(notDropped.lastAssistantText, "최종 답변입니다", "요약: 첫 줄을 버리지 않으면 마지막 값은 그대로")
+
+let onlyFirstLineText = Data("""
+{"type":"assistant","message":{"content":[{"type":"text","text":"잘린 답변"}]},"timestamp":"2026-10-20T08:00:00.000Z"}
+{"type":"assistant","message":{"content":[]},"timestamp":"2026-10-20T09:01:00.000Z"}
+""".utf8)
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(onlyFirstLineText, droppingPartialFirstLine: true).lastAssistantText,
+    nil,
+    "요약: 잘린 첫 줄은 버린다"
+)
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(onlyFirstLineText, droppingPartialFirstLine: false).lastAssistantText,
+    "잘린 답변",
+    "요약: 버리지 않으면 첫 줄도 읽는다"
+)
+
+let longText = String(repeating: "가", count: 200)
+let longLine = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"\(longText)   "}]},"timestamp":"2026-10-20T09:05:00.000Z"}
+"""
+let longSummary = LocalSessions.summarizeTranscriptTail(Data(longLine.utf8), droppingPartialFirstLine: false)
+expectEqual(longSummary.lastAssistantText?.count, 160, "요약: 답변은 160자로 자른다")
+expect(!(longSummary.lastAssistantText ?? "").hasSuffix(" "), "요약: 답변 앞뒤 공백을 지운다")
+
+let brokenTail = Data("{not json\n{\"type\":\"custom-title\",\"customTitle\":\"온전한 제목\"}\n".utf8)
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(brokenTail, droppingPartialFirstLine: false).customTitle,
+    "온전한 제목",
+    "요약: 깨진 줄은 건너뛴다"
+)
+
+// MARK: - 세션 파일 → 화면 모델
+
+func localRecord(
+    status: String?,
+    waitingFor: String? = nil,
+    name: String? = "이름",
+    statusUpdatedAt: Date? = nil,
+    startedAt: Date? = nil
+) -> LocalSessionRecord {
+    LocalSessionRecord(
+        pid: 100,
+        sessionId: "local",
+        cwd: "/Users/a/proj",
+        name: name,
+        entrypoint: "cli",
+        status: status,
+        waitingFor: waitingFor,
+        startedAt: startedAt ?? now.addingTimeInterval(-900),
+        statusUpdatedAt: statusUpdatedAt ?? now.addingTimeInterval(-120)
+    )
+}
+
+func localSession(
+    status: String?,
+    waitingFor: String? = nil,
+    summary: TranscriptSummary = TranscriptSummary(),
+    name: String? = "이름",
+    statusUpdatedAt: Date? = nil,
+    startedAt: Date? = nil
+) -> Session {
+    LocalSessions.makeSession(
+        record: localRecord(
+            status: status,
+            waitingFor: waitingFor,
+            name: name,
+            statusUpdatedAt: statusUpdatedAt,
+            startedAt: startedAt
+        ),
+        summary: summary,
+        now: now
+    )
+}
+
+let permission = localSession(status: "waiting", waitingFor: "permission prompt")
+expectEqual(permission.bucket, "wait", "상태 표: 권한 대기는 wait 버킷")
+expectEqual(permission.status, "waiting_permission", "상태 표: 권한 대기 status")
+expectEqual(permission.message, "권한 승인을 기다려요", "상태 표: 권한 대기 문구")
+let permissionGroup = Grouping.group(SessionsResponse(sessions: [permission]), now: now)
+expectEqual(permissionGroup.attention.first?.status, "권한 승인을 기다려요", "상태 표: 권한 대기는 확인 필요 그룹")
+
+let inputNeeded = localSession(status: "waiting", waitingFor: "input needed")
+expectEqual(inputNeeded.bucket, "wait", "상태 표: 입력 대기도 wait 버킷")
+expectEqual(inputNeeded.status, "waiting_input", "상태 표: 입력 대기 status")
+expectEqual(inputNeeded.message, "입력을 기다려요", "상태 표: 입력 대기 문구")
+expectEqual(Grouping.group(SessionsResponse(sessions: [inputNeeded]), now: now).attention.first?.status,
+            "입력을 기다려요", "상태 표: 입력 대기는 확인 필요 그룹")
+
+let otherWaiting = localSession(status: "waiting", waitingFor: "something else")
+expectEqual(otherWaiting.bucket, "wait", "상태 표: 그 밖의 waitingFor 도 wait 버킷")
+expectEqual(otherWaiting.status, "waiting_input", "상태 표: 그 밖의 waitingFor 는 입력 대기")
+
+let busy = localSession(status: "busy")
+expectEqual(busy.bucket, "working", "상태 표: busy 는 working")
+expectEqual(busy.status, "working", "상태 표: busy status")
+expectEqual(busy.message, nil, "상태 표: busy 에는 message 가 없다")
+expectEqual(Grouping.group(SessionsResponse(sessions: [busy]), now: now).working.count, 1, "상태 표: busy 는 진행중 그룹")
+
+let shell = localSession(status: "shell")
+expectEqual(shell.bucket, "working", "상태 표: shell 은 working")
+expectEqual(shell.status, "working", "상태 표: shell status")
+
+let idle = localSession(status: "idle")
+expectEqual(idle.bucket, "done", "상태 표: idle 은 완료 버킷")
+expectEqual(idle.status, "idle", "상태 표: idle status")
+let idleMappedGroup = Grouping.group(SessionsResponse(sessions: [idle]), now: now)
+expectEqual(idleMappedGroup.done.count, 1, "상태 표: idle 은 완료 그룹")
+expectEqual(idleMappedGroup.done.first?.status, "완료했어요", "상태 표: idle 은 완료 문구")
+
+let unknownStatus = localSession(status: "paused")
+expectEqual(unknownStatus.bucket, "working", "상태 표: 그 밖의 상태는 working")
+expectEqual(unknownStatus.status, "paused", "상태 표: 그 밖의 상태는 원문 유지")
+expectEqual(unknownStatus.message, nil, "상태 표: 그 밖의 상태에는 message 가 없다")
+
+let stalled = localSession(status: "busy", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-601)))
+expectEqual(stalled.bucket, "stall", "stall: 마지막 줄이 10분보다 오래되면 stall")
+expectEqual(Grouping.group(SessionsResponse(sessions: [stalled]), now: now).attention.count, 1,
+            "stall: 확인 필요 그룹으로 간다")
+
+let stallShell = localSession(status: "shell", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600)))
+expectEqual(stallShell.bucket, "stall", "stall: shell 도 같은 기준을 쓴다")
+
+let boundary = localSession(status: "busy", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-600)))
+expectEqual(boundary.bucket, "working", "stall: 정확히 10분이면 아직 working")
+
+let noTranscript = localSession(status: "busy", summary: TranscriptSummary())
+expectEqual(noTranscript.bucket, "working", "stall: 트랜스크립트가 없으면 working")
+
+let staleIdle = localSession(status: "idle", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600)))
+expectEqual(staleIdle.bucket, "done", "stall: stall 판정은 busy/shell 에만 적용")
+
+// MARK: - 제목·시각·필드
+
+let titled = localSession(
+    status: "busy",
+    summary: TranscriptSummary(customTitle: "커스텀", agentName: "에이전트", lastPrompt: "프롬프트"),
+    name: "세션이름"
+)
+expectEqual(titled.title, "커스텀", "제목: customTitle 우선")
+expectEqual(titled.key, "세션이름", "제목: key 는 세션 파일 name")
+expectEqual(titled.cwd, "/Users/a/proj", "제목: cwd 는 세션 파일 값")
+
+let agentTitled = localSession(
+    status: "busy",
+    summary: TranscriptSummary(agentName: "에이전트", lastPrompt: "프롬프트"),
+    name: "세션이름"
+)
+expectEqual(agentTitled.title, "에이전트", "제목: customTitle 이 없으면 agentName")
+
+let nameTitled = localSession(status: "busy", summary: TranscriptSummary(lastPrompt: "프롬프트"), name: "세션이름")
+expectEqual(nameTitled.title, "세션이름", "제목: agentName 이 없으면 세션 파일 name")
+
+let longPrompt = String(repeating: "프", count: 80)
+let promptTitled = localSession(status: "busy", summary: TranscriptSummary(lastPrompt: longPrompt), name: nil)
+expectEqual(promptTitled.title?.count, 60, "제목: 마지막 수단 lastPrompt 는 60자")
+expectEqual(promptTitled.key, nil, "제목: name 이 없으면 key 도 없다")
+
+let untitled = localSession(status: "busy", summary: TranscriptSummary(), name: nil)
+expectEqual(untitled.title, nil, "제목: 후보가 다 없으면 nil")
+
+let statusAt = now.addingTimeInterval(-120)
+let startedAt = now.addingTimeInterval(-900)
+let transcriptAt = now.addingTimeInterval(-30)
+let timing = localSession(
+    status: "busy",
+    summary: TranscriptSummary(lastMeaningfulAt: transcriptAt),
+    statusUpdatedAt: statusAt,
+    startedAt: startedAt
+)
+expectEqual(timing.since, statusAt, "시각: since 는 statusUpdatedAt")
+expectEqual(timing.updatedAt, transcriptAt, "시각: updatedAt 은 더 늦은 트랜스크립트 시각")
+
+let olderTranscript = localSession(
+    status: "busy",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-300)),
+    statusUpdatedAt: statusAt
+)
+expectEqual(olderTranscript.updatedAt, statusAt, "시각: 트랜스크립트가 더 이르면 statusUpdatedAt")
+
+let noStatusTime = LocalSessions.makeSession(
+    record: LocalSessionRecord(
+        pid: 100,
+        sessionId: "local",
+        entrypoint: "cli",
+        status: "busy",
+        startedAt: startedAt
+    ),
+    summary: TranscriptSummary(),
+    now: now
+)
+expectEqual(noStatusTime.since, startedAt, "시각: statusUpdatedAt 이 없으면 startedAt")
+
+let richSummary = TranscriptSummary(
+    lastAssistantText: "마지막 답변",
+    lastToolName: "Read",
+    lastToolAt: utcDate(2026, 10, 20, 9, 3)
+)
+let rich = localSession(status: "busy", summary: richSummary)
+expectEqual(rich.replyTail, "마지막 답변", "필드: replyTail 은 마지막 assistant text")
+expectEqual(rich.lastTool?.name, "Read", "필드: lastTool 이름")
+expectEqual(rich.lastTool?.at, utcDate(2026, 10, 20, 9, 3), "필드: lastTool 시각")
+expectEqual(rich.lastTool?.durationMs, nil, "필드: lastTool durationMs 는 없다")
+expectEqual(rich.backgroundTasks, [], "필드: backgroundTasks 는 비어 있다")
+expectEqual(rich.href, nil, "필드: href 는 없다")
+expectEqual(rich.orcaTerminal, nil, "필드: orcaTerminal 은 없다")
+
+// MARK: - 종료 추적
+
+let liveSession = Session(
+    sessionId: "gone",
+    bucket: "working",
+    title: "떠난 세션",
+    key: "gone",
+    status: "working",
+    since: now.addingTimeInterval(-60),
+    replyTail: "하던 일",
+    cwd: "/a/b"
+)
+let t0 = now
+let t1 = now.addingTimeInterval(5)
+var tracker = EndedSessionTracker()
+expectEqual(tracker.reconcile(active: [liveSession], at: t0).count, 0, "종료 추적: 살아 있으면 보관본이 없다")
+let disappeared = tracker.reconcile(active: [], at: t1)
+expectEqual(disappeared.count, 1, "종료 추적: 사라지면 ended 로 남는다")
+expectEqual(disappeared.first?.bucket, "ended", "종료 추적: bucket 은 ended")
+expectEqual(disappeared.first?.status, "ended", "종료 추적: status 는 ended")
+expectEqual(disappeared.first?.since, t1, "종료 추적: since 는 사라진 시각")
+expectEqual(disappeared.first?.replyTail, "하던 일", "종료 추적: 마지막 모습을 보존한다")
+expectEqual(Grouping.group(SessionsResponse(sessions: disappeared), now: t1).done.count, 1,
+            "종료 추적: ended 는 완료 그룹으로 간다")
+expectEqual(tracker.reconcile(active: [], at: t1.addingTimeInterval(12 * 3600 - 1)).count, 1,
+            "종료 추적: 12시간이 되기 전에는 남는다")
+expectEqual(tracker.reconcile(active: [], at: t1.addingTimeInterval(12 * 3600)).count, 0,
+            "종료 추적: 12시간 뒤 지운다")
+
+var reappeared = EndedSessionTracker()
+_ = reappeared.reconcile(active: [liveSession], at: t0)
+_ = reappeared.reconcile(active: [], at: t1)
+expectEqual(reappeared.reconcile(active: [liveSession], at: t1.addingTimeInterval(10)).count, 0,
+            "종료 추적: 다시 나타나면 보관본을 버린다")
+
+var neverSeen = EndedSessionTracker()
+expectEqual(neverSeen.reconcile(active: [], at: t0).count, 0, "종료 추적: 처음부터 없던 세션은 남기지 않는다")
+
+// MARK: - deadhd 보강
+
+let localOnly = Session(
+    sessionId: "a",
+    bucket: "working",
+    title: "로컬 제목",
+    key: "local",
+    status: "working",
+    since: now.addingTimeInterval(-60),
+    cwd: "/a/b"
+)
+let remoteBooster = Session(
+    sessionId: "a",
+    bucket: "done",
+    title: "원격 제목",
+    place: Place(label: "shop", branch: "main"),
+    orcaTerminal: "term-1",
+    backgroundTasks: [BackgroundTask(type: "shell", taskDescription: "npm test")],
+    nowLabel: "검증 단계",
+    href: "http://127.0.0.1:47320/deadhd-a.html",
+    counts: SessionCounts(done: 2),
+    total: 5
+)
+let remoteOnlySession = Session(sessionId: "b", bucket: "done", href: "http://other")
+let overlaid = SessionOverlay.apply(local: [localOnly], remote: [remoteBooster, remoteOnlySession])
+expectEqual(overlaid.count, 1, "보강: 로컬에 없는 deadhd 세션은 추가하지 않는다")
+expectEqual(overlaid.first?.href, "http://127.0.0.1:47320/deadhd-a.html", "보강: href 를 덧입힌다")
+expectEqual(overlaid.first?.orcaTerminal, "term-1", "보강: orcaTerminal 을 덧입힌다")
+expectEqual(overlaid.first?.nowLabel, "검증 단계", "보강: nowLabel 을 덧입힌다")
+expectEqual(overlaid.first?.place?.branch, "main", "보강: place 를 덧입힌다")
+expectEqual(overlaid.first?.counts?.done, 2, "보강: counts 를 덧입힌다")
+expectEqual(overlaid.first?.backgroundTasks.first?.taskDescription, "npm test", "보강: backgroundTasks 를 덧입힌다")
+expectEqual(overlaid.first?.bucket, "working", "보강: bucket 은 로컬 값을 지킨다")
+expectEqual(overlaid.first?.title, "로컬 제목", "보강: title 은 로컬 값을 지킨다")
+expectEqual(overlaid.first?.cwd, "/a/b", "보강: cwd 는 로컬 값을 지킨다")
+expectEqual(SessionOverlay.apply(local: [localOnly], remote: []), [localOnly], "보강: deadhd 응답이 없으면 로컬 그대로")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

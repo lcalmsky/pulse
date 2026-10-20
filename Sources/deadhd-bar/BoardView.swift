@@ -26,15 +26,10 @@ struct BoardView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if model.serverOff {
-                HStack(spacing: 6) {
-                    Text("deadhd 서버가 꺼져 있어요")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                    Button("서버 시작") { model.startServer() }
-                        .font(.system(size: 11))
-                        .buttonStyle(.borderless)
-                }
+            if model.sessionsUnavailable {
+                Text("Claude 세션을 읽지 못했어요")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
             }
 
             if !model.collapsed {
@@ -50,7 +45,7 @@ struct BoardView: View {
     private var header: some View {
         let counts = model.groups.counts
         return HStack(spacing: 6) {
-            Text("deadhd")
+            Text("Claude 세션")
                 .font(.system(size: 13, weight: .semibold))
             Spacer(minLength: 4)
             CountBadge(count: counts.attention, color: .orange)
@@ -76,7 +71,7 @@ struct BoardView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             if model.groups.totalCount == 0 {
-                Text(model.serverOff ? "세션 정보를 받지 못했어요" : "지금은 조용해요")
+                Text(model.sessionsUnavailable ? "Claude 세션을 읽지 못했어요" : "지금은 조용해요")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }

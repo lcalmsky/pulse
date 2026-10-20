@@ -9,7 +9,7 @@ protocol DetailPresenting: AnyObject {
 
 final class AppModel: ObservableObject {
     @Published private(set) var groups = GroupedSessions.empty
-    @Published private(set) var serverOff = true
+    @Published private(set) var sessionsUnavailable = true
     @Published private(set) var errorMessage: String?
     @Published private(set) var panelVisible = false
     @Published var collapsed = false
@@ -19,22 +19,27 @@ final class AppModel: ObservableObject {
     weak var detailPresenter: DetailPresenting?
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
-    private static let defaultSkillDir = "~/.claude/skills/deadhd"
 
     private let defaults = UserDefaults.standard
     private let port: String
-    private let offGrace: TimeInterval = 15
+    private let failureGrace: TimeInterval = 15
     private let pollInterval: TimeInterval = 3
     private let recentUndoWindow: TimeInterval = 10
+    private let localSource = LocalSessionSource()
+    private let localQueue = DispatchQueue(label: "dev.deadhd-bar.local-sessions", qos: .userInitiated)
 
     private var response: SessionsResponse?
+    private var localSessions: [Session]?
+    private var remoteSessions: [Session]?
+    private var endedTracker = EndedSessionTracker()
     private var lastSuccess: Date?
     private var timer: Timer?
     private var snoozes: [String: Date] = [:]
     private var acknowledgements: DoneAcknowledgements
     private var errorGeneration = 0
     private var recentAcknowledgedGeneration = 0
-    private var polling = false
+    private var localReading = false
+    private var remoteFetching = false
 
     init() {
         port = ProcessInfo.processInfo.environment["DEADHD_PORT"] ?? "47320"
@@ -55,53 +60,89 @@ final class AppModel: ObservableObject {
 
     // MARK: - 폴링
 
-    private var sessionURL: URL? {
+    private var deadhdSessionsURL: URL? {
         URL(string: "http://127.0.0.1:\(port)/sessions.json")
     }
 
     func poll() {
-        guard !polling, let url = sessionURL else { return }
-        polling = true
+        readLocal()
+        fetchRemote()
+    }
+
+    private func readLocal() {
+        guard !localReading else { return }
+        localReading = true
+        localQueue.async { [weak self] in
+            guard let self else { return }
+            let result = Result { try self.localSource.read(now: Date()) }
+            DispatchQueue.main.async {
+                self.localReading = false
+                self.applyLocal(result)
+            }
+        }
+    }
+
+    private func applyLocal(_ result: Result<[Session], Error>) {
+        guard case let .success(active) = result else {
+            markFailure()
+            return
+        }
+        let ended = endedTracker.reconcile(active: active, at: Date())
+        let local = active + ended
+        localSessions = local
+        lastSuccess = Date()
+        sessionsUnavailable = false
+
+        // 로컬 출처를 읽은 응답을 기준으로 정리한다. deadhd 응답은 보강일 뿐이다.
+        let before = acknowledgements
+        acknowledgements.prune(keeping: SessionsResponse(sessions: local))
+        if acknowledgements != before {
+            persistAcknowledgements()
+        }
+        applyOverlay()
+    }
+
+    /// deadhd 응답이 오면 같은 sessionId 의 보강 값만 덧입힌다. 실패해도 화면은 그대로 둔다.
+    private func applyOverlay() {
+        guard let localSessions else { return }
+        response = SessionsResponse(
+            sessions: SessionOverlay.apply(local: localSessions, remote: remoteSessions ?? [])
+        )
+        refresh()
+    }
+
+    private func fetchRemote() {
+        guard !remoteFetching, let url = deadhdSessionsURL else { return }
+        remoteFetching = true
         var request = URLRequest(url: url)
         request.timeoutInterval = 2
         request.cachePolicy = .reloadIgnoringLocalCacheData
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.polling = false
-                self.handle(data: data, response: response, error: error)
+                self.remoteFetching = false
+                guard error == nil,
+                      let http = response as? HTTPURLResponse,
+                      (200..<300).contains(http.statusCode),
+                      let data,
+                      let decoded = try? JSONDecoder().decode(SessionsResponse.self, from: data)
+                else {
+                    self.remoteSessions = nil
+                    self.applyOverlay()
+                    return
+                }
+                self.remoteSessions = decoded.sessions
+                self.applyOverlay()
             }
         }.resume()
     }
 
-    private func handle(data: Data?, response: URLResponse?, error: Error?) {
-        guard error == nil,
-              let http = response as? HTTPURLResponse,
-              (200..<300).contains(http.statusCode),
-              let data,
-              let decoded = try? JSONDecoder().decode(SessionsResponse.self, from: data)
-        else {
-            markFailure()
-            return
-        }
-        self.response = decoded
-        lastSuccess = Date()
-        serverOff = false
-        // 응답을 받은 동안에만 지금 목록에 없는 세션의 키를 버린다.
-        let before = acknowledgements
-        acknowledgements.prune(keeping: decoded)
-        if acknowledgements != before {
-            persistAcknowledgements()
-        }
-        refresh()
-    }
-
     private func markFailure() {
-        if let lastSuccess, Date().timeIntervalSince(lastSuccess) < offGrace {
+        if let lastSuccess, Date().timeIntervalSince(lastSuccess) < failureGrace {
             refresh()
             return
         }
-        serverOff = true
+        sessionsUnavailable = true
         refresh()
     }
 
@@ -214,35 +255,6 @@ final class AppModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             guard let self, self.errorGeneration == generation else { return }
             self.errorMessage = nil
-        }
-    }
-
-    func startServer() {
-        let configured = defaults.string(forKey: "skillDir") ?? Self.defaultSkillDir
-        let directory = NSString(string: configured).expandingTildeInPath
-        let script = (directory as NSString).appendingPathComponent("serve.py")
-        guard FileManager.default.fileExists(atPath: script) else {
-            showError("deadhd 스킬을 찾을 수 없어요")
-            return
-        }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["python3", script, "--ensure"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            do {
-                try process.run()
-                process.waitUntilExit()
-            } catch {
-                DispatchQueue.main.async { self?.showError("서버를 시작하지 못했어요") }
-                return
-            }
-            DispatchQueue.main.async {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self?.poll() }
-            }
         }
     }
 }

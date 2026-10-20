@@ -39,7 +39,7 @@ final class FloatingPanelController: NSObject {
         model.$collapsed
             .sink { [weak self] _ in self?.updateSize() }
             .store(in: &cancellables)
-        model.$serverOff
+        model.$sessionsUnavailable
             .sink { [weak self] _ in self?.updateSize() }
             .store(in: &cancellables)
         model.$errorMessage
