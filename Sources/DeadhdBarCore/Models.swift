@@ -48,6 +48,13 @@ enum Lenient {
         return value
     }
 
+    static func int<K: CodingKey>(_ container: KeyedDecodingContainer<K>?, _ key: K) -> Int? {
+        guard let container, let value = try? container.decodeIfPresent(Int.self, forKey: key) else {
+            return nil
+        }
+        return value
+    }
+
     static func date<K: CodingKey>(_ container: KeyedDecodingContainer<K>?, _ key: K) -> Date? {
         TimestampParser.parse(string(container, key))
     }
@@ -98,6 +105,37 @@ extension SessionsResponse: Decodable {
     }
 }
 
+public struct SessionCounts: Equatable {
+    public let done: Int
+    public let left: Int
+    public let now: Int
+    public let blocked: Int
+
+    public init(done: Int = 0, left: Int = 0, now: Int = 0, blocked: Int = 0) {
+        self.done = done
+        self.left = left
+        self.now = now
+        self.blocked = blocked
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case done
+        case left
+        case now
+        case blocked
+    }
+}
+
+extension SessionCounts: Decodable {
+    public init(from decoder: Decoder) {
+        let container = try? decoder.container(keyedBy: CodingKeys.self)
+        done = Lenient.int(container, .done) ?? 0
+        left = Lenient.int(container, .left) ?? 0
+        now = Lenient.int(container, .now) ?? 0
+        blocked = Lenient.int(container, .blocked) ?? 0
+    }
+}
+
 public struct Session: Equatable, Identifiable {
     public let sessionId: String
     public let bucket: String
@@ -115,6 +153,8 @@ public struct Session: Equatable, Identifiable {
     public let updatedAt: Date?
     public let nowLabel: String?
     public let href: String?
+    public let counts: SessionCounts?
+    public let total: Int?
 
     public var id: String { sessionId }
 
@@ -136,7 +176,9 @@ public struct Session: Equatable, Identifiable {
         lastTool: LastTool? = nil,
         updatedAt: Date? = nil,
         nowLabel: String? = nil,
-        href: String? = nil
+        href: String? = nil,
+        counts: SessionCounts? = nil,
+        total: Int? = nil
     ) {
         self.sessionId = sessionId
         self.bucket = bucket
@@ -154,6 +196,8 @@ public struct Session: Equatable, Identifiable {
         self.updatedAt = updatedAt
         self.nowLabel = nowLabel
         self.href = href
+        self.counts = counts
+        self.total = total
     }
 
     enum CodingKeys: String, CodingKey {
@@ -173,12 +217,25 @@ public struct Session: Equatable, Identifiable {
         case updatedAt
         case nowLabel
         case href
+        case counts
+        case total
+        case summary
+    }
+
+    enum SummaryKeys: String, CodingKey {
+        case counts
+        case total
+        case nowLabel
     }
 }
 
 extension Session: Decodable {
     public init(from decoder: Decoder) {
         let container = try? decoder.container(keyedBy: CodingKeys.self)
+        // 세션 목록이 summary 를 펼쳐 주지 않는 서버도 있어 양쪽 모양을 모두 받는다.
+        let summary = container.flatMap {
+            try? $0.nestedContainer(keyedBy: SummaryKeys.self, forKey: .summary)
+        }
         sessionId = Lenient.string(container, .sessionId) ?? ""
         bucket = Lenient.string(container, .bucket) ?? ""
         title = Lenient.string(container, .title)
@@ -193,8 +250,11 @@ extension Session: Decodable {
         backgroundTasks = Lenient.array(container, .backgroundTasks, as: BackgroundTask.self)
         lastTool = Lenient.object(container, .lastTool, as: LastTool.self)
         updatedAt = Lenient.date(container, .updatedAt)
-        nowLabel = Lenient.string(container, .nowLabel)
+        nowLabel = Lenient.string(container, .nowLabel) ?? Lenient.string(summary, .nowLabel)
         href = Lenient.string(container, .href)
+        counts = Lenient.object(container, .counts, as: SessionCounts.self)
+            ?? Lenient.object(summary, .counts, as: SessionCounts.self)
+        total = Lenient.int(container, .total) ?? Lenient.int(summary, .total)
     }
 }
 

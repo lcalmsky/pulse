@@ -309,5 +309,80 @@ let fewDone = Grouping.group(
 expectEqual(fewDone.hiddenDoneCount, 0, "완료 잘라내기: 5개 이하면 남지 않는다")
 expectEqual(fewDone.doneOverflowText, nil, "완료 잘라내기: 5개 이하면 문구 없음")
 
+// MARK: - 클릭 규칙
+
+expectEqual(SessionClick.resolve(href: nil, orcaTerminal: nil), SessionClickAction.none,
+            "클릭 규칙: 둘 다 없으면 비활성")
+expectEqual(SessionClick.resolve(href: "  ", orcaTerminal: " "), SessionClickAction.none,
+            "클릭 규칙: 공백뿐이면 없는 것으로 본다")
+expectEqual(SessionClick.resolve(href: nil, orcaTerminal: "term-1"), .orca("term-1"),
+            "클릭 규칙: 페이지가 없으면 Orca")
+expectEqual(
+    SessionClick.resolve(href: "http://127.0.0.1:47320/deadhd-x.html", orcaTerminal: "term-1"),
+    .detail("http://127.0.0.1:47320/deadhd-x.html"),
+    "클릭 규칙: 페이지가 있으면 Orca 보다 페이지"
+)
+expectEqual(SessionClick.resolve(href: "", orcaTerminal: " term-1 "), .orca("term-1"),
+            "클릭 규칙: 앞뒤 공백을 지운다")
+
+let clickGrouped = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "page", bucket: "working", orcaTerminal: "t", href: "http://a"),
+        Session(sessionId: "orca", bucket: "working", orcaTerminal: "t"),
+        Session(sessionId: "none", bucket: "working"),
+    ]),
+    now: now
+)
+let clickItems: [String: DisplayItem] = Dictionary(
+    uniqueKeysWithValues: clickGrouped.working.map { ($0.sessionId, $0) }
+)
+expectEqual(clickItems["page"]?.clickAction, .detail("http://a"), "클릭 규칙: 항목이 상세 창으로 간다")
+expectEqual(clickItems["orca"]?.clickAction, .orca("t"), "클릭 규칙: 항목이 Orca 로 간다")
+expectEqual(clickItems["page"]?.isActionable, true, "클릭 규칙: 페이지 항목은 누를 수 있다")
+expectEqual(clickItems["none"]?.isActionable, false, "클릭 규칙: 대상 없는 항목은 비활성")
+
+// MARK: - 체크리스트 진행도
+
+let countsJSON = """
+{"sessions": [{
+  "sessionId": "p", "bucket": "working",
+  "counts": {"done": 3, "left": 1, "now": 1, "blocked": 0}, "total": 4
+}]}
+"""
+if let response = decode(countsJSON) {
+    let item = Grouping.group(response, now: now).working.first
+    expectEqual(item?.progress?.text, "3/4", "진행도: done/total 문구")
+    expectEqual(item?.progress?.fraction, 0.75, "진행도: 비율")
+} else {
+    expect(false, "진행도: counts 응답을 읽지 못했다")
+}
+
+let summaryCountsJSON = """
+{"sessions": [{
+  "sessionId": "s", "bucket": "working",
+  "summary": {"counts": {"done": 2}, "total": 5, "nowLabel": "검증 단계"}
+}]}
+"""
+if let response = decode(summaryCountsJSON) {
+    let item = Grouping.group(response, now: now).working.first
+    expectEqual(item?.progress?.text, "2/5", "진행도: summary 안의 counts")
+    expectEqual(item?.nowLabel, "검증 단계", "진행도: summary 안의 nowLabel")
+} else {
+    expect(false, "진행도: summary 응답을 읽지 못했다")
+}
+
+let noCounts = Grouping.group(
+    SessionsResponse(sessions: [Session(sessionId: "n", bucket: "working", total: 5)]),
+    now: now
+)
+expectEqual(noCounts.working.first?.progress, nil, "진행도: counts 가 없으면 표시하지 않는다")
+
+let zeroTotal = Grouping.group(
+    SessionsResponse(sessions: [Session(sessionId: "z", bucket: "working",
+                                          counts: SessionCounts(done: 0), total: 0)]),
+    now: now
+)
+expectEqual(zeroTotal.working.first?.progress, nil, "진행도: total 0 은 표시하지 않는다")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

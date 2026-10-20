@@ -14,12 +14,33 @@ public enum DisplayGroup: Int, CaseIterable, Equatable {
     }
 }
 
+public struct ChecklistProgress: Equatable {
+    public let done: Int
+    public let total: Int
+
+    public init(done: Int, total: Int) {
+        self.done = done
+        self.total = total
+    }
+
+    public var fraction: Double {
+        guard total > 0 else { return 0 }
+        return Double(min(max(done, 0), total)) / Double(total)
+    }
+
+    public var text: String { "\(done)/\(total)" }
+}
+
 public struct DisplayItem: Equatable, Identifiable {
     public let sessionId: String
     public let title: String
     public let status: String
     public let detail: String?
     public let placeText: String?
+    public let key: String?
+    public let progress: ChecklistProgress?
+    public let replyTail: String?
+    public let nowLabel: String?
     public let group: DisplayGroup
     public let isStall: Bool
     public let orcaTerminal: String?
@@ -29,11 +50,11 @@ public struct DisplayItem: Equatable, Identifiable {
 
     public var id: String { sessionId }
 
-    public var isActionable: Bool {
-        if let orcaTerminal, !orcaTerminal.isEmpty { return true }
-        if let href, !href.isEmpty { return true }
-        return false
+    public var clickAction: SessionClickAction {
+        SessionClick.resolve(href: href, orcaTerminal: orcaTerminal)
     }
+
+    public var isActionable: Bool { clickAction != .none }
 
     public init(session: Session, group: DisplayGroup, now: Date) {
         self.sessionId = session.sessionId
@@ -41,6 +62,14 @@ public struct DisplayItem: Equatable, Identifiable {
         self.status = Grouping.statusText(session: session, group: group, now: now)
         self.detail = Grouping.detailText(session: session, group: group)
         self.placeText = Grouping.placeText(session.place)
+        self.key = Grouping.nonEmpty(session.key)
+        if let counts = session.counts, let total = session.total, total > 0 {
+            self.progress = ChecklistProgress(done: max(0, counts.done), total: total)
+        } else {
+            self.progress = nil
+        }
+        self.replyTail = Grouping.clean(session.replyTail)
+        self.nowLabel = Grouping.nonEmpty(session.nowLabel)
         self.group = group
         self.isStall = session.bucket == "stall"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)

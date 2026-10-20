@@ -33,7 +33,7 @@ struct BoardView: View {
             }
         }
         .padding(12)
-        .frame(width: 320, alignment: .leading)
+        .frame(minWidth: 340, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
     }
 
     private var header: some View {
@@ -122,25 +122,53 @@ private struct CardRow: View {
                 HStack(alignment: .top, spacing: 8) {
                     icon
                         .frame(width: 14, height: 14, alignment: .center)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
-                            .font(.system(size: 12, weight: .medium))
-                            .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(item.title)
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(2)
+                            if let key = item.key {
+                                Text(key)
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(Color.secondary.opacity(0.15))
+                                    .clipShape(Capsule())
+                            }
+                        }
                         Text(item.status)
                             .font(.system(size: 11))
                             .foregroundColor(statusColor)
                             .lineLimit(2)
-                        if let detail = item.detail {
-                            Text(detail)
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
+                        if let progress = item.progress {
+                            HStack(spacing: 6) {
+                                ProgressView(value: progress.fraction)
+                                    .progressViewStyle(.linear)
+                                    .frame(width: 110)
+                                Text(progress.text)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .monospacedDigit()
+                                    .foregroundColor(.secondary)
+                                if let label = item.nowLabel {
+                                    Text("· \(label)")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
                         }
                         if let place = item.placeText {
                             Text(place)
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
+                        }
+                        if let reply = item.replyTail {
+                            Text(reply)
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .lineLimit(3)
                         }
                     }
                     Spacer(minLength: 0)
@@ -150,11 +178,21 @@ private struct CardRow: View {
             .buttonStyle(.plain)
             .disabled(!item.isActionable)
 
-            if item.isStall && item.group == .attention {
-                Button("더 기다리기") { model.snooze(item) }
-                    .font(.system(size: 10))
+            VStack(alignment: .trailing, spacing: 6) {
+                if item.orcaTerminal != nil {
+                    Button(action: { model.openInOrca(item) }) {
+                        Image(systemName: "terminal")
+                            .font(.system(size: 11))
+                    }
                     .buttonStyle(.borderless)
-                    .foregroundColor(.orange)
+                    .help("Orca 로 이동")
+                }
+                if item.isStall && item.group == .attention {
+                    Button("더 기다리기") { model.snooze(item) }
+                        .font(.system(size: 10))
+                        .buttonStyle(.borderless)
+                        .foregroundColor(.orange)
+                }
             }
         }
         .padding(8)

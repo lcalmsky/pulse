@@ -3,12 +3,18 @@ import Combine
 import Foundation
 import DeadhdBarCore
 
+protocol DetailPresenting: AnyObject {
+    func showDetail(for item: DisplayItem)
+}
+
 final class AppModel: ObservableObject {
     @Published private(set) var groups = GroupedSessions.empty
     @Published private(set) var serverOff = true
     @Published private(set) var errorMessage: String?
     @Published private(set) var panelVisible = false
     @Published var collapsed = false
+
+    weak var detailPresenter: DetailPresenting?
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
     private static let defaultSkillDir = "~/.claude/skills/deadhd"
@@ -100,14 +106,28 @@ final class AppModel: ObservableObject {
     // MARK: - 동작
 
     func open(_ item: DisplayItem) {
-        if let handle = item.orcaTerminal, !handle.isEmpty {
-            OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
-                if !ok { self?.showError("터미널이 닫혔어요") }
+        switch item.clickAction {
+        case .detail(let href):
+            if let presenter = detailPresenter {
+                presenter.showDetail(for: item)
+            } else if let url = URL(string: href) {
+                NSWorkspace.shared.open(url)
             }
-            return
+        case .orca(let handle):
+            switchTerminal(handle)
+        case .none:
+            break
         }
-        if let href = item.href, let url = URL(string: href) {
-            NSWorkspace.shared.open(url)
+    }
+
+    func openInOrca(_ item: DisplayItem) {
+        guard let handle = item.orcaTerminal, !handle.isEmpty else { return }
+        switchTerminal(handle)
+    }
+
+    private func switchTerminal(_ handle: String) {
+        OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
+            if !ok { self?.showError("터미널이 닫혔어요") }
         }
     }
 

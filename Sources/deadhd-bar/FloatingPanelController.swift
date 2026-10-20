@@ -8,12 +8,17 @@ final class FloatingPanelController: NSObject {
     private let model: AppModel
     private let defaults = UserDefaults.standard
     private var cancellables: Set<AnyCancellable> = []
+    private var manualSize = false
+    private var programmaticSize: NSSize?
+
+    private static let defaultWidth: CGFloat = 440
+    private static let minimumWidth: CGFloat = 340
 
     init(model: AppModel) {
         self.model = model
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
-            styleMask: [.borderless, .nonactivatingPanel],
+            contentRect: NSRect(x: 0, y: 0, width: Self.defaultWidth, height: 240),
+            styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -22,6 +27,7 @@ final class FloatingPanelController: NSObject {
 
         configurePanel()
         configureContent()
+        restoreSize()
         restorePosition()
 
         model.$panelVisible
@@ -45,7 +51,7 @@ final class FloatingPanelController: NSObject {
             name: NSWindow.didMoveNotification, object: panel
         )
         NotificationCenter.default.addObserver(
-            self, selector: #selector(rememberPosition),
+            self, selector: #selector(rememberSize),
             name: NSWindow.didResizeNotification, object: panel
         )
     }
@@ -96,11 +102,12 @@ final class FloatingPanelController: NSObject {
     }
 
     private func updateSize() {
+        guard !manualSize else { return }
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self, !self.manualSize else { return }
             self.hosting.layoutSubtreeIfNeeded()
             let fitting = self.hosting.fittingSize
-            let width = max(260, ceil(fitting.width))
+            let width = min(max(Self.defaultWidth, ceil(fitting.width)), 1200)
             let height = min(max(44, ceil(fitting.height)), self.maximumContentHeight)
 
             var frame = self.panel.frame
@@ -108,6 +115,7 @@ final class FloatingPanelController: NSObject {
             let top = frame.maxY
             frame.size = NSSize(width: width, height: height)
             frame.origin.y = top - height
+            self.programmaticSize = frame.size
             self.panel.setFrame(frame, display: true)
         }
     }
@@ -115,6 +123,19 @@ final class FloatingPanelController: NSObject {
     private var maximumContentHeight: CGFloat {
         guard let screen = panel.screen ?? NSScreen.main else { return .greatestFiniteMagnitude }
         return floor(screen.visibleFrame.height * 0.7)
+    }
+
+    private func restoreSize() {
+        panel.contentMinSize = NSSize(width: Self.minimumWidth, height: 44)
+        guard defaults.object(forKey: "panelWidth") != nil,
+              defaults.object(forKey: "panelHeight") != nil else { return }
+        let width = max(Self.minimumWidth, CGFloat(defaults.double(forKey: "panelWidth")))
+        let height = max(44, CGFloat(defaults.double(forKey: "panelHeight")))
+        var frame = panel.frame
+        frame.size = NSSize(width: width, height: height)
+        programmaticSize = frame.size
+        panel.setFrame(frame, display: false)
+        manualSize = true
     }
 
     private func restorePosition() {
@@ -143,5 +164,18 @@ final class FloatingPanelController: NSObject {
     @objc private func rememberPosition() {
         defaults.set(Double(panel.frame.origin.x), forKey: "panelOriginX")
         defaults.set(Double(panel.frame.origin.y), forKey: "panelOriginY")
+    }
+
+    @objc private func rememberSize() {
+        if let expected = programmaticSize {
+            programmaticSize = nil
+            if abs(expected.width - panel.frame.width) < 0.5,
+               abs(expected.height - panel.frame.height) < 0.5 {
+                return
+            }
+        }
+        manualSize = true
+        defaults.set(Double(panel.frame.width), forKey: "panelWidth")
+        defaults.set(Double(panel.frame.height), forKey: "panelHeight")
     }
 }
