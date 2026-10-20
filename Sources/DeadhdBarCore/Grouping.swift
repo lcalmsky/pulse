@@ -68,6 +68,8 @@ public struct GroupedSessions: Equatable {
         }
     }
 
+    public static let maxVisibleDone = 5
+
     public let attention: [DisplayItem]
     public let working: [DisplayItem]
     public let done: [DisplayItem]
@@ -101,10 +103,28 @@ public struct GroupedSessions: Equatable {
         case .done: return done
         }
     }
+
+    /// 메뉴와 패널이 실제로 그리는 항목. 완료 그룹만 5개로 자른다.
+    public func visibleItems(for group: DisplayGroup) -> [DisplayItem] {
+        switch group {
+        case .attention: return attention
+        case .working: return working
+        case .done: return Array(done.prefix(Self.maxVisibleDone))
+        }
+    }
+
+    public var hiddenDoneCount: Int {
+        max(0, done.count - Self.maxVisibleDone)
+    }
+
+    public var doneOverflowText: String? {
+        hiddenDoneCount > 0 ? "그 밖에 \(hiddenDoneCount)개" : nil
+    }
 }
 
 public enum Grouping {
-    /// 서버 응답을 화면 그룹으로 나눈다. 숨김 대상 완료 항목과 유예 중인 stall 은 여기서 걸러진다.
+    /// 서버 응답을 화면 그룹으로 나눈다. 숨김 대상 완료 항목, 12시간이 지난 완료,
+    /// 유예 중인 stall 은 여기서 걸러진다.
     public static func group(
         _ response: SessionsResponse?,
         now: Date,
@@ -130,7 +150,7 @@ public enum Grouping {
             case .working:
                 working.append(item)
             case .done:
-                if !acknowledgedDone.contains(item.acknowledgeKey) {
+                if !acknowledgedDone.contains(item.acknowledgeKey), isWithinDoneWindow(item, now: now) {
                     done.append(item)
                 }
             }
@@ -141,6 +161,13 @@ public enum Grouping {
             working: sorted(working, oldestFirst: true),
             done: sorted(done, oldestFirst: false)
         )
+    }
+
+    static let doneWindow: TimeInterval = 12 * 60 * 60
+
+    static func isWithinDoneWindow(_ item: DisplayItem, now: Date) -> Bool {
+        guard let date = item.sortDate else { return false }
+        return now.timeIntervalSince(date) <= doneWindow
     }
 
     static func baseGroup(for bucket: String) -> DisplayGroup? {

@@ -101,7 +101,7 @@ final class FloatingPanelController: NSObject {
             self.hosting.layoutSubtreeIfNeeded()
             let fitting = self.hosting.fittingSize
             let width = max(260, ceil(fitting.width))
-            let height = max(44, ceil(fitting.height))
+            let height = min(max(44, ceil(fitting.height)), self.maximumContentHeight)
 
             var frame = self.panel.frame
             guard abs(frame.width - width) > 0.5 || abs(frame.height - height) > 0.5 else { return }
@@ -110,6 +110,11 @@ final class FloatingPanelController: NSObject {
             frame.origin.y = top - height
             self.panel.setFrame(frame, display: true)
         }
+    }
+
+    private var maximumContentHeight: CGFloat {
+        guard let screen = panel.screen ?? NSScreen.main else { return .greatestFiniteMagnitude }
+        return floor(screen.visibleFrame.height * 0.7)
     }
 
     private func restorePosition() {

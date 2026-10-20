@@ -27,7 +27,9 @@ struct BoardView: View {
             }
 
             if !model.collapsed {
-                content
+                ScrollView(.vertical) {
+                    content
+                }
             }
         }
         .padding(12)
@@ -68,14 +70,19 @@ struct BoardView: View {
 
     @ViewBuilder
     private func groupSection(_ group: DisplayGroup) -> some View {
-        let items = model.groups.items(for: group)
+        let items = model.groups.visibleItems(for: group)
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(group.title) \(items.count)")
+                Text("\(group.title) \(model.groups.items(for: group).count)")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(color(for: group))
                 ForEach(items) { item in
                     CardRow(item: item, model: model)
+                }
+                if group == .done, let overflow = model.groups.doneOverflowText {
+                    Text(overflow)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
                 }
             }
         }

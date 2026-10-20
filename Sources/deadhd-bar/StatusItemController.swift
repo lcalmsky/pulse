@@ -79,11 +79,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
 
         for group in DisplayGroup.allCases {
-            let items = groups.items(for: group)
+            let items = groups.visibleItems(for: group)
             guard !items.isEmpty else { continue }
-            info("\(group.title) \(items.count)", color: color(for: group), bold: true)
+            info("\(group.title) \(groups.items(for: group).count)", color: color(for: group), bold: true)
             for item in items {
                 addSession(item, group: group)
+            }
+            if group == .done, let overflow = groups.doneOverflowText {
+                info(overflow, color: .secondaryLabelColor)
             }
         }
 

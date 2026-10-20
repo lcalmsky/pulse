@@ -255,5 +255,59 @@ let ordered = Grouping.group(
 )
 expectEqual(ordered.attention.map(\.sessionId), ["old", "recent"], "정렬: 확인 필요는 오래 기다린 순")
 
+// MARK: - 완료 그룹 제한
+
+let doneWindow = Grouping.group(
+    SessionsResponse(sessions: [
+        session("within", "done", minutesAgo: 720),
+        session("outside", "ended", minutesAgo: 721),
+    ]),
+    now: now
+)
+expectEqual(doneWindow.done.map(\.sessionId), ["within"], "완료 제한: 12시간 경계 포함, 넘으면 제외")
+
+let doneTimeless = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "nodate", bucket: "done"),
+        Session(sessionId: "updatedOnly", bucket: "ended", updatedAt: now.addingTimeInterval(-3600)),
+    ]),
+    now: now
+)
+expectEqual(doneTimeless.done.map(\.sessionId), ["updatedOnly"], "완료 제한: 시각 없는 완료 제외, updatedAt 대체")
+
+let doneOrdered = Grouping.group(
+    SessionsResponse(sessions: [
+        session("oldDone", "done", minutesAgo: 600),
+        session("newDone", "done", minutesAgo: 10),
+        session("midDone", "done", minutesAgo: 120),
+    ]),
+    now: now
+)
+expectEqual(doneOrdered.done.map(\.sessionId), ["newDone", "midDone", "oldDone"], "정렬: 완료는 최근 끝난 순")
+
+let manyDone = Grouping.group(
+    SessionsResponse(sessions: (0..<7).map { session("done\($0)", "done", minutesAgo: Double($0 + 1)) }),
+    now: now
+)
+expectEqual(manyDone.counts.done, 7, "완료 잘라내기: 배지와 헤더는 전체 개수")
+expectEqual(manyDone.visibleItems(for: .done).count, 5, "완료 잘라내기: 보이는 항목 5개")
+expectEqual(manyDone.visibleItems(for: .done).map(\.sessionId), ["done0", "done1", "done2", "done3", "done4"],
+            "완료 잘라내기: 최근 것부터 5개")
+expectEqual(manyDone.hiddenDoneCount, 2, "완료 잘라내기: 남은 개수")
+expectEqual(manyDone.doneOverflowText, "그 밖에 2개", "완료 잘라내기: 남은 개수 문구")
+
+let manyWorking = Grouping.group(
+    SessionsResponse(sessions: (0..<7).map { session("work\($0)", "working", minutesAgo: Double($0 + 1)) }),
+    now: now
+)
+expectEqual(manyWorking.visibleItems(for: .working).count, 7, "완료 잘라내기: 다른 그룹은 자르지 않는다")
+
+let fewDone = Grouping.group(
+    SessionsResponse(sessions: (0..<5).map { session("few\($0)", "done", minutesAgo: Double($0 + 1)) }),
+    now: now
+)
+expectEqual(fewDone.hiddenDoneCount, 0, "완료 잘라내기: 5개 이하면 남지 않는다")
+expectEqual(fewDone.doneOverflowText, nil, "완료 잘라내기: 5개 이하면 문구 없음")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)
