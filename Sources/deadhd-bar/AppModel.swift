@@ -31,6 +31,11 @@ final class AppModel: ObservableObject {
     private let pollInterval: TimeInterval = 3
     private let localSource = LocalSessionSource()
     private let localQueue = DispatchQueue(label: "dev.deadhd-bar.local-sessions", qos: .userInitiated)
+    private lazy var notificationCenter = AttentionNotificationCenter(model: self)
+
+    private var attentionNotifier = AttentionNotifier()
+    private var popoverVisible = false
+    private var hasHandledFirstUpdate = false
 
     private var response: SessionsResponse?
     private var localSessions: [Session]?
@@ -77,9 +82,21 @@ final class AppModel: ObservableObject {
         guard attentionNotifications != enabled else { return }
         attentionNotifications = enabled
         defaults.set(enabled, forKey: AppSettings.attentionNotificationsKey)
+        if enabled {
+            notificationCenter.requestAuthorizationIfNeeded()
+        } else {
+            notificationCenter.removeAllDelivered()
+        }
+    }
+
+    func setPopoverVisible(_ visible: Bool) {
+        popoverVisible = visible
     }
 
     func start() {
+        if attentionNotifications {
+            notificationCenter.requestAuthorizationIfNeeded()
+        }
         poll()
         let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
@@ -131,6 +148,8 @@ final class AppModel: ObservableObject {
             persistAcknowledgements()
         }
         applyOverlay()
+        deliverAttentionNotes(isFirstUpdate: !hasHandledFirstUpdate)
+        hasHandledFirstUpdate = true
     }
 
     /// deadhd 응답이 오면 같은 sessionId 의 보강 값만 덧입힌다. 실패해도 화면은 그대로 둔다.
@@ -186,6 +205,17 @@ final class AppModel: ObservableObject {
             snoozedUntil: snoozes
         )
         hiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
+        notificationCenter.syncDelivered(keeping: Set(groups.attention.map(\.acknowledgeKey)))
+    }
+
+    private func deliverAttentionNotes(isFirstUpdate: Bool) {
+        let notes = attentionNotifier.notes(
+            for: groups.attention,
+            popoverVisible: popoverVisible,
+            enabled: attentionNotifications,
+            isFirstUpdate: isFirstUpdate
+        )
+        notificationCenter.post(notes)
     }
 
     // MARK: - 동작

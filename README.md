@@ -13,9 +13,9 @@ Claude Code 가 `~/.claude/sessions` 에 남기는 세션과 deadhd 가 보강�
 ## 필요 조건
 
 - macOS 13 이상
-- deadhd 스킬: 기본 경로는 `~/.claude/skills/deadhd` 입니다. 다른 곳에 두었다면 앱의
-  UserDefaults 키 `skillDir` 에 그 경로를 넣어 주세요.
-- Orca(`/Applications/Orca.app`): Orca 밖에서 시작한 세션은 터미널 전환 대신 deadhd 페이지를 엽니다.
+- deadhd 는 선택 기능입니다. 있으면 세션에 진행률과 상세 페이지를 덧붙입니다.
+- Orca(`/Applications/Orca.app`): Orca 밖에서 시작한 세션은 deadhd 페이지가 있을 때만 상세 창을 열고,
+  없으면 이동할 수 없습니다.
 
 ## 설치
 
@@ -32,9 +32,13 @@ brew services start deadhd-bar
 ```sh
 git clone https://github.com/lcalmsky/deadhd-bar.git
 cd deadhd-bar
-swift build -c release
-.build/release/deadhd-bar
+scripts/bundle.sh
+open build/DeadhdBar.app
 ```
+
+`scripts/bundle.sh [출력 디렉터리]` 로 번들을 만들 위치를 바꿀 수 있습니다.
+macOS 알림은 앱 번들로 띄웠을 때만 동작하며, `.build/debug/deadhd-bar` 같은 실행 파일을
+그대로 띄우면 알림만 건너뜁니다.
 
 `.build/debug/deadhd-bar --version` 처럼 버전만 확인할 수도 있습니다.
 

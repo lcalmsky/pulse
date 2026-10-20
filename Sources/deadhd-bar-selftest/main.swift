@@ -1084,5 +1084,66 @@ expectEqual(ThemePreference.allCases.map(\.rawValue), ["system", "light", "dark"
 expectEqual(AppSettings(densityRaw: "light", themeRaw: nil, attentionNotifications: true).density, .rich,
             "설정: 밀도 키에 테마 값이 와도 기본값")
 
+// MARK: - 확인 필요 알림
+
+let noteA = Grouping.group(
+    SessionsResponse(sessions: [session("attn-a", "idle", minutesAgo: 1, replyTail: "**첫 번째** 답")]),
+    now: now
+).attention
+let noteB = Grouping.group(
+    SessionsResponse(sessions: [session("attn-b", "wait", minutesAgo: 2, message: "권한 승인을 기다려요")]),
+    now: now
+).attention
+let noteAReborn = Grouping.group(
+    SessionsResponse(sessions: [session("attn-a", "idle", minutesAgo: 5, replyTail: "다시 답")]),
+    now: now
+).attention
+
+var notifier = AttentionNotifier()
+expectEqual(notifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: true).count, 0,
+            "알림: 첫 갱신은 조용히 기록만 한다")
+expectEqual(notifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 0,
+            "알림: 이미 본 항목은 알리지 않는다")
+
+let freshNotes = notifier.notes(for: noteA + noteB, popoverVisible: false, enabled: true, isFirstUpdate: false)
+expectEqual(freshNotes.count, 1, "알림: 새 항목만 알린다")
+expectEqual(freshNotes.first?.sessionId, "attn-b", "알림: sessionId")
+expectEqual(freshNotes.first?.identifier, noteB[0].acknowledgeKey, "알림: 식별자는 sessionId+since")
+expectEqual(freshNotes.first?.title, "확인이 필요해요 · attn-b", "알림: 제목")
+expectEqual(freshNotes.first?.body, "권한 승인을 기다려요", "알림: 답이 없으면 상태 문구")
+expectEqual(notifier.notes(for: noteA + noteB, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 0,
+            "알림: 같은 키는 다시 알리지 않는다")
+expectEqual(notifier.notes(for: noteAReborn, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
+            "알림: since 가 바뀌면 새 항목이다")
+
+expectEqual(AttentionNotifier.body(replyTail: "**굵은** [링크](https://example.com) 답", status: "상태"),
+            "굵은 링크 답", "알림: 본문은 평문 마지막 답")
+expectEqual(AttentionNotifier.body(replyTail: String(repeating: "가", count: 300), status: "상태").count, 200,
+            "알림: 본문은 200자")
+expectEqual(AttentionNotifier.body(replyTail: "   ", status: "상태"), "상태",
+            "알림: 평문화한 답이 비면 상태 문구")
+
+var popoverNotifier = AttentionNotifier()
+_ = popoverNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: true)
+expectEqual(popoverNotifier.notes(for: noteA + noteB, popoverVisible: true, enabled: true, isFirstUpdate: false).count,
+            0, "알림: 팝오버가 열려 있으면 알리지 않는다")
+expectEqual(popoverNotifier.notes(for: noteB, popoverVisible: false, enabled: true, isFirstUpdate: false).count,
+            0, "알림: 열려 있는 동안 본 항목은 나중에도 알리지 않는다")
+
+var offNotifier = AttentionNotifier()
+_ = offNotifier.notes(for: [], popoverVisible: false, enabled: false, isFirstUpdate: true)
+expectEqual(offNotifier.notes(for: noteA, popoverVisible: false, enabled: false, isFirstUpdate: false).count,
+            0, "알림: 설정이 꺼져 있으면 알리지 않는다")
+expectEqual(offNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count,
+            0, "알림: 꺼져 있는 동안 본 항목은 켠 뒤에도 알리지 않는다")
+
+var pruneNotifier = AttentionNotifier()
+_ = pruneNotifier.notes(for: [], popoverVisible: false, enabled: true, isFirstUpdate: true)
+expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
+            "알림: 새 항목을 알린다")
+_ = pruneNotifier.notes(for: [], popoverVisible: false, enabled: true, isFirstUpdate: false)
+expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
+            "알림: 응답에서 빠진 키는 지워 다시 새 항목이 된다")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

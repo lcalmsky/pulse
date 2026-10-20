@@ -110,6 +110,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func showPopover() {
         guard let button = statusItem.button else { return }
         state.reset()
+        model.setPopoverVisible(true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async { [weak self] in
@@ -121,6 +122,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         lastClose = Date()
         state.reset()
+        model.setPopoverVisible(false)
         removeKeyMonitor()
     }
 
