@@ -1,5 +1,5 @@
 import SwiftUI
-import DeadhdBarCore
+import PulseCore
 
 struct BoardView: View {
     @ObservedObject var model: AppModel

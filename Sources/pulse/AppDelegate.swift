@@ -1,6 +1,6 @@
 import AppKit
 import Combine
-import DeadhdBarCore
+import PulseCore
 
 enum AppInfo {
     static let version = "0.1.0"

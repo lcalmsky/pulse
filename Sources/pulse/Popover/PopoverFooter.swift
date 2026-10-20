@@ -1,5 +1,5 @@
 import AppKit
-import DeadhdBarCore
+import PulseCore
 import SwiftUI
 
 struct PopoverFooter: View {

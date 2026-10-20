@@ -1,5 +1,5 @@
 import AppKit
-import DeadhdBarCore
+import PulseCore
 
 enum MenuBarIcon {
     static let size: CGFloat = 18

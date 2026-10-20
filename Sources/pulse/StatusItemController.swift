@@ -1,6 +1,6 @@
 import AppKit
 import Combine
-import DeadhdBarCore
+import PulseCore
 import SwiftUI
 
 final class StatusItemController: NSObject, NSPopoverDelegate {

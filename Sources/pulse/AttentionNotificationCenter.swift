@@ -1,5 +1,5 @@
 import Foundation
-import DeadhdBarCore
+import PulseCore
 import UserNotifications
 
 /// UserNotifications 연동. 번들 식별자가 없으면 디버그 실행 파일이므로 아무것도 하지 않는다.

@@ -1,4 +1,4 @@
-# deadhd-bar
+# Pulse
 
 Claude Code 가 `~/.claude/sessions` 에 남기는 세션과 deadhd 가 보강하는 값을 macOS 메뉴 막대와
 떠 있는 패널로 보여 주는 앱입니다. 항목을 누르면 Orca 터미널의 해당 세션으로 이동합니다.
@@ -20,27 +20,27 @@ Claude Code 가 `~/.claude/sessions` 에 남기는 세션과 deadhd 가 보강�
 ## 설치
 
 ```sh
-brew tap lcalmsky/deadhd-bar https://github.com/lcalmsky/deadhd-bar
-brew install --HEAD deadhd-bar
-brew services start deadhd-bar
+brew tap lcalmsky/pulse https://github.com/lcalmsky/pulse
+brew install --HEAD pulse
+brew services start pulse
 ```
 
-업데이트는 `brew upgrade --fetch-HEAD deadhd-bar` 로 합니다.
+업데이트는 `brew upgrade --fetch-HEAD pulse` 로 합니다.
 
 ## 소스에서 직접 빌드
 
 ```sh
-git clone https://github.com/lcalmsky/deadhd-bar.git
-cd deadhd-bar
+git clone https://github.com/lcalmsky/pulse.git
+cd pulse
 scripts/bundle.sh
-open build/DeadhdBar.app
+open build/Pulse.app
 ```
 
 `scripts/bundle.sh [출력 디렉터리]` 로 번들을 만들 위치를 바꿀 수 있습니다.
-macOS 알림은 앱 번들로 띄웠을 때만 동작하며, `.build/debug/deadhd-bar` 같은 실행 파일을
+macOS 알림은 앱 번들로 띄웠을 때만 동작하며, `.build/debug/pulse` 같은 실행 파일을
 그대로 띄우면 알림만 건너뜁니다.
 
-`.build/debug/deadhd-bar --version` 처럼 버전만 확인할 수도 있습니다.
+`.build/debug/pulse --version` 처럼 버전만 확인할 수도 있습니다.
 
 ## 동작
 

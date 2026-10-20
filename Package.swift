@@ -2,15 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "deadhd-bar",
+    name: "pulse",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "deadhd-bar", targets: ["deadhd-bar"]),
+        .executable(name: "pulse", targets: ["pulse"]),
     ],
     targets: [
-        .target(name: "DeadhdBarCore"),
-        .executableTarget(name: "deadhd-bar", dependencies: ["DeadhdBarCore"]),
-        .executableTarget(name: "deadhd-bar-selftest", dependencies: ["DeadhdBarCore"]),
+        .target(name: "PulseCore"),
+        .executableTarget(name: "pulse", dependencies: ["PulseCore"]),
+        .executableTarget(name: "pulse-selftest", dependencies: ["PulseCore"]),
     ],
     swiftLanguageModes: [.v5]
 )

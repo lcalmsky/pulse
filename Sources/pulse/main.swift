@@ -1,7 +1,7 @@
 import AppKit
 
 if CommandLine.arguments.contains("--version") {
-    print("deadhd-bar \(AppInfo.version)")
+    print("pulse \(AppInfo.version)")
     exit(0)
 }
 

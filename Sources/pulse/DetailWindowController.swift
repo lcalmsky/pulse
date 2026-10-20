@@ -1,5 +1,5 @@
 import AppKit
-import DeadhdBarCore
+import PulseCore
 import WebKit
 
 final class DetailWindowController: NSObject, DetailPresenting, WKScriptMessageHandler, WKNavigationDelegate {

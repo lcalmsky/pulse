@@ -1,5 +1,5 @@
 import Foundation
-import DeadhdBarCore
+import PulseCore
 
 var checks = 0
 var failures = 0

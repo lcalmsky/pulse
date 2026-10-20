@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import DeadhdBarCore
+import PulseCore
 
 enum LocalSessionReadError: Error {
     case sessionsDirectoryUnreadable(Error)

@@ -1,4 +1,4 @@
-import DeadhdBarCore
+import PulseCore
 import SwiftUI
 
 struct PopoverToast: View {

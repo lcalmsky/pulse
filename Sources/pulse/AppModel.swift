@@ -1,7 +1,7 @@
 import AppKit
 import Combine
 import Foundation
-import DeadhdBarCore
+import PulseCore
 
 protocol DetailPresenting: AnyObject {
     func showDetail(for item: DisplayItem)
@@ -30,7 +30,7 @@ final class AppModel: ObservableObject {
     private let failureGrace: TimeInterval = 15
     private let pollInterval: TimeInterval = 3
     private let localSource = LocalSessionSource()
-    private let localQueue = DispatchQueue(label: "dev.deadhd-bar.local-sessions", qos: .userInitiated)
+    private let localQueue = DispatchQueue(label: "dev.pulse.local-sessions", qos: .userInitiated)
     private lazy var notificationCenter = AttentionNotificationCenter(model: self)
 
     private var attentionNotifier = AttentionNotifier()

@@ -1,5 +1,5 @@
 import Combine
-import DeadhdBarCore
+import PulseCore
 
 final class PopoverState: ObservableObject {
     @Published var filter: SessionFilter = .all
