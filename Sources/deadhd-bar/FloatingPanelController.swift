@@ -45,6 +45,12 @@ final class FloatingPanelController: NSObject {
         model.$errorMessage
             .sink { [weak self] _ in self?.updateSize() }
             .store(in: &cancellables)
+        model.$hiddenDoneCount
+            .sink { [weak self] _ in self?.updateSize() }
+            .store(in: &cancellables)
+        model.$recentAcknowledgedCount
+            .sink { [weak self] _ in self?.updateSize() }
+            .store(in: &cancellables)
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(rememberPosition),

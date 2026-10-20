@@ -84,6 +84,11 @@ public struct DisplayItem: Equatable, Identifiable {
         let marker = since.map { String(Int($0.timeIntervalSince1970)) } ?? "none"
         return "\(sessionId)+\(marker)"
     }
+
+    public static func sessionId(fromAcknowledgeKey key: String) -> String {
+        guard let separator = key.range(of: "+", options: .backwards) else { return key }
+        return String(key[..<separator.lowerBound])
+    }
 }
 
 public struct GroupedSessions: Equatable {

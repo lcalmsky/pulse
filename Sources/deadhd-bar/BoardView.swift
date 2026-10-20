@@ -8,6 +8,17 @@ struct BoardView: View {
         VStack(alignment: .leading, spacing: 10) {
             header
 
+            if model.recentAcknowledgedCount > 0 {
+                HStack(spacing: 5) {
+                    Text("완료 \(model.recentAcknowledgedCount)개를 확인했어요 ·")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    Button("되돌리기") { model.undoRecentAcknowledge() }
+                        .font(.system(size: 11))
+                        .buttonStyle(.borderless)
+                }
+            }
+
             if let error = model.errorMessage {
                 Text(error)
                     .font(.system(size: 11, weight: .medium))
@@ -71,11 +82,20 @@ struct BoardView: View {
     @ViewBuilder
     private func groupSection(_ group: DisplayGroup) -> some View {
         let items = model.groups.visibleItems(for: group)
-        if !items.isEmpty {
+        let showRestore = group == .done && model.hiddenDoneCount > 0
+        if !items.isEmpty || showRestore {
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(group.title) \(model.groups.items(for: group).count)")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(color(for: group))
+                HStack(spacing: 6) {
+                    Text("\(group.title) \(model.groups.items(for: group).count)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(color(for: group))
+                    if showRestore {
+                        Button("다시 보기") { model.restoreAcknowledgedDone() }
+                            .font(.system(size: 10))
+                            .buttonStyle(.borderless)
+                            .help("확인한 완료 \(model.hiddenDoneCount)개를 다시 보여요")
+                    }
+                }
                 ForEach(items) { item in
                     CardRow(item: item, model: model)
                 }

@@ -13,6 +13,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var panelVisible = false
     @Published var collapsed = false
+    @Published private(set) var hiddenDoneCount = 0
+    @Published private(set) var recentAcknowledgedCount = 0
 
     weak var detailPresenter: DetailPresenting?
 
@@ -23,18 +25,22 @@ final class AppModel: ObservableObject {
     private let port: String
     private let offGrace: TimeInterval = 15
     private let pollInterval: TimeInterval = 3
+    private let recentUndoWindow: TimeInterval = 10
 
     private var response: SessionsResponse?
     private var lastSuccess: Date?
     private var timer: Timer?
     private var snoozes: [String: Date] = [:]
-    private var acknowledged: Set<String>
+    private var acknowledgements: DoneAcknowledgements
     private var errorGeneration = 0
+    private var recentAcknowledgedGeneration = 0
     private var polling = false
 
     init() {
         port = ProcessInfo.processInfo.environment["DEADHD_PORT"] ?? "47320"
-        acknowledged = Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
+        acknowledgements = DoneAcknowledgements(
+            keys: Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
+        )
     }
 
     func start() {
@@ -81,6 +87,12 @@ final class AppModel: ObservableObject {
         self.response = decoded
         lastSuccess = Date()
         serverOff = false
+        // 응답을 받은 동안에만 지금 목록에 없는 세션의 키를 버린다.
+        let before = acknowledgements
+        acknowledgements.prune(keeping: decoded)
+        if acknowledgements != before {
+            persistAcknowledgements()
+        }
         refresh()
     }
 
@@ -98,9 +110,10 @@ final class AppModel: ObservableObject {
         groups = Grouping.group(
             response,
             now: now,
-            acknowledgedDone: acknowledged,
+            acknowledgedDone: acknowledgements.keys,
             snoozedUntil: snoozes
         )
+        hiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
     }
 
     // MARK: - 동작
@@ -148,11 +161,41 @@ final class AppModel: ObservableObject {
     }
 
     func acknowledgeAllDone() {
-        let keys = groups.done.map(\.acknowledgeKey)
-        guard !keys.isEmpty else { return }
-        acknowledged.formUnion(keys)
-        defaults.set(Array(acknowledged), forKey: Self.acknowledgedKey)
+        let count = acknowledgements.acknowledge(groups.done)
+        guard count > 0 else { return }
+        persistAcknowledgements()
+        recentAcknowledgedCount = count
+        recentAcknowledgedGeneration += 1
+        let generation = recentAcknowledgedGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + recentUndoWindow) { [weak self] in
+            guard let self, self.recentAcknowledgedGeneration == generation else { return }
+            self.recentAcknowledgedCount = 0
+        }
         refresh()
+    }
+
+    func restoreAcknowledgedDone() {
+        acknowledgements.undoAll()
+        persistAcknowledgements()
+        clearRecentAcknowledged()
+        refresh()
+    }
+
+    func undoRecentAcknowledge() {
+        guard recentAcknowledgedCount > 0 else { return }
+        acknowledgements.undoRecent()
+        persistAcknowledgements()
+        clearRecentAcknowledged()
+        refresh()
+    }
+
+    private func clearRecentAcknowledged() {
+        recentAcknowledgedGeneration += 1
+        recentAcknowledgedCount = 0
+    }
+
+    private func persistAcknowledgements() {
+        defaults.set(Array(acknowledgements.keys).sorted(), forKey: Self.acknowledgedKey)
     }
 
     func togglePanel() {

@@ -224,6 +224,54 @@ let acknowledged = Grouping.group(
 expectEqual(acknowledged.done.count, 0, "완료 숨김: 확인한 항목 제외")
 expectEqual(acknowledged.totalCount, 0, "완료 숨김: 개수에서도 제외")
 
+// MARK: - 확인한 완료 되돌리기
+
+let ackA = session("ackA", "done", minutesAgo: 30)
+let ackB = session("ackB", "ended", minutesAgo: 90)
+let ackOld = session("ackOld", "done", minutesAgo: 800)
+let ackWork = session("ackWork", "working", minutesAgo: 10)
+let ackResponse = SessionsResponse(sessions: [ackA, ackB, ackOld, ackWork])
+let ackVisible = Grouping.group(ackResponse, now: now).done
+let ackAKey = DisplayItem.acknowledgeKey(sessionId: "ackA", since: ackA.since)
+let ackBKey = DisplayItem.acknowledgeKey(sessionId: "ackB", since: ackB.since)
+let ackOldKey = DisplayItem.acknowledgeKey(sessionId: "ackOld", since: ackOld.since)
+let ackWorkKey = DisplayItem.acknowledgeKey(sessionId: "ackWork", since: ackWork.since)
+
+expectEqual(DisplayItem.sessionId(fromAcknowledgeKey: ackAKey), "ackA", "완료 키: sessionId 분리")
+
+var acks = DoneAcknowledgements()
+expectEqual(ackVisible.map(\.sessionId), ["ackA", "ackB"], "다시 보기: 12시간 창 안 완료만 대상")
+expectEqual(acks.acknowledge(ackVisible), 2, "다시 보기: 확인한 개수")
+expectEqual(acks.recent, Set([ackAKey, ackBKey]), "다시 보기: 직전 확인 키")
+expectEqual(acks.hiddenCount(in: ackResponse, now: now), 2, "다시 보기: 숨겨진 완료 개수")
+expectEqual(Grouping.group(ackResponse, now: now, acknowledgedDone: acks.keys).done.count, 0,
+            "다시 보기: 숨긴 완료는 그룹에서 빠진다")
+
+let outOfWindow = DoneAcknowledgements(keys: [ackOldKey, ackWorkKey])
+expectEqual(outOfWindow.hiddenCount(in: ackResponse, now: now), 0,
+            "다시 보기: 12시간 밖 완료와 완료가 아닌 세션은 세지 않는다")
+
+var mixed = DoneAcknowledgements(keys: [ackOldKey])
+mixed.acknowledge(ackVisible)
+mixed.undoRecent()
+expectEqual(mixed.keys, Set([ackOldKey]), "직전 확인 취소: 그 전에 숨긴 키는 남는다")
+expectEqual(mixed.recent, Set<String>(), "직전 확인 취소: 직전 키는 비운다")
+expectEqual(mixed.hiddenCount(in: ackResponse, now: now), 0, "직전 확인 취소: 되돌린 항목은 다시 보인다")
+
+var restored = DoneAcknowledgements(keys: [ackOldKey, ackWorkKey])
+restored.undoAll()
+expectEqual(restored.keys, Set<String>(), "다시 보기: 숨김 집합을 모두 비운다")
+
+var pruned = DoneAcknowledgements(keys: [ackAKey, ackBKey, ackWorkKey])
+pruned.prune(keeping: SessionsResponse(sessions: [ackA, ackWork]))
+expectEqual(pruned.keys, Set([ackAKey, ackWorkKey]), "정리: 응답에 없는 세션의 키를 지운다")
+pruned.prune(keeping: nil)
+expectEqual(pruned.keys, Set([ackAKey, ackWorkKey]), "정리: 응답이 없으면 지우지 않는다")
+
+var reAcknowledged = DoneAcknowledgements(keys: [ackAKey])
+expectEqual(reAcknowledged.acknowledge(ackVisible), 1, "다시 보기: 이미 숨긴 키는 새로 세지 않는다")
+expectEqual(reAcknowledged.recent, Set([ackBKey]), "다시 보기: 직전 키는 새로 가린 것만")
+
 // MARK: - 더 기다리기
 
 let stallItem = stallGroup.attention[0]

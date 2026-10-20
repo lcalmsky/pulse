@@ -30,6 +30,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         model.$panelVisible
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
+        model.$hiddenDoneCount
+            .sink { [weak self] _ in self?.dataChanged() }
+            .store(in: &cancellables)
+        model.$recentAcknowledgedCount
+            .sink { [weak self] _ in self?.dataChanged() }
+            .store(in: &cancellables)
     }
 
     private var menuOpen = false
@@ -91,6 +97,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func rebuild() {
         menu.removeAllItems()
 
+        if model.recentAcknowledgedCount > 0 {
+            action(
+                "완료 \(model.recentAcknowledgedCount)개를 확인했어요 · 되돌리기",
+                #selector(undoRecentAcknowledge)
+            )
+            menu.addItem(.separator())
+        }
+
         if let error = model.errorMessage {
             info(error, color: .systemRed)
         }
@@ -120,6 +134,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         let acknowledge = action("완료 전부 확인", #selector(acknowledgeAllDone))
         acknowledge.isEnabled = !groups.done.isEmpty
+        let restore = action("확인한 완료 다시 보기 (\(model.hiddenDoneCount))", #selector(restoreAcknowledgedDone))
+        restore.isEnabled = model.hiddenDoneCount > 0
         action(model.panelVisible ? "플로팅 창 숨기기" : "플로팅 창 보기", #selector(togglePanel))
         menu.addItem(.separator())
         action("종료", #selector(quit))
@@ -240,6 +256,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func acknowledgeAllDone() {
         model.acknowledgeAllDone()
+    }
+
+    @objc private func restoreAcknowledgedDone() {
+        model.restoreAcknowledgedDone()
+    }
+
+    @objc private func undoRecentAcknowledge() {
+        model.undoRecentAcknowledge()
     }
 
     @objc private func togglePanel() {
