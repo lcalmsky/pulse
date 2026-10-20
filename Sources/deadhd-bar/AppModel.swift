@@ -15,6 +15,9 @@ final class AppModel: ObservableObject {
     @Published var collapsed = false
     @Published private(set) var hiddenDoneCount = 0
     @Published private(set) var recentAcknowledgedCount = 0
+    @Published private(set) var recentAcknowledgedGeneration = 0
+    @Published private(set) var lastSuccess: Date?
+    @Published var density: Density = .rich
 
     weak var detailPresenter: DetailPresenting?
 
@@ -24,7 +27,6 @@ final class AppModel: ObservableObject {
     private let port: String
     private let failureGrace: TimeInterval = 15
     private let pollInterval: TimeInterval = 3
-    private let recentUndoWindow: TimeInterval = 10
     private let localSource = LocalSessionSource()
     private let localQueue = DispatchQueue(label: "dev.deadhd-bar.local-sessions", qos: .userInitiated)
 
@@ -32,12 +34,10 @@ final class AppModel: ObservableObject {
     private var localSessions: [Session]?
     private var remoteSessions: [Session]?
     private var endedTracker = EndedSessionTracker()
-    private var lastSuccess: Date?
     private var timer: Timer?
     private var snoozes: [String: Date] = [:]
     private var acknowledgements: DoneAcknowledgements
     private var errorGeneration = 0
-    private var recentAcknowledgedGeneration = 0
     private var localReading = false
     private var remoteFetching = false
 
@@ -205,14 +205,33 @@ final class AppModel: ObservableObject {
         let count = acknowledgements.acknowledge(groups.done)
         guard count > 0 else { return }
         persistAcknowledgements()
+        showUndoToast(count: count)
+        refresh()
+    }
+
+    func acknowledge(_ item: DisplayItem) {
+        switch PopoverRowAction.resolve(item) {
+        case .hideDone:
+            let count = acknowledgements.acknowledge(item)
+            guard count > 0 else { return }
+            persistAcknowledgements()
+            showUndoToast(count: count)
+            refresh()
+        case .snooze:
+            snooze(item)
+        case .none:
+            break
+        }
+    }
+
+    private func showUndoToast(count: Int) {
         recentAcknowledgedCount = count
         recentAcknowledgedGeneration += 1
         let generation = recentAcknowledgedGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + recentUndoWindow) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + UndoToast.duration) { [weak self] in
             guard let self, self.recentAcknowledgedGeneration == generation else { return }
             self.recentAcknowledgedCount = 0
         }
-        refresh()
     }
 
     func restoreAcknowledgedDone() {

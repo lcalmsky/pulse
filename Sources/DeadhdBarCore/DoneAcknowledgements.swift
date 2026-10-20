@@ -30,6 +30,15 @@ public struct DoneAcknowledgements: Equatable {
         return fresh.count
     }
 
+    /// 완료 항목 하나를 확인 처리한다. 새로 가렸으면 1, 이미 가려져 있었으면 0.
+    @discardableResult
+    public mutating func acknowledge(_ item: DisplayItem) -> Int {
+        guard !keys.contains(item.acknowledgeKey) else { return 0 }
+        keys.insert(item.acknowledgeKey)
+        recent = [item.acknowledgeKey]
+        return 1
+    }
+
     /// 확인한 완료를 모두 다시 보이게 한다.
     public mutating func undoAll() {
         keys.removeAll()

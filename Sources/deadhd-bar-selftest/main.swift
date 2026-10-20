@@ -873,5 +873,95 @@ expectEqual(overlaid.first?.title, "로컬 제목", "보강: title 은 로컬 �
 expectEqual(overlaid.first?.cwd, "/a/b", "보강: cwd 는 로컬 값을 지킨다")
 expectEqual(SessionOverlay.apply(local: [localOnly], remote: []), [localOnly], "보강: deadhd 응답이 없으면 로컬 그대로")
 
+// MARK: - 팝오버 링과 숫자
+
+let ring = SegmentRatio.make(attention: 1, working: 2, done: 1)
+expectEqual(ring.attention, 0.25, "링: 확인 필요 비율")
+expectEqual(ring.working, 0.5, "링: 진행 중 비율")
+expectEqual(ring.done, 0.25, "링: 완료 비율")
+
+let emptyRing = SegmentRatio.make(attention: 0, working: 0, done: 0)
+expectEqual(emptyRing.attention, 0, "링: 빈 그룹은 0")
+expectEqual(emptyRing.working, 0, "링: 빈 그룹은 0")
+expectEqual(emptyRing.done, 0, "링: 빈 그룹은 0")
+
+let negativeRing = SegmentRatio.make(attention: -1, working: 2, done: 0)
+expectEqual(negativeRing.attention, 0, "링: 음수는 0 으로 본다")
+expectEqual(negativeRing.working, 1, "링: 남은 그룹이 전체")
+
+expectEqual(MenuBarCounter.make(attention: 2, working: 3), .attention(2), "메뉴 숫자: 확인 필요 우선")
+expectEqual(MenuBarCounter.make(attention: 0, working: 3), .working(3), "메뉴 숫자: 확인 필요가 없으면 진행 중")
+expectEqual(MenuBarCounter.make(attention: 0, working: 0), .none, "메뉴 숫자: 둘 다 없으면 없음")
+expectEqual(MenuBarCounter.none.count, nil, "메뉴 숫자: 없음은 숫자가 없다")
+expectEqual(MenuBarCounter.attention(4).count, 4, "메뉴 숫자: 확인 필요 개수")
+
+// MARK: - 필터
+
+let filterCounts = grouped.counts
+expectEqual(SessionFilter.all.count(in: grouped), 7, "필터: 전체 개수")
+expectEqual(SessionFilter.attention.count(in: grouped), filterCounts.attention, "필터: 확인 필요 개수")
+expectEqual(SessionFilter.working.count(in: grouped), filterCounts.working, "필터: 진행 중 개수")
+expectEqual(SessionFilter.done.count(in: grouped), filterCounts.done, "필터: 완료 개수")
+expectEqual(SessionFilter.attention.sections(in: grouped).map(\.group), [.attention],
+            "필터: 확인 필요만 남는다")
+expectEqual(SessionFilter.all.sections(in: grouped).map(\.group), [.attention, .working, .done],
+            "필터: 전체는 세 그룹")
+expectEqual(SessionFilter.title(for: .attention), "확인 필요", "필터: 확인 필요 문구")
+expectEqual(SessionFilter.title(for: .working), "진행 중", "필터: 진행 중 문구")
+expectEqual(SessionFilter.title(for: .done), "완료", "필터: 완료 문구")
+expectEqual(SessionFilter.all.title, "전체", "필터: 전체 문구")
+expectEqual(SessionFilter.done.sections(in: manyDone).first?.items.count, 5,
+            "필터: 완료는 5개까지만 그린다")
+expectEqual(SessionFilter.done.count(in: manyDone), 7, "필터: 칩 숫자는 전체")
+
+let selectableItems = SessionFilter.all.selectableItems(in: clickGrouped)
+expectEqual(selectableItems.count, 3, "필터: 이동 대상이 없는 행은 빼고 고른다")
+expect(!selectableItems.contains { $0.sessionId == "none" }, "필터: 비활성 행은 고를 수 없다")
+
+// MARK: - 행 동작
+
+expectEqual(PopoverRowAction.resolve(byId["done"]!), .hideDone, "행 동작: 완료는 숨긴다")
+expectEqual(PopoverRowAction.resolve(byId["stall"]!), .snooze, "행 동작: stall 은 더 기다린다")
+expectEqual(PopoverRowAction.resolve(byId["wait"]!), .none, "행 동작: 권한 대기는 확인 버튼이 없다")
+expectEqual(PopoverRowAction.resolve(byId["idle"]!), .none, "행 동작: 입력 대기는 확인 버튼이 없다")
+expectEqual(PopoverRowAction.resolve(byId["working"]!), .none, "행 동작: 진행 중은 확인 버튼이 없다")
+
+// MARK: - 키보드 선택
+
+expectEqual(KeyboardSelection.move(from: nil, by: 1, count: 3), 0, "키보드: 처음 아래는 첫 행")
+expectEqual(KeyboardSelection.move(from: nil, by: -1, count: 3), 2, "키보드: 처음 위는 마지막 행")
+expectEqual(KeyboardSelection.move(from: 0, by: 1, count: 3), 1, "키보드: 아래로")
+expectEqual(KeyboardSelection.move(from: 2, by: 1, count: 3), 0, "키보드: 마지막에서 아래는 처음")
+expectEqual(KeyboardSelection.move(from: 0, by: -1, count: 3), 2, "키보드: 처음에서 위는 마지막")
+expectEqual(KeyboardSelection.move(from: 9, by: 1, count: 3), 0, "키보드: 범위를 벗어난 선택은 처음으로")
+expectEqual(KeyboardSelection.move(from: nil, by: 1, count: 0), nil, "키보드: 고를 행이 없으면 없음")
+
+// MARK: - 되돌리기 토스트
+
+expectEqual(UndoToast.duration, 6, "토스트: 6초")
+expectEqual(UndoToast.progress(elapsed: 0), 1, "토스트: 시작은 남은 비율 1")
+expectEqual(UndoToast.progress(elapsed: 3), 0.5, "토스트: 절반 남는다")
+expectEqual(UndoToast.progress(elapsed: 6), 0, "토스트: 끝나면 0")
+expectEqual(UndoToast.progress(elapsed: 9), 0, "토스트: 지난 뒤에도 0")
+
+// MARK: - 시간 표시
+
+expectEqual(TimePhrase.relative(from: now.addingTimeInterval(-30), to: now), "방금", "시간: 방금은 단위 없이")
+expectEqual(TimePhrase.relative(from: now.addingTimeInterval(-420), to: now), "7분 전", "시간: 분 전")
+expectEqual(TimePhrase.relative(from: now.addingTimeInterval(-7200), to: now), "2시간 전", "시간: 시간 전")
+expectEqual(TimePhrase.relative(from: nil, to: now), nil, "시간: 기준이 없으면 없다")
+
+// MARK: - 항목 하나 확인
+
+var singleAck = DoneAcknowledgements()
+expectEqual(singleAck.acknowledge(doneGrouped.done[0]), 1, "항목 확인: 하나를 가린다")
+expectEqual(singleAck.keys, Set([doneKey]), "항목 확인: 키가 들어간다")
+expectEqual(singleAck.recent, Set([doneKey]), "항목 확인: 되돌릴 키로 남는다")
+expectEqual(singleAck.acknowledge(doneGrouped.done[0]), 0, "항목 확인: 이미 가린 항목은 세지 않는다")
+expectEqual(singleAck.recent, Set([doneKey]), "항목 확인: 다시 눌러도 되돌릴 키는 남는다")
+singleAck.undoRecent()
+expectEqual(singleAck.hiddenCount(in: SessionsResponse(sessions: [doneSession]), now: now), 0,
+            "항목 확인: 되돌리면 다시 보인다")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

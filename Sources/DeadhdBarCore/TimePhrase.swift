@@ -17,4 +17,10 @@ public enum TimePhrase {
         if seconds < 3600 { return "\(max(1, Int(seconds / 60)))분" }
         return "\(Int(seconds / 3600))시간"
     }
+
+    /// 행 오른쪽에 쓰는 「7분 전」. 방금은 단위를 붙이지 않는다.
+    public static func relative(from date: Date?, to now: Date) -> String? {
+        guard let elapsed = elapsed(from: date, to: now) else { return nil }
+        return elapsed == "방금" ? elapsed : "\(elapsed) 전"
+    }
 }

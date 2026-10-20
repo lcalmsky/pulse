@@ -1,275 +1,184 @@
 import AppKit
 import Combine
 import DeadhdBarCore
+import SwiftUI
 
-final class StatusItemController: NSObject, NSMenuDelegate {
+final class StatusItemController: NSObject, NSPopoverDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let menu = NSMenu()
     private let model: AppModel
+    private let state = PopoverState()
     private var cancellables: Set<AnyCancellable> = []
+    private var spinTimer: Timer?
+    private var spinPhase: Double = 0
+    private var keyMonitor: Any?
+    private var lastClose = Date.distantPast
+
+    private lazy var popover: NSPopover = {
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.delegate = self
+        let hosting = NSHostingController(rootView: PopoverView(model: model, state: state))
+        hosting.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hosting
+        return popover
+    }()
 
     init(model: AppModel) {
         self.model = model
         super.init()
-        menu.delegate = self
-        menu.autoenablesItems = false
-        statusItem.menu = menu
-        updateBadge()
-        // 항목이 하나도 없는 메뉴는 macOS 가 열지 않아 menuWillOpen 이 불리지 않는다.
-        // 메뉴를 미리 채워 두고, 데이터가 바뀔 때마다 다시 채운다.
-        rebuild()
+
+        if let button = statusItem.button {
+            button.target = self
+            button.action = #selector(togglePopover)
+            button.imagePosition = .imageLeading
+        }
+        updateSpin()
+        updateStatusItem()
+
         model.$groups
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
         model.$sessionsUnavailable
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
-        model.$errorMessage
-            .sink { [weak self] _ in self?.dataChanged() }
-            .store(in: &cancellables)
-        model.$panelVisible
-            .sink { [weak self] _ in self?.dataChanged() }
-            .store(in: &cancellables)
-        model.$hiddenDoneCount
-            .sink { [weak self] _ in self?.dataChanged() }
-            .store(in: &cancellables)
-        model.$recentAcknowledgedCount
-            .sink { [weak self] _ in self?.dataChanged() }
-            .store(in: &cancellables)
     }
 
-    private var menuOpen = false
+    deinit {
+        spinTimer?.invalidate()
+        removeKeyMonitor()
+    }
 
-    // 열려 있는 동안 항목을 갈아 끼우면 조작 중인 메뉴가 흔들린다. 닫혀 있을 때만 미리 채운다.
     private func dataChanged() {
-        updateBadge()
-        guard !menuOpen else { return }
-        rebuild()
+        updateSpin()
+        updateStatusItem()
     }
 
-    private func updateBadge() {
+    private func updateStatusItem() {
+        updateIcon()
         guard let button = statusItem.button else { return }
-        if model.sessionsUnavailable {
-            button.attributedTitle = NSAttributedString(
-                string: "◌ Claude 세션",
-                attributes: [.foregroundColor: NSColor.tertiaryLabelColor]
-            )
+        button.attributedTitle = MenuBarIcon.title(
+            counts: model.groups.counts,
+            unavailable: model.sessionsUnavailable
+        )
+    }
+
+    private func updateIcon() {
+        guard let button = statusItem.button else { return }
+        button.image = MenuBarIcon.image(
+            counts: model.groups.counts,
+            phase: spinPhase,
+            unavailable: model.sessionsUnavailable
+        )
+    }
+
+    private func updateSpin() {
+        let shouldSpin = !model.sessionsUnavailable && model.groups.counts.working > 0
+        guard shouldSpin else {
+            spinTimer?.invalidate()
+            spinTimer = nil
+            spinPhase = 0
             return
         }
-
-        let counts = model.groups.counts
-        let badge = NSMutableAttributedString()
-        let parts: [(String, NSColor)] = [
-            ("● \(counts.attention)", .systemOrange),
-            ("⟳ \(counts.working)", .systemBlue),
-            ("✓ \(counts.done)", .systemGreen),
-        ]
-        for (index, part) in parts.enumerated() {
-            if index > 0 {
-                badge.append(NSAttributedString(string: "  "))
-            }
-            badge.append(NSAttributedString(
-                string: part.0,
-                attributes: [
-                    .foregroundColor: part.1,
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
-                ]
-            ))
+        guard spinTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.spinPhase = (self.spinPhase + 1.0 / 24.0).truncatingRemainder(dividingBy: 1)
+            self.updateIcon()
         }
-        button.attributedTitle = badge
+        timer.tolerance = 0.02
+        RunLoop.main.add(timer, forMode: .common)
+        spinTimer = timer
     }
 
-    // MARK: - 메뉴
+    // MARK: - 팝오버
 
-    func menuWillOpen(_ menu: NSMenu) {
-        menuOpen = true
-        rebuild()
+    @objc private func togglePopover() {
+        if popover.isShown {
+            popover.performClose(nil)
+            return
+        }
+        // 같은 클릭이 transient 팝오버를 닫은 직후에 다시 열지 않는다.
+        guard Date().timeIntervalSince(lastClose) > 0.2 else { return }
+        showPopover()
     }
 
-    func menuDidClose(_ menu: NSMenu) {
-        menuOpen = false
+    private func showPopover() {
+        guard let button = statusItem.button else { return }
+        state.reset()
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.popover.contentViewController?.view.window?.makeKey()
+        }
+        installKeyMonitor()
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        rebuild()
+    func popoverDidClose(_ notification: Notification) {
+        lastClose = Date()
+        state.reset()
+        removeKeyMonitor()
     }
 
-    private func rebuild() {
-        menu.removeAllItems()
+    // MARK: - 키보드
 
-        if model.recentAcknowledgedCount > 0 {
-            action(
-                "완료 \(model.recentAcknowledgedCount)개를 확인했어요 · 되돌리기",
-                #selector(undoRecentAcknowledge)
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+            guard let self else { return event }
+            if event.type == .flagsChanged {
+                self.state.optionDown = event.modifierFlags.contains(.option)
+                return event
+            }
+            return self.handleKey(event) ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+        }
+        keyMonitor = nil
+        state.optionDown = false
+    }
+
+    private func handleKey(_ event: NSEvent) -> Bool {
+        guard popover.isShown else { return false }
+        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "," {
+            return true
+        }
+
+        let items = state.filter.selectableItems(in: model.groups)
+        switch event.keyCode {
+        case 53:
+            popover.performClose(nil)
+            return true
+        case 126, 125:
+            let step = event.keyCode == 126 ? -1 : 1
+            state.selectedIndex = KeyboardSelection.move(
+                from: state.selectedIndex, by: step, count: items.count
             )
-            menu.addItem(.separator())
-        }
-
-        if let error = model.errorMessage {
-            info(error, color: .systemRed)
-        }
-        if model.sessionsUnavailable {
-            info("Claude 세션을 읽지 못했어요", color: .secondaryLabelColor)
-            menu.addItem(.separator())
-        }
-
-        let groups = model.groups
-        if groups.totalCount == 0 {
-            info(model.sessionsUnavailable ? "Claude 세션을 읽지 못했어요" : "지금은 조용해요", color: .secondaryLabelColor)
-        }
-
-        for group in DisplayGroup.allCases {
-            let items = groups.visibleItems(for: group)
-            guard !items.isEmpty else { continue }
-            info("\(group.title) \(groups.items(for: group).count)", color: color(for: group), bold: true)
-            for item in items {
-                addSession(item, group: group)
+            return true
+        case 36, 76:
+            guard let item = selectedItem(in: items) else { return true }
+            let hasOrca = item.orcaTerminal != nil || item.cwd != nil
+            if event.modifierFlags.contains(.option), hasOrca {
+                model.openInOrca(item)
+            } else {
+                model.open(item)
             }
-            if group == .done, let overflow = groups.doneOverflowText {
-                info(overflow, color: .secondaryLabelColor)
-            }
-        }
-
-        menu.addItem(.separator())
-        let acknowledge = action("완료 전부 확인", #selector(acknowledgeAllDone))
-        acknowledge.isEnabled = !groups.done.isEmpty
-        let restore = action("확인한 완료 다시 보기 (\(model.hiddenDoneCount))", #selector(restoreAcknowledgedDone))
-        restore.isEnabled = model.hiddenDoneCount > 0
-        action(model.panelVisible ? "플로팅 창 숨기기" : "플로팅 창 보기", #selector(togglePanel))
-        menu.addItem(.separator())
-        action("종료", #selector(quit))
-    }
-
-    private func addSession(_ item: DisplayItem, group: DisplayGroup) {
-        let firstLine = "\(short(item.title, 60)) · \(short(item.status, 60))"
-        let menuItem = NSMenuItem(title: firstLine, action: #selector(openSession(_:)), keyEquivalent: "")
-        menuItem.target = self
-        menuItem.representedObject = item
-        menuItem.isEnabled = item.isActionable
-        menuItem.toolTip = [item.title, item.status, item.detail, item.placeText]
-            .compactMap { $0 }
-            .joined(separator: "\n")
-        menuItem.attributedTitle = sessionTitle(
-            firstLine: firstLine,
-            secondLine: secondLine(item),
-            group: group,
-            enabled: item.isActionable
-        )
-        menu.addItem(menuItem)
-
-        if item.orcaTerminal != nil || item.cwd != nil {
-            let orcaItem = NSMenuItem(title: "Orca 로 이동", action: #selector(openInOrca(_:)), keyEquivalent: "")
-            orcaItem.target = self
-            orcaItem.representedObject = item
-            orcaItem.isAlternate = true
-            orcaItem.keyEquivalentModifierMask = [.option]
-            menu.addItem(orcaItem)
+            return true
+        case 51, 117:
+            guard let item = selectedItem(in: items) else { return true }
+            model.acknowledge(item)
+            return true
+        default:
+            return false
         }
     }
 
-    private func secondLine(_ item: DisplayItem) -> String? {
-        var parts: [String] = []
-        if let place = item.placeText {
-            parts.append(place)
-        }
-        if let progress = item.progress {
-            parts.append("진행 \(progress.text)")
-        }
-        if let reply = item.replyTail {
-            parts.append(reply)
-        }
-        guard !parts.isEmpty else { return nil }
-        return short(parts.joined(separator: " · "), 90)
-    }
-
-    // isEnabled 만 꺼 두면 attributedTitle 이 색을 덮어써 활성처럼 보인다. 색도 함께 죽인다.
-    private func sessionTitle(firstLine: String, secondLine: String?, group: DisplayGroup, enabled: Bool) -> NSAttributedString {
-        let primary: NSColor = enabled
-            ? (group == .attention ? .systemOrange : .labelColor)
-            : .disabledControlTextColor
-        let title = NSMutableAttributedString(
-            string: firstLine,
-            attributes: [
-                .font: NSFont.menuFont(ofSize: 0),
-                .foregroundColor: primary,
-            ]
-        )
-        guard let secondLine else { return title }
-        title.append(NSAttributedString(
-            string: "\n" + secondLine,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize - 1),
-                .foregroundColor: enabled ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor,
-            ]
-        ))
-        return title
-    }
-
-    @discardableResult
-    private func info(_ title: String, color: NSColor, bold: Bool = false) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        item.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: bold ? NSFont.boldSystemFont(ofSize: NSFont.smallSystemFontSize)
-                            : NSFont.menuFont(ofSize: 0),
-                .foregroundColor: color,
-            ]
-        )
-        menu.addItem(item)
-        return item
-    }
-
-    @discardableResult
-    private func action(_ title: String, _ selector: Selector) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
-        item.target = self
-        menu.addItem(item)
-        return item
-    }
-
-    private func short(_ text: String, _ limit: Int) -> String {
-        text.count <= limit ? text : String(text.prefix(limit - 1)) + "…"
-    }
-
-    private func color(for group: DisplayGroup) -> NSColor {
-        switch group {
-        case .attention: return .systemOrange
-        case .working: return .systemBlue
-        case .done: return .systemGreen
-        }
-    }
-
-    // MARK: - 액션
-
-    @objc private func openSession(_ sender: NSMenuItem) {
-        guard let item = sender.representedObject as? DisplayItem else { return }
-        model.open(item)
-    }
-
-    @objc private func openInOrca(_ sender: NSMenuItem) {
-        guard let item = sender.representedObject as? DisplayItem else { return }
-        model.openInOrca(item)
-    }
-
-    @objc private func acknowledgeAllDone() {
-        model.acknowledgeAllDone()
-    }
-
-    @objc private func restoreAcknowledgedDone() {
-        model.restoreAcknowledgedDone()
-    }
-
-    @objc private func undoRecentAcknowledge() {
-        model.undoRecentAcknowledge()
-    }
-
-    @objc private func togglePanel() {
-        model.togglePanel()
-    }
-
-    @objc private func quit() {
-        NSApp.terminate(nil)
+    private func selectedItem(in items: [DisplayItem]) -> DisplayItem? {
+        guard let index = state.selectedIndex, items.indices.contains(index) else { return nil }
+        return items[index]
     }
 }
