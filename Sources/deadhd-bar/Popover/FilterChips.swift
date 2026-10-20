@@ -45,6 +45,7 @@ struct FilterChips: View {
                         lineWidth: 1
                     )
             )
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }

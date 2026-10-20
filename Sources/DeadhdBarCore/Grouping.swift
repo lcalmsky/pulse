@@ -57,6 +57,13 @@ public struct DisplayItem: Equatable, Identifiable {
 
     public var isActionable: Bool { clickAction != .none }
 
+    /// 제목과 같은 이름의 태그는 카드에 같은 글자를 두 번 보이므로 그리지 않는다.
+    public var keyTag: String? {
+        guard let key else { return nil }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return key.caseInsensitiveCompare(trimmedTitle) == .orderedSame ? nil : key
+    }
+
     public init(session: Session, group: DisplayGroup, now: Date) {
         self.sessionId = session.sessionId
         self.title = Grouping.clean(session.title).map { String($0.prefix(60)) } ?? "제목 없는 세션"

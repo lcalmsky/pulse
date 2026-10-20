@@ -22,7 +22,7 @@ final class FloatingPanelController: NSObject {
             backing: .buffered,
             defer: false
         )
-        hosting = NSHostingView(rootView: BoardView(model: model))
+        hosting = FirstMouseHostingView(rootView: BoardView(model: model))
         super.init()
 
         configurePanel()
@@ -184,4 +184,9 @@ final class FloatingPanelController: NSObject {
         defaults.set(Double(panel.frame.width), forKey: "panelWidth")
         defaults.set(Double(panel.frame.height), forKey: "panelHeight")
     }
+}
+
+/// 비활성 패널에서 첫 클릭이 창 활성화에만 쓰이지 않고 버튼에 닿게 한다.
+private final class FirstMouseHostingView: NSHostingView<BoardView> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }

@@ -623,6 +623,45 @@ expectEqual(
     "요약: 깨진 줄은 건너뛴다"
 )
 
+// MARK: - 인용 평문화
+
+expectEqual(PlainText.markdown("**굵게**"), "굵게", "평문화: 굵게")
+expectEqual(PlainText.markdown("__굵게__"), "굵게", "평문화: 밑줄 굵게")
+expectEqual(PlainText.markdown("*기울임*"), "기울임", "평문화: 기울임")
+expectEqual(PlainText.markdown("_기울임_"), "기울임", "평문화: 밑줄 기울임")
+expectEqual(PlainText.markdown("`코드`"), "코드", "평문화: 백틱은 지우고 글자는 남긴다")
+expectEqual(PlainText.markdown("[글](https://example.com)"), "글", "평문화: 링크는 글자만")
+expectEqual(PlainText.markdown("- 항목"), "항목", "평문화: 목록 기호")
+expectEqual(PlainText.markdown("* 항목"), "항목", "평문화: 별표 목록 기호")
+expectEqual(PlainText.markdown("# 제목"), "제목", "평문화: 제목 기호")
+expectEqual(PlainText.markdown("> 인용"), "인용", "평문화: 인용 기호")
+expectEqual(PlainText.markdown("> - 중첩"), "중첩", "평문화: 겹친 줄머리 기호")
+expectEqual(PlainText.markdown("```swift\nlet a = 1\n```"), "let a = 1", "평문화: 코드 펜스 줄 제거")
+expectEqual(PlainText.markdown("snake_case"), "snake_case", "평문화: 짝이 아닌 밑줄은 유지")
+expectEqual(PlainText.markdown("a*b"), "a*b", "평문화: 짝이 아닌 별표는 유지")
+expectEqual(PlainText.markdown("#해시태그"), "#해시태그", "평문화: 기호만 있는 줄머리는 그대로")
+expectEqual(PlainText.markdown("  여러   줄\n\n공백  "), "여러 줄 공백", "평문화: 공백 접기")
+expectEqual(PlainText.markdown("~~취소선~~"), "~~취소선~~", "평문화: 다루지 않는 기호는 그대로")
+
+let markdownJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"**정리했습니다**\\n\\n- 첫 항목\\n- [둘째](https://x) 항목"}]},"timestamp":"2026-10-20T09:06:00.000Z"}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(markdownJSON.utf8), droppingPartialFirstLine: false).lastAssistantText,
+    "정리했습니다 첫 항목 둘째 항목",
+    "요약: 인용에 마크다운 기호가 남지 않는다"
+)
+
+let markdownLongJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"**\(String(repeating: "가", count: 200))**"}]}}
+"""
+let markdownLong = LocalSessions.summarizeTranscriptTail(
+    Data(markdownLongJSON.utf8),
+    droppingPartialFirstLine: false
+).lastAssistantText
+expectEqual(markdownLong?.count, 160, "요약: 평문화한 뒤에 160자로 자른다")
+expect(!(markdownLong ?? "").contains("*"), "요약: 잘린 뒤에도 마크다운 기호가 없다")
+
 // MARK: - 세션 파일 → 화면 모델
 
 func localRecord(
@@ -798,6 +837,38 @@ expectEqual(rich.backgroundTasks, [], "필드: backgroundTasks 는 비어 있다
 expectEqual(rich.href, nil, "필드: href 는 없다")
 expectEqual(rich.orcaTerminal, nil, "필드: orcaTerminal 은 없다")
 
+// MARK: - 중복 태그
+
+let sameKeyGroup = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "same", bucket: "working", title: "deadhdbar", key: "deadhdbar"),
+    ]),
+    now: now
+)
+expectEqual(sameKeyGroup.working.first?.keyTag, nil, "태그: 제목과 같은 이름은 숨긴다")
+
+let caseKeyGroup = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "case", bucket: "working", title: "DeadhdBar", key: " deadhdbar "),
+    ]),
+    now: now
+)
+expectEqual(caseKeyGroup.working.first?.keyTag, nil, "태그: 대소문자와 앞뒤 공백을 무시한다")
+
+let differentKeyGroup = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "diff", bucket: "working", title: "다른 제목", key: "deadhdbar"),
+    ]),
+    now: now
+)
+expectEqual(differentKeyGroup.working.first?.keyTag, "deadhdbar", "태그: 제목과 다르면 그린다")
+
+let absentKeyGroup = Grouping.group(
+    SessionsResponse(sessions: [Session(sessionId: "nokey", bucket: "working", title: "제목")]),
+    now: now
+)
+expectEqual(absentKeyGroup.working.first?.keyTag, nil, "태그: key 가 없으면 없다")
+
 // MARK: - 종료 추적
 
 let liveSession = Session(
@@ -826,6 +897,35 @@ expectEqual(tracker.reconcile(active: [], at: t1.addingTimeInterval(12 * 3600 - 
             "종료 추적: 12시간이 되기 전에는 남는다")
 expectEqual(tracker.reconcile(active: [], at: t1.addingTimeInterval(12 * 3600)).count, 0,
             "종료 추적: 12시간 뒤 지운다")
+
+let completedLive = Session(
+    sessionId: "completed",
+    bucket: "done",
+    title: "끝난 세션",
+    status: "idle",
+    since: now.addingTimeInterval(-120)
+)
+let completedAcknowledgeKey = DisplayItem.acknowledgeKey(
+    sessionId: completedLive.sessionId,
+    since: completedLive.since
+)
+var doneTracker = EndedSessionTracker()
+_ = doneTracker.reconcile(active: [completedLive], at: t0)
+let completedEnded = doneTracker.reconcile(active: [], at: t1)
+expectEqual(completedEnded.first?.since, completedLive.since, "종료 추적: 완료로 사라지면 since 를 유지한다")
+expectEqual(
+    DisplayItem.acknowledgeKey(sessionId: "completed", since: completedEnded.first?.since),
+    completedAcknowledgeKey,
+    "종료 추적: 완료로 사라져도 숨김 키가 바뀌지 않는다"
+)
+
+if let endedSession = completedEnded.first {
+    var endedPrune = DoneAcknowledgements(keys: [completedAcknowledgeKey])
+    endedPrune.prune(keeping: SessionsResponse(sessions: [endedSession]))
+    expectEqual(endedPrune.keys, Set([completedAcknowledgeKey]), "정리: ended 세션의 숨김 키는 유지한다")
+} else {
+    expect(false, "정리: ended 세션을 만들지 못했다")
+}
 
 var reappeared = EndedSessionTracker()
 _ = reappeared.reconcile(active: [liveSession], at: t0)

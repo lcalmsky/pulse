@@ -55,6 +55,8 @@ struct BoardView: View {
                 Image(systemName: model.collapsed ? "chevron.down" : "chevron.up")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.secondary)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help(model.collapsed ? "펼치기" : "접기")
@@ -62,6 +64,8 @@ struct BoardView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.secondary)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("플로팅 창 닫기")
@@ -149,7 +153,7 @@ private struct CardRow: View {
                             Text(item.title)
                                 .font(.system(size: 12, weight: .semibold))
                                 .lineLimit(2)
-                            if let key = item.key {
+                            if let key = item.keyTag {
                                 Text(key)
                                     .font(.system(size: 9, weight: .semibold))
                                     .foregroundColor(.secondary)
@@ -205,6 +209,8 @@ private struct CardRow: View {
                     Button(action: { model.openInOrca(item) }) {
                         Image(systemName: "terminal")
                             .font(.system(size: 11))
+                            .frame(width: 22, height: 22)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless)
                     .help("Orca 로 이동")

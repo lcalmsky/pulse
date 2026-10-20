@@ -168,7 +168,8 @@ public enum LocalSessions {
                 for block in blocks {
                     switch block["type"] as? String {
                     case "text":
-                        if let text = trimmedText(block["text"] as? String) {
+                        if let raw = block["text"] as? String,
+                           let text = trimmedText(PlainText.markdown(raw)) {
                             lastAssistantText = text
                         }
                     case "tool_use":
@@ -340,13 +341,15 @@ public struct EndedSessionTracker {
     }
 
     private func ended(_ session: Session, at date: Date) -> Session {
-        Session(
+        // 완료로 끝난 턴은 since 가 곧 완료 시각이라, 사용자가 확인해 숨긴 키를 유지한다.
+        let since = session.bucket == "done" ? session.since : date
+        return Session(
             sessionId: session.sessionId,
             bucket: "ended",
             title: session.title,
             key: session.key,
             status: "ended",
-            since: date,
+            since: since,
             message: session.message,
             replyTail: session.replyTail,
             place: session.place,

@@ -53,6 +53,7 @@ struct PopoverIconButton: View {
                     RoundedRectangle(cornerRadius: 7)
                         .fill(hovering && enabled ? Color.primary.opacity(0.07) : Color.clear)
                 )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -89,6 +90,7 @@ struct PopoverTextButton: View {
                 RoundedRectangle(cornerRadius: 7)
                     .fill(hovering && enabled ? Color.primary.opacity(0.07) : Color.clear)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

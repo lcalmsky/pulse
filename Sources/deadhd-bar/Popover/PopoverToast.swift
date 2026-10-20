@@ -16,6 +16,7 @@ struct PopoverToast: View {
                     .font(.system(size: 12, weight: .bold))
                     .buttonStyle(.plain)
                     .foregroundColor(.blue)
+                    .contentShape(Rectangle())
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)

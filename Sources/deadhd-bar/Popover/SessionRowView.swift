@@ -168,7 +168,7 @@ struct SessionRowView: View {
 
     @ViewBuilder
     private var metadata: some View {
-        let tags = item.key.map { [$0] } ?? []
+        let tags = item.keyTag.map { [$0] } ?? []
         if item.progress != nil || !tags.isEmpty {
             HStack(spacing: 5) {
                 if let progress = item.progress {
@@ -245,6 +245,7 @@ private struct RowActionButton: View {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(hovering ? Color.primary.opacity(0.08) : Color.clear)
                 )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
