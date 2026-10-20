@@ -64,7 +64,7 @@ final class DetailWindowController: NSObject, DetailPresenting, WKScriptMessageH
         currentItem = item
         titleLabel.stringValue = item.title
         titleLabel.toolTip = item.title
-        orcaButton.isEnabled = item.orcaTerminal != nil
+        orcaButton.isEnabled = item.orcaTerminal != nil || item.cwd != nil
         browserButton.isEnabled = true
 
         let window = window ?? makeWindow()

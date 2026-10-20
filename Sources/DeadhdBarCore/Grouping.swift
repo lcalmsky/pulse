@@ -44,6 +44,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public let group: DisplayGroup
     public let isStall: Bool
     public let orcaTerminal: String?
+    public let cwd: String?
     public let href: String?
     public let acknowledgeKey: String
     public let sortDate: Date?
@@ -51,7 +52,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public var id: String { sessionId }
 
     public var clickAction: SessionClickAction {
-        SessionClick.resolve(href: href, orcaTerminal: orcaTerminal)
+        SessionClick.resolve(href: href, orcaTerminal: orcaTerminal, cwd: cwd)
     }
 
     public var isActionable: Bool { clickAction != .none }
@@ -73,6 +74,7 @@ public struct DisplayItem: Equatable, Identifiable {
         self.group = group
         self.isStall = session.bucket == "stall"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)
+        self.cwd = Grouping.nonEmpty(session.cwd)
         self.href = Grouping.nonEmpty(session.href)
         self.acknowledgeKey = Self.acknowledgeKey(sessionId: session.sessionId, since: session.since)
         self.sortDate = session.since ?? session.updatedAt

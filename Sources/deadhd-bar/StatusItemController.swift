@@ -134,10 +134,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menuItem.toolTip = [item.title, item.status, item.detail, item.placeText]
             .compactMap { $0 }
             .joined(separator: "\n")
-        menuItem.attributedTitle = sessionTitle(firstLine: firstLine, secondLine: secondLine(item), group: group)
+        menuItem.attributedTitle = sessionTitle(
+            firstLine: firstLine,
+            secondLine: secondLine(item),
+            group: group,
+            enabled: item.isActionable
+        )
         menu.addItem(menuItem)
 
-        if let terminal = item.orcaTerminal, !terminal.isEmpty {
+        if item.orcaTerminal != nil || item.cwd != nil {
             let orcaItem = NSMenuItem(title: "Orca 로 이동", action: #selector(openInOrca(_:)), keyEquivalent: "")
             orcaItem.target = self
             orcaItem.representedObject = item
@@ -162,12 +167,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return short(parts.joined(separator: " · "), 90)
     }
 
-    private func sessionTitle(firstLine: String, secondLine: String?, group: DisplayGroup) -> NSAttributedString {
+    // isEnabled 만 꺼 두면 attributedTitle 이 색을 덮어써 활성처럼 보인다. 색도 함께 죽인다.
+    private func sessionTitle(firstLine: String, secondLine: String?, group: DisplayGroup, enabled: Bool) -> NSAttributedString {
+        let primary: NSColor = enabled
+            ? (group == .attention ? .systemOrange : .labelColor)
+            : .disabledControlTextColor
         let title = NSMutableAttributedString(
             string: firstLine,
             attributes: [
                 .font: NSFont.menuFont(ofSize: 0),
-                .foregroundColor: group == .attention ? NSColor.systemOrange : NSColor.labelColor,
+                .foregroundColor: primary,
             ]
         )
         guard let secondLine else { return title }
@@ -175,7 +184,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             string: "\n" + secondLine,
             attributes: [
                 .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize - 1),
-                .foregroundColor: NSColor.secondaryLabelColor,
+                .foregroundColor: enabled ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor,
             ]
         ))
         return title

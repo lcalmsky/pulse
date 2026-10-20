@@ -179,7 +179,7 @@ private struct CardRow: View {
             .disabled(!item.isActionable)
 
             VStack(alignment: .trailing, spacing: 6) {
-                if item.orcaTerminal != nil {
+                if item.orcaTerminal != nil || item.cwd != nil {
                     Button(action: { model.openInOrca(item) }) {
                         Image(systemName: "terminal")
                             .font(.system(size: 11))

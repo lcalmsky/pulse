@@ -324,11 +324,20 @@ expectEqual(
 )
 expectEqual(SessionClick.resolve(href: "", orcaTerminal: " term-1 "), .orca("term-1"),
             "클릭 규칙: 앞뒤 공백을 지운다")
+expectEqual(SessionClick.resolve(href: nil, orcaTerminal: nil, cwd: "/a/b"), .cwd("/a/b"),
+            "클릭 규칙: 핸들이 없으면 cwd 로 찾는다")
+expectEqual(SessionClick.resolve(href: nil, orcaTerminal: "term-1", cwd: "/a/b"), .orca("term-1"),
+            "클릭 규칙: cwd 보다 핸들")
+expectEqual(SessionClick.resolve(href: "http://a", orcaTerminal: nil, cwd: "/a/b"), .detail("http://a"),
+            "클릭 규칙: cwd 보다 페이지")
+expectEqual(SessionClick.resolve(href: nil, orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
+            "클릭 규칙: 공백뿐인 cwd 는 없는 것으로 본다")
 
 let clickGrouped = Grouping.group(
     SessionsResponse(sessions: [
         Session(sessionId: "page", bucket: "working", orcaTerminal: "t", href: "http://a"),
         Session(sessionId: "orca", bucket: "working", orcaTerminal: "t"),
+        Session(sessionId: "cwd", bucket: "working", cwd: "/a/b"),
         Session(sessionId: "none", bucket: "working"),
     ]),
     now: now
@@ -339,7 +348,74 @@ let clickItems: [String: DisplayItem] = Dictionary(
 expectEqual(clickItems["page"]?.clickAction, .detail("http://a"), "클릭 규칙: 항목이 상세 창으로 간다")
 expectEqual(clickItems["orca"]?.clickAction, .orca("t"), "클릭 규칙: 항목이 Orca 로 간다")
 expectEqual(clickItems["page"]?.isActionable, true, "클릭 규칙: 페이지 항목은 누를 수 있다")
+expectEqual(clickItems["cwd"]?.clickAction, .cwd("/a/b"), "클릭 규칙: cwd 만 있어도 Orca 로 간다")
+expectEqual(clickItems["cwd"]?.isActionable, true, "클릭 규칙: cwd 만 있어도 누를 수 있다")
 expectEqual(clickItems["none"]?.isActionable, false, "클릭 규칙: 대상 없는 항목은 비활성")
+
+// MARK: - Orca 터미널 cwd 매칭
+
+func terminal(
+    _ handle: String,
+    _ worktreePath: String?,
+    connected: Bool = true,
+    lastOutputAt: Double? = nil
+) -> OrcaTerminal {
+    OrcaTerminal(handle: handle, worktreePath: worktreePath, connected: connected, lastOutputAt: lastOutputAt)
+}
+
+let oneTerminal = [terminal("exact", "/a/b")]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: oneTerminal), "exact", "터미널 매칭: 정확히 일치")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: [terminal("exact", "/a/b/")]), "exact",
+            "터미널 매칭: 끝 슬래시 정규화")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b/sub", among: oneTerminal), "exact", "터미널 매칭: 하위 경로")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/bc", among: oneTerminal), nil, "터미널 매칭: 접두어만 같은 다른 폴더")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a", among: oneTerminal), nil, "터미널 매칭: 상위 경로는 불일치")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "", among: oneTerminal), nil, "터미널 매칭: 빈 cwd")
+
+let homeProject = NSHomeDirectory() + "/proj"
+expectEqual(OrcaTerminalMatch.bestHandle(for: "~/proj", among: [terminal("home", homeProject)]), "home",
+            "터미널 매칭: ~ 확장")
+
+let manyTerminals = [
+    terminal("old", "/a/b", lastOutputAt: 100),
+    terminal("recent", "/a/b", lastOutputAt: 200),
+    terminal("child", "/a/b/sub", lastOutputAt: 300),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: manyTerminals), "recent",
+            "터미널 매칭: 여럿이면 가장 최근 출력")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b/sub", among: manyTerminals), "child",
+            "터미널 매칭: 정확히 일치하는 터미널도 후보")
+
+let disconnected = [
+    terminal("gone", "/a/b", connected: false, lastOutputAt: 300),
+    terminal("alive", "/a/b", lastOutputAt: 100),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: disconnected), "alive",
+            "터미널 매칭: 끊긴 터미널 제외")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/c", among: [terminal("gone", "/a/c", connected: false)]), nil,
+            "터미널 매칭: 끊긴 터미널만 있으면 없음")
+
+let orcaListJSON = """
+{"ok":true,"result":{"terminals":[
+  {"handle":"term_091e","worktreePath":"/Users/a/notes","title":"◐ notes4","connected":true,"lastOutputAt":1792488183685},
+  {"handle":"term_off","worktreePath":"/Users/a/notes","connected":false},
+  {"worktreePath":"/Users/a/other"}
+]}}
+"""
+if let list = try? JSONDecoder().decode(OrcaTerminalList.self, from: Data(orcaListJSON.utf8)) {
+    expectEqual(list.terminals.count, 2, "터미널 목록: 핸들 없는 항목은 버린다")
+    expectEqual(list.terminals.first?.lastOutputAt, 1792488183685, "터미널 목록: 밀리초 epoch")
+    expectEqual(OrcaTerminalMatch.bestHandle(for: "/Users/a/notes", among: list.terminals), "term_091e",
+                "터미널 목록: 목록에서 핸들을 찾는다")
+} else {
+    expect(false, "터미널 목록: 응답을 읽지 못했다")
+}
+
+if let emptyList = try? JSONDecoder().decode(OrcaTerminalList.self, from: Data("{\"ok\":true}".utf8)) {
+    expectEqual(emptyList.terminals.count, 0, "터미널 목록: result 가 없으면 빈 목록")
+} else {
+    expect(false, "터미널 목록: result 없는 응답을 읽지 못했다")
+}
 
 // MARK: - 체크리스트 진행도
 

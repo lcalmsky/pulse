@@ -115,19 +115,30 @@ final class AppModel: ObservableObject {
             }
         case .orca(let handle):
             switchTerminal(handle)
+        case .cwd(let cwd):
+            switchToCwd(cwd)
         case .none:
             break
         }
     }
 
     func openInOrca(_ item: DisplayItem) {
-        guard let handle = item.orcaTerminal, !handle.isEmpty else { return }
-        switchTerminal(handle)
+        if let handle = item.orcaTerminal, !handle.isEmpty {
+            switchTerminal(handle)
+        } else if let cwd = item.cwd, !cwd.isEmpty {
+            switchToCwd(cwd)
+        }
     }
 
     private func switchTerminal(_ handle: String) {
         OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
             if !ok { self?.showError("터미널이 닫혔어요") }
+        }
+    }
+
+    private func switchToCwd(_ cwd: String) {
+        OrcaLauncher.switchToCwd(cwd) { [weak self] ok in
+            if !ok { self?.showError("Orca 에서 이 세션의 터미널을 찾지 못했어요") }
         }
     }
 
