@@ -63,6 +63,13 @@ struct BoardView: View {
             }
             .buttonStyle(.plain)
             .help(model.collapsed ? "펼치기" : "접기")
+            Button(action: { model.hidePanel() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("플로팅 창 닫기")
         }
     }
 

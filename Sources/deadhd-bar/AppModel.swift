@@ -202,6 +202,10 @@ final class AppModel: ObservableObject {
         panelVisible.toggle()
     }
 
+    func hidePanel() {
+        panelVisible = false
+    }
+
     func showError(_ text: String) {
         NSSound.beep()
         errorGeneration += 1
