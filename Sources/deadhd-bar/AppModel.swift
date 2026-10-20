@@ -1,0 +1,170 @@
+import AppKit
+import Combine
+import Foundation
+import DeadhdBarCore
+
+final class AppModel: ObservableObject {
+    @Published private(set) var groups = GroupedSessions.empty
+    @Published private(set) var serverOff = true
+    @Published private(set) var errorMessage: String?
+    @Published private(set) var panelVisible = false
+    @Published var collapsed = false
+
+    private static let acknowledgedKey = "acknowledgedDoneKeys"
+    private static let defaultSkillDir = "~/.claude/skills/deadhd"
+
+    private let defaults = UserDefaults.standard
+    private let port: String
+    private let offGrace: TimeInterval = 15
+    private let pollInterval: TimeInterval = 3
+
+    private var response: SessionsResponse?
+    private var lastSuccess: Date?
+    private var timer: Timer?
+    private var snoozes: [String: Date] = [:]
+    private var acknowledged: Set<String>
+    private var errorGeneration = 0
+    private var polling = false
+
+    init() {
+        port = ProcessInfo.processInfo.environment["DEADHD_PORT"] ?? "47320"
+        acknowledged = Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
+    }
+
+    func start() {
+        poll()
+        let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
+            self?.poll()
+        }
+        timer.tolerance = 0.5
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    // MARK: - 폴링
+
+    private var sessionURL: URL? {
+        URL(string: "http://127.0.0.1:\(port)/sessions.json")
+    }
+
+    func poll() {
+        guard !polling, let url = sessionURL else { return }
+        polling = true
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 2
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.polling = false
+                self.handle(data: data, response: response, error: error)
+            }
+        }.resume()
+    }
+
+    private func handle(data: Data?, response: URLResponse?, error: Error?) {
+        guard error == nil,
+              let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let data,
+              let decoded = try? JSONDecoder().decode(SessionsResponse.self, from: data)
+        else {
+            markFailure()
+            return
+        }
+        self.response = decoded
+        lastSuccess = Date()
+        serverOff = false
+        refresh()
+    }
+
+    private func markFailure() {
+        if let lastSuccess, Date().timeIntervalSince(lastSuccess) < offGrace {
+            refresh()
+            return
+        }
+        serverOff = true
+        refresh()
+    }
+
+    func refresh(now: Date = Date()) {
+        snoozes = snoozes.filter { $0.value > now }
+        groups = Grouping.group(
+            response,
+            now: now,
+            acknowledgedDone: acknowledged,
+            snoozedUntil: snoozes
+        )
+    }
+
+    // MARK: - 동작
+
+    func open(_ item: DisplayItem) {
+        if let handle = item.orcaTerminal, !handle.isEmpty {
+            OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
+                if !ok { self?.showError("터미널이 닫혔어요") }
+            }
+            return
+        }
+        if let href = item.href, let url = URL(string: href) {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func snooze(_ item: DisplayItem) {
+        snoozes[item.sessionId] = Date().addingTimeInterval(600)
+        refresh()
+    }
+
+    func acknowledgeAllDone() {
+        let keys = groups.done.map(\.acknowledgeKey)
+        guard !keys.isEmpty else { return }
+        acknowledged.formUnion(keys)
+        defaults.set(Array(acknowledged), forKey: Self.acknowledgedKey)
+        refresh()
+    }
+
+    func togglePanel() {
+        panelVisible.toggle()
+    }
+
+    func showError(_ text: String) {
+        NSSound.beep()
+        errorGeneration += 1
+        let generation = errorGeneration
+        errorMessage = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard let self, self.errorGeneration == generation else { return }
+            self.errorMessage = nil
+        }
+    }
+
+    func startServer() {
+        let configured = defaults.string(forKey: "skillDir") ?? Self.defaultSkillDir
+        let directory = NSString(string: configured).expandingTildeInPath
+        let script = (directory as NSString).appendingPathComponent("serve.py")
+        guard FileManager.default.fileExists(atPath: script) else {
+            showError("deadhd 스킬을 찾을 수 없어요")
+            return
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", script, "--ensure"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try process.run()
+                process.waitUntilExit()
+            } catch {
+                DispatchQueue.main.async { self?.showError("서버를 시작하지 못했어요") }
+                return
+            }
+            DispatchQueue.main.async {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self?.poll() }
+            }
+        }
+    }
+}
