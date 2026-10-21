@@ -50,6 +50,8 @@ public struct DisplayItem: Equatable, Identifiable {
     public let jiraKey: String?
     public let jiraHref: String?
     public let activityLine: String?
+    /// 상태 줄 아래의 「지금 뭐 하는지」 한 줄. 고를 것이 없으면 nil.
+    public let nowLine: String?
     public let group: DisplayGroup
     public let isStall: Bool
     public let orcaTerminal: String?
@@ -69,6 +71,9 @@ public struct DisplayItem: Equatable, Identifiable {
     }
 
     public var isActionable: Bool { clickAction != .none }
+
+    /// 지금 하는 일 한 줄을 그리는 행. 확인 필요 섹션에 있는 stall 도 진행 중으로 다룬다.
+    public var isRunning: Bool { group == .working || isStall }
 
     /// 제목과 같은 이름의 태그는 카드에 같은 글자를 두 번 보이므로 그리지 않는다.
     public var keyTag: String? {
@@ -99,6 +104,12 @@ public struct DisplayItem: Equatable, Identifiable {
         self.jiraKey = Grouping.nonEmpty(session.jiraKey)
         self.jiraHref = Grouping.nonEmpty(session.jiraHref)
         self.activityLine = session.activity?.line(now: now)
+        self.nowLine = NowLine.resolve(
+            stage: self.nowLabel,
+            currentAction: session.currentAction,
+            reply: self.replyTail,
+            statusLine: self.status
+        )
         self.group = group
         self.isStall = session.bucket == "stall"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)

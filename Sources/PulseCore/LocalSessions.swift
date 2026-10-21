@@ -454,7 +454,8 @@ public enum LocalSessions {
             jiraHref: checklist?.keyHref,
             eta: checklist?.eta,
             dataAt: checklist?.dataAt,
-            activity: SessionActivity.make(state: deadhd, summary: summary)
+            activity: SessionActivity.make(state: deadhd, summary: summary),
+            currentAction: summary.pendingToolLabel
         )
     }
 
@@ -592,7 +593,8 @@ public struct EndedSessionTracker {
             jiraHref: session.jiraHref,
             eta: session.eta,
             dataAt: session.dataAt,
-            activity: session.activity
+            activity: session.activity,
+            currentAction: session.currentAction
         )
     }
 }

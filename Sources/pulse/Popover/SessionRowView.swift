@@ -29,6 +29,14 @@ struct SessionRowView: View {
                     } else {
                         subtitle
                     }
+                    if !compact, item.isRunning, let nowLine = item.nowLine {
+                        Text(nowLine)
+                            .font(.system(size: 10.5))
+                            .foregroundColor(PopoverPalette.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.top, 1)
+                    }
                     if !compact, let activity = item.activityLine {
                         Text(activity)
                             .font(.system(size: 10.5))
@@ -191,8 +199,7 @@ struct SessionRowView: View {
     private var metadata: some View {
         let tags = item.keyTag.map { [$0] } ?? []
         let pullRequest = item.prURL != nil ? item.prTag : nil
-        let stripes = group == .working && item.progress == nil
-        if item.progress != nil || stripes || !tags.isEmpty || item.jiraKey != nil
+        if item.progress != nil || !tags.isEmpty || item.jiraKey != nil
             || pullRequest != nil || !item.extraPRs.isEmpty {
             HStack(spacing: 5) {
                 if let progress = item.progress {
@@ -206,8 +213,6 @@ struct SessionRowView: View {
                         color: item.blocked ? PopoverPalette.attention : PopoverPalette.secondary
                     )
                     .opacity(item.progressStale ? 0.45 : 1)
-                } else if stripes {
-                    StripedProgressBar()
                 }
                 ForEach(tags, id: \.self) { tag in
                     TagView(text: tag)
@@ -302,37 +307,6 @@ private struct RowActionButton: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(help)
-    }
-}
-
-/// 체크리스트 수치가 없는 진행 중 행에 쓰는 줄무늬 막대.
-/// 애니메이션은 막대 안쪽 그리기에만 걸어 레이아웃에 영향을 주지 않는다.
-private struct StripedProgressBar: View {
-    var body: some View {
-        TimelineView(.animation) { context in
-            let phase = context.date.timeIntervalSinceReferenceDate
-                .truncatingRemainder(dividingBy: 1)
-            Canvas { context, size in
-                context.clip(
-                    to: Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 2)
-                )
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(PopoverPalette.working))
-                let stripe: CGFloat = 6
-                let period = stripe * 2
-                var x = -period + CGFloat(phase) * period
-                while x < size.width + period {
-                    var path = Path()
-                    path.move(to: CGPoint(x: x, y: size.height))
-                    path.addLine(to: CGPoint(x: x + stripe, y: size.height))
-                    path.addLine(to: CGPoint(x: x + stripe + size.height, y: 0))
-                    path.addLine(to: CGPoint(x: x + size.height, y: 0))
-                    path.closeSubpath()
-                    context.fill(path, with: .color(PopoverPalette.purple.opacity(0.6)))
-                    x += period
-                }
-            }
-        }
-        .frame(width: 64, height: 4)
     }
 }
 

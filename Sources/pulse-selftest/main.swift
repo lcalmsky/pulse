@@ -1410,6 +1410,74 @@ expectEqual(stateWinsActivity?.compactions, 1, "활동 줄: 상태 파일 압축
 expectEqual(stateWinsActivity?.backgroundTasks, 2, "활동 줄: 상태 파일 작업 수가 먼저")
 expectEqual(stateWinsActivity?.lastTool?.name, "Bash", "활동 줄: 상태 파일 도구가 먼저")
 
+// MARK: - 지금 하는 일 한 줄
+
+expectEqual(NowLine.resolve(stage: "테스트 작성", currentAction: "파일 편집 · A.swift",
+                            reply: "고칩니다. 테스트를 돌립니다", statusLine: "2분째"),
+            "▶ 테스트 작성", "지금 한 줄: 단계가 있으면 단계")
+expectEqual(NowLine.resolve(stage: "테스트 작성", currentAction: "파일 편집 · A.swift",
+                            reply: "고칩니다. 테스트를 돌립니다",
+                            statusLine: "2분째 · ▶ 테스트 작성"),
+            "파일 편집 · A.swift", "지금 한 줄: 상태 줄에 있는 단계는 건너뛴다")
+expectEqual(NowLine.resolve(stage: "테스트 작성", currentAction: "테스트 작성",
+                            reply: "고칩니다. 테스트를 돌립니다",
+                            statusLine: "2분째 · 테스트 작성"),
+            "테스트를 돌립니다", "지금 한 줄: 상태 줄에 있는 도구 문구도 건너뛴다")
+expectEqual(NowLine.resolve(stage: nil, currentAction: nil,
+                            reply: "첫 문장입니다. 두 번째 문장입니다", statusLine: "2분째"),
+            "두 번째 문장입니다", "지금 한 줄: 마지막 답의 마지막 문장")
+expectEqual(NowLine.resolve(stage: nil, currentAction: nil,
+                            reply: "v1.2 를 확인합니다", statusLine: "2분째"),
+            "v1.2 를 확인합니다", "지금 한 줄: 소수점은 문장 끝이 아니다")
+expectEqual(NowLine.resolve(stage: nil, currentAction: nil,
+                            reply: "수정을 마쳤습니다.", statusLine: "2분째"),
+            "수정을 마쳤습니다.", "지금 한 줄: 문장 부호로 끝나는 답")
+expectEqual(NowLine.resolve(stage: "  ", currentAction: "\n", reply: nil, statusLine: "2분째"), nil,
+            "지금 한 줄: 빈 값뿐이면 그리지 않는다")
+expectEqual(NowLine.resolve(stage: nil, currentAction: nil, reply: "", statusLine: "2분째"), nil,
+            "지금 한 줄: 값이 없으면 없다")
+
+let nowLineSummary = TranscriptSummary(
+    lastAssistantText: "행을 고쳤습니다. 이제 스크린샷을 남깁니다",
+    pendingToolLabel: "파일 편집 · SessionRowView.swift"
+)
+let nowLineItem = Grouping.group(
+    SessionsResponse(sessions: [localSession(status: "busy", summary: nowLineSummary)]),
+    now: now
+).working.first
+expectEqual(nowLineItem?.isRunning, true, "지금 한 줄: 진행 중 행에 그린다")
+expectEqual(nowLineItem?.nowLine, "이제 스크린샷을 남깁니다",
+            "지금 한 줄: 상태 줄에 이미 있는 도구 문구 대신 마지막 문장")
+
+let checklistNowItem = Grouping.group(
+    SessionsResponse(sessions: [
+        localSession(status: "busy", summary: nowLineSummary, deadhd: parsedState),
+    ]),
+    now: now
+).working.first
+expectEqual(checklistNowItem?.nowLine, "파일 편집 · SessionRowView.swift",
+            "지금 한 줄: 체크리스트 단계는 상태 줄에 있으므로 도구 문구")
+
+let stallNowItem = Grouping.group(
+    SessionsResponse(sessions: [
+        localSession(status: "busy", summary: TranscriptSummary(
+            lastAssistantText: "배포를 확인합니다",
+            lastMeaningfulAt: now.addingTimeInterval(-15 * 60),
+            pendingToolLabel: "웹 조회"
+        )),
+    ]),
+    now: now
+).attention.first
+expectEqual(stallNowItem?.isStall, true, "지금 한 줄: stall 은 확인 필요 그룹")
+expectEqual(stallNowItem?.isRunning, true, "지금 한 줄: stall 도 진행 중으로 다룬다")
+expectEqual(stallNowItem?.nowLine, "웹 조회", "지금 한 줄: stall 행은 실행 중인 도구")
+
+let idleNowItem = Grouping.group(
+    SessionsResponse(sessions: [localSession(status: "idle", summary: nowLineSummary)]),
+    now: now
+).done.first
+expectEqual(idleNowItem?.isRunning, false, "지금 한 줄: 완료 행에는 그리지 않는다")
+
 // MARK: - 트랜스크립트의 압축·백그라운드
 
 let compactJSON = """

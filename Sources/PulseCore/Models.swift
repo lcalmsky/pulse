@@ -164,6 +164,8 @@ public struct Session: Equatable, Identifiable {
     public let eta: Date?
     public let dataAt: Date?
     public let activity: SessionActivity?
+    /// 짝을 이루지 못한 마지막 `tool_use` 의 화면 문구. 도구가 도는 동안에만 있다.
+    public let currentAction: String?
 
     public var id: String { sessionId }
 
@@ -194,7 +196,8 @@ public struct Session: Equatable, Identifiable {
         jiraHref: String? = nil,
         eta: Date? = nil,
         dataAt: Date? = nil,
-        activity: SessionActivity? = nil
+        activity: SessionActivity? = nil,
+        currentAction: String? = nil
     ) {
         self.sessionId = sessionId
         self.bucket = bucket
@@ -221,6 +224,7 @@ public struct Session: Equatable, Identifiable {
         self.eta = eta
         self.dataAt = dataAt
         self.activity = activity
+        self.currentAction = currentAction
     }
 
     enum CodingKeys: String, CodingKey {
@@ -284,6 +288,7 @@ extension Session: Decodable {
         eta = nil
         dataAt = nil
         activity = nil
+        currentAction = nil
     }
 }
 
