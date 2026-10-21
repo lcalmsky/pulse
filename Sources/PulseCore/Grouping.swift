@@ -7,9 +7,9 @@ public enum DisplayGroup: Int, CaseIterable, Equatable {
 
     public var title: String {
         switch self {
-        case .attention: return "확인 필요"
-        case .working: return "진행중"
-        case .done: return "완료"
+        case .attention: return L10n.groupAttention
+        case .working: return L10n.groupWorkingCompact
+        case .done: return L10n.groupDone
         }
     }
 }
@@ -95,7 +95,7 @@ public struct DisplayItem: Equatable, Identifiable {
 
     public init(session: Session, group: DisplayGroup, now: Date) {
         self.sessionId = session.sessionId
-        self.title = Grouping.clean(session.title).map { String($0.prefix(60)) } ?? "제목 없는 세션"
+        self.title = Grouping.clean(session.title).map { String($0.prefix(60)) } ?? L10n.untitledSession
         self.status = Grouping.statusText(session: session, group: group, now: now)
         self.detail = Grouping.detailText(session: session, group: group)
         self.placeText = Grouping.placeText(session.place)
@@ -216,7 +216,7 @@ public struct GroupedSessions: Equatable {
     }
 
     public var doneOverflowText: String? {
-        hiddenDoneCount > 0 ? "그 밖에 \(hiddenDoneCount)개" : nil
+        hiddenDoneCount > 0 ? L10n.moreHidden(hiddenDoneCount) : nil
     }
 }
 
@@ -287,22 +287,22 @@ public enum Grouping {
             let base: String
             switch session.bucket {
             case "wait":
-                base = clean(session.message) ?? "권한을 허락해 주세요"
+                base = clean(session.message) ?? L10n.grantPermission
             case "idle":
-                base = "답을 기다리고 있어요"
+                base = L10n.waitingForReply
             case "stall":
                 let duration = TimePhrase.duration(from: session.elapsedReference, to: now)
                 if let task = session.backgroundTasks.first,
                    let name = clean(task.taskDescription) ?? clean(task.type),
                    let duration {
-                    base = "백그라운드 작업 \(duration)째 · \(name)"
+                    base = L10n.backgroundTaskFor(duration, name)
                 } else if let duration {
-                    base = "작업 \(duration)째 · 멈췄는지 확인해 보세요"
+                    base = L10n.workingForCheckStuck(duration)
                 } else {
-                    base = "멈췄는지 확인해 보세요"
+                    base = L10n.checkIfStuck
                 }
             default:
-                base = "확인이 필요해요"
+                base = L10n.needsAttention
             }
             return appended(base, stage, eta)
         case .working:
@@ -310,21 +310,21 @@ public enum Grouping {
             let shown = hasChecklist ? label.map { "▶ \($0)" } : label
             let base: String
             if session.bucket == "untracked" {
-                base = shown ?? "진행 중이에요"
+                base = shown ?? L10n.inProgress
             } else if let duration = TimePhrase.duration(from: session.elapsedReference, to: now) {
-                base = shown.map { "\(duration)째 · \($0)" } ?? "\(duration)째"
+                base = shown.map { "\(L10n.runningFor(duration)) · \($0)" } ?? L10n.runningFor(duration)
             } else {
-                base = shown ?? "진행 중이에요"
+                base = shown ?? L10n.inProgress
             }
             return appended(base, nil, eta)
         case .done:
             if session.bucket == "ended" {
                 let elapsed = TimePhrase.elapsed(from: session.elapsedReference, to: now)
-                if elapsed == "방금" { return "방금 끝났어요" }
-                if let elapsed { return "\(elapsed) 전 끝남" }
-                return "끝났어요"
+                if elapsed == L10n.justNow { return L10n.justFinished }
+                if let elapsed { return L10n.finishedAgo(elapsed) }
+                return L10n.finished
             }
-            return appended("끝났어요", stage, eta)
+            return appended(L10n.finished, stage, eta)
         }
     }
 
@@ -336,7 +336,7 @@ public enum Grouping {
         guard let eta = session.eta else { return nil }
         let minutes = Int(ceil(eta.timeIntervalSince(now) / 60))
         guard minutes > 0 else { return nil }
-        return "약 \(minutes)분 남음"
+        return L10n.minutesLeft(minutes)
     }
 
     static func detailText(session: Session, group: DisplayGroup) -> String? {

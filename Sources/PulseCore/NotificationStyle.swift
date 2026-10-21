@@ -13,9 +13,9 @@ public enum NotificationButton: String, CaseIterable {
 
     public var title: String {
         switch self {
-        case .openInOrca: return "Orca 에서 열기"
-        case .snooze: return "10분 더"
-        case .acknowledge: return "확인"
+        case .openInOrca: return L10n.openInOrca
+        case .snooze: return L10n.snoozeTenMinutes
+        case .acknowledge: return L10n.acknowledge
         }
     }
 

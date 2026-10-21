@@ -37,7 +37,7 @@ public enum Checklist {
             let state = trimmed(item["state"]).flatMap(StepState.init(rawValue:)) ?? .left
             let label = [trimmed(item["label"]), trimmed(item["title"]), trimmed(item["id"])]
                 .compactMap { $0 }
-                .first ?? "단계 \(steps.count + 1)"
+                .first ?? L10n.stepFallback(steps.count + 1)
             steps.append(ChecklistStep(
                 label: label,
                 state: state,
@@ -101,16 +101,16 @@ public struct StepWindow: Equatable {
     ) -> String? {
         guard window.hasHidden else { return nil }
         guard window.hiddenBefore > 0 else {
-            return "전체 \(window.total)단계 보기"
+            return L10n.showAllSteps(window.total)
         }
 
         let leading = Array(steps.prefix(window.hiddenBefore))
         let doneCount = leading.filter { $0.state == .done }.count
         guard doneCount == leading.count else {
-            return "앞 \(window.hiddenBefore)단계 · 완료 \(doneCount)"
+            return L10n.earlierStepsPartlyDone(window.hiddenBefore, done: doneCount)
         }
 
-        var text = "앞 \(window.hiddenBefore)단계 완료"
+        var text = L10n.earlierStepsDone(window.hiddenBefore)
         let times = leading.compactMap(\.doneAt).sorted()
         if let first = times.first, let last = times.last {
             let formatter = DateFormatter()
@@ -128,7 +128,7 @@ public struct StepWindow: Equatable {
         guard steps.indices.contains(index) else { return nil }
         let step = steps[index]
         if step.state == .left, index == steps.count - 1 {
-            return step.sub.map { "\($0) · 마지막" } ?? "마지막"
+            return step.sub.map { "\($0) · \(L10n.lastStep)" } ?? L10n.lastStep
         }
         return step.sub
     }

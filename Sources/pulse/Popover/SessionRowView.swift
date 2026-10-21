@@ -76,7 +76,7 @@ struct SessionRowView: View {
                 Spacer(minLength: 0)
                 PopoverIconButton(
                     symbol: "clock",
-                    help: item.isStall ? "10분 더 기다리기" : "질문·권한 대기는 미룰 수 없어요",
+                    help: item.isStall ? L10n.waitTenMoreMinutes : L10n.cannotSnoozeQuestion,
                     enabled: item.isStall,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
@@ -86,7 +86,7 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "arrow.up.forward.square",
-                    help: "열기 (↩)",
+                    help: L10n.openShortcut,
                     enabled: item.isActionable,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
@@ -96,7 +96,7 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
-                    help: "답하기 · Orca 에서 터미널 열기 (⌥↩)",
+                    help: L10n.replyInOrcaShortcut,
                     enabled: showsOrca,
                     symbolSize: 13,
                     restingFill: PopoverPalette.attention,
@@ -189,7 +189,7 @@ struct SessionRowView: View {
                 if showsPage {
                     PopoverIconButton(
                         symbol: "doc.text",
-                        help: "브라우저에서 진행 페이지 열기",
+                        help: L10n.openProgressPage,
                         symbolSize: 13
                     ) {
                         model.openPageInBrowser(item)
@@ -198,7 +198,7 @@ struct SessionRowView: View {
                 if showsOrca {
                     PopoverIconButton(
                         symbol: "arrow.up.forward.square",
-                        help: "Orca 로 이동 (⌥↩)",
+                        help: L10n.goToOrcaShortcut,
                         symbolSize: 13
                     ) {
                         model.openInOrca(item)
@@ -235,7 +235,7 @@ struct SessionRowView: View {
                 }
                 .buttonStyle(.plain)
                 .onHover { stepHovering = $0 }
-                .help(expanded ? "단계 접기" : "단계 펼치기")
+                .help(expanded ? L10n.collapseSteps : L10n.expandSteps)
             } else {
                 stepperContent(segments)
             }
@@ -329,7 +329,7 @@ struct SessionRowView: View {
                 prView
                 ForEach(item.extraPRs, id: \.url) { link in
                     let label = link.label ?? "#\(link.number)"
-                    MetaLink(text: label, help: "PR \(label) 열기") {
+                    MetaLink(text: label, help: L10n.openPR(label)) {
                         model.openPullRequest(link.url)
                     }
                 }
@@ -342,7 +342,7 @@ struct SessionRowView: View {
                         .fixedSize()
                 }
                 if !item.isActionable {
-                    Text("터미널 없음")
+                    Text(L10n.noTerminal)
                         .foregroundColor(PopoverPalette.tertiary)
                         .fixedSize()
                 }
@@ -368,7 +368,7 @@ struct SessionRowView: View {
     private var jiraKeyView: some View {
         if let key = item.jiraKey {
             if let href = item.jiraHref {
-                MetaLink(text: key, help: "\(key) 열기") {
+                MetaLink(text: key, help: L10n.openKey(key)) {
                     model.openLink(href)
                 }
             } else {
@@ -381,7 +381,7 @@ struct SessionRowView: View {
     @ViewBuilder
     private var prView: some View {
         if let tag = item.prTag, let url = item.prURL {
-            MetaLink(text: tag, help: "PR \(tag) 열기") {
+            MetaLink(text: tag, help: L10n.openPR(tag)) {
                 model.openPullRequest(url)
             }
         }
@@ -438,7 +438,7 @@ struct SessionRowView: View {
                 if item.isActionable {
                     PopoverIconButton(
                         symbol: "arrow.up.forward.square",
-                        help: "열기 (↩)",
+                        help: L10n.openShortcut,
                         symbolSize: 13,
                         restingFill: PopoverPalette.rowHover,
                         restingGlyph: PopoverPalette.text
@@ -448,7 +448,7 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "checkmark",
-                    help: "확인 (⌫)",
+                    help: L10n.acknowledgeShortcut,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
                     restingGlyph: PopoverPalette.text
@@ -468,7 +468,7 @@ struct SessionRowView: View {
     @ViewBuilder
     private var orcaHint: some View {
         if optionDown, item.isActionable, showsOrca {
-            Text("→ Orca 로 이동")
+            Text(L10n.goToOrcaArrow)
                 .font(.system(size: 10.5, weight: .semibold))
                 .foregroundColor(.blue)
                 .lineLimit(1)
@@ -503,7 +503,7 @@ struct SessionSectionLabel: View {
                 .foregroundColor(group == .attention ? PopoverPalette.attention : PopoverPalette.secondary)
             Spacer(minLength: 0)
             if group == .done {
-                Button("모두 확인") {
+                Button(L10n.acknowledgeAll) {
                     model.acknowledgeAllDone()
                 }
                 .buttonStyle(.plain)
@@ -519,9 +519,9 @@ struct SessionSectionLabel: View {
 
     private var title: String {
         switch group {
-        case .attention: return "확인 필요"
-        case .working: return "진행 중"
-        case .done: return "완료"
+        case .attention: return L10n.groupAttention
+        case .working: return L10n.groupWorking
+        case .done: return L10n.groupDone
         }
     }
 }
@@ -560,20 +560,20 @@ private struct StepPanel: View {
     private var content: some View {
         if let steps = snapshot?.steps {
             if steps.isEmpty {
-                emptyLine("단계가 아직 없어요")
+                emptyLine(L10n.noStepsYet)
             } else {
                 let window = StepWindow.make(steps.map(\.state))
                 if full {
-                    headLine(text: "전체 \(window.total)단계 · 접기", up: true, help: "세 단계만 보기")
+                    headLine(text: L10n.allStepsCollapse(window.total), up: true, help: L10n.showThreeSteps)
                 } else if let text = StepWindow.headText(steps, window: window) {
-                    headLine(text: text, up: false, help: "전체 단계 보기")
+                    headLine(text: text, up: false, help: L10n.showAllStepsHelp)
                 }
                 ForEach(full ? Array(steps.indices) : window.rows, id: \.self) { index in
                     stepRow(steps[index], index: index, steps: steps)
                 }
             }
         } else {
-            emptyLine("단계 목록을 읽지 못했어요")
+            emptyLine(L10n.stepsUnreadable)
         }
     }
 
@@ -695,7 +695,7 @@ private struct StepPanel: View {
 
     private var updatedText: String {
         guard let date = snapshot?.modifiedAt else { return "deadhd" }
-        return "deadhd · \(Self.clock.string(from: date)) 갱신"
+        return L10n.deadhdUpdated(Self.clock.string(from: date))
     }
 }
 

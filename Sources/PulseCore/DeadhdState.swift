@@ -223,10 +223,10 @@ public struct SessionActivity: Equatable {
     public func line(now: Date) -> String? {
         var parts: [String] = []
         if let compactions, compactions > 0 {
-            parts.append("압축 \(compactions)")
+            parts.append(L10n.compactions(compactions))
         }
         if let backgroundTasks, backgroundTasks > 0 {
-            parts.append("백그라운드 \(backgroundTasks)")
+            parts.append(L10n.backgroundTasks(backgroundTasks))
         }
         if let lastTool, let name = lastTool.name {
             if let at = lastTool.at, let ago = TimePhrase.ago(from: at, to: now) {

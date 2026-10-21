@@ -52,7 +52,7 @@ public struct NotificationBatch: Equatable {
 /// 새로 「확인 필요」에 들어온 세션만 골라 알림 후보로 바꾼다.
 /// 본 것으로 기록한 키는 지금 응답에 없으면 지워, 다시 나타난 항목은 새 항목으로 본다.
 public struct AttentionNotifier {
-    public static let titlePrefix = "확인이 필요해요"
+    public static var titlePrefix: String { L10n.notifyAttentionTitle }
 
     private var seen: Set<String>
 
@@ -125,7 +125,7 @@ public struct AttentionNotifier {
 /// 앱이 처음 본 세션이 이미 완료였거나, 처음 읽은 목록·팝오버나 플로팅 패널이 열린 동안·
 /// 설정이 꺼진 동안 완료가 된 경우에는 보내지 않고 본 것으로만 기록한다.
 public struct DoneNotifier {
-    public static let titlePrefix = "끝났어요"
+    public static var titlePrefix: String { L10n.notifyDoneTitle }
 
     private var seen: Set<String>
     private var active: Set<String>

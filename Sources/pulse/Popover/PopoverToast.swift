@@ -10,9 +10,9 @@ struct PopoverToast: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Text("완료 \(count)개를 확인했어요")
+                Text(L10n.acknowledgedDone(count))
                     .font(.system(size: 12, weight: .medium))
-                Button("되돌리기", action: onUndo)
+                Button(L10n.undo, action: onUndo)
                     .font(.system(size: 12, weight: .bold))
                     .buttonStyle(.plain)
                     .foregroundColor(.blue)

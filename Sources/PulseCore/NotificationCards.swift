@@ -294,8 +294,8 @@ public struct CardDeck: Equatable {
     public static func headerText(attention: Int, done: Int) -> String? {
         guard attention + done > 1 else { return nil }
         var parts: [String] = []
-        if attention > 0 { parts.append("확인 \(attention)") }
-        if done > 0 { parts.append("끝남 \(done)") }
+        if attention > 0 { parts.append(L10n.cardHeaderAttention(attention)) }
+        if done > 0 { parts.append(L10n.cardHeaderDone(done)) }
         return parts.joined(separator: " · ")
     }
 
@@ -414,14 +414,14 @@ public struct NotificationRoute: Equatable {
 public enum CardText {
     /// 끝남 카드 머리 오른쪽: 걸린 시간이 있으면 「14분 걸림」, 없으면 완료 시각 기준 「11분 전」.
     public static func doneTrail(runDuration: TimeInterval?, finishedAt: Date?, now: Date) -> String? {
-        if let runDuration { return "\(duration(runDuration)) 걸림" }
+        if let runDuration { return L10n.took(duration(runDuration)) }
         return TimePhrase.relative(from: finishedAt, to: now)
     }
 
     /// 끝남 카드 2행: 「{세션} · 끝남 · 1분 걸림」. 걸린 시간을 모르면 「{세션} · 끝남」.
     public static func doneMeta(title: String, runDuration: TimeInterval?) -> String {
-        guard let runDuration else { return "\(title) · 끝남" }
-        return "\(title) · 끝남 · \(duration(runDuration)) 걸림"
+        guard let runDuration else { return L10n.doneMeta(title) }
+        return L10n.doneMeta(title, took: duration(runDuration))
     }
 
     /// 끝남 카드 본문: 요약 한 줄, 없으면 상태 문구.
@@ -431,16 +431,16 @@ public enum CardText {
         return trimmed
     }
 
-    public static let awayTitle = "자리 비운 사이"
+    public static var awayTitle: String { L10n.awayTitle }
 
     /// 자리 비움 카드 1행. 막힌 세션이 있으면 그것을 먼저 센다.
     public static func awayHeadline(attention: Int, done: Int) -> String {
-        attention > 0 ? "세션 \(attention)개가 기다려요" : "세션 \(done)개가 끝났어요"
+        attention > 0 ? L10n.awaySessionsWaiting(attention) : L10n.awaySessionsFinished(done)
     }
 
     /// 자리 비움 카드 2행 본문. 막힘과 끝남이 함께 있으면 끝남 수도 센다.
     public static func awayDetail(attention: Int, done: Int) -> String {
-        attention > 0 && done > 0 ? "\(done)개 끝났어요 · 누르면 목록이 열려요" : "누르면 목록이 열려요"
+        attention > 0 && done > 0 ? L10n.awayFinishedAndOpen(done) : L10n.awayOpenList
     }
 
     /// 자리 비움 카드 2행: 「자리 비운 사이 · 3개 끝났어요 · 누르면 목록이 열려요」.
@@ -451,7 +451,7 @@ public enum CardText {
     /// `TimePhrase.duration` 과 같은 규칙으로 초를 문구로 바꾼다. 1분 미만도 1분으로 본다.
     private static func duration(_ seconds: TimeInterval) -> String {
         let seconds = max(0, seconds)
-        if seconds < 3600 { return "\(max(1, Int(seconds / 60)))분" }
-        return "\(Int(seconds / 3600))시간"
+        if seconds < 3600 { return L10n.minutes(max(1, Int(seconds / 60))) }
+        return L10n.hours(Int(seconds / 3600))
     }
 }

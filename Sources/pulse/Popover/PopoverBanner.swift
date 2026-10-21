@@ -1,3 +1,4 @@
+import PulseCore
 import SwiftUI
 
 enum PopoverBannerStyle {
@@ -22,7 +23,7 @@ struct PopoverBanner: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            Button("지금 재시도", action: retry)
+            Button(L10n.retryNow, action: retry)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .tint(style == .error ? .red : .blue)
@@ -55,9 +56,9 @@ struct PopoverEmptyState: View {
         VStack(spacing: 14) {
             EmptyOrb()
             VStack(spacing: 4) {
-                Text("할 일이 비었어요")
+                Text(L10n.nothingToDo)
                     .font(.system(size: 15, weight: .semibold))
-                Text("새 세션이 시작되면 바로 알려 드릴게요.")
+                Text(L10n.willNotifyNewSession)
                     .font(.system(size: 12))
                     .foregroundColor(PopoverPalette.secondary)
             }

@@ -80,7 +80,7 @@ struct CardPanelView: View {
                     .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
             }
-            Button("모두 확인") { model.acknowledgeAllCards() }
+            Button(L10n.acknowledgeAll) { model.acknowledgeAllCards() }
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(PopoverPalette.link)
                 .buttonStyle(.borderless)
@@ -170,11 +170,11 @@ private struct SingleCard: View {
                 .font(.system(size: 11))
                 .foregroundColor(PopoverPalette.secondary)
         }
-        meta = meta + Text("확인 필요")
+        meta = meta + Text(L10n.groupAttention)
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(PopoverPalette.attention)
         if let elapsed = TimePhrase.duration(from: item.sortDate, to: Date()) {
-            meta = meta + Text(" · \(elapsed)째")
+            meta = meta + Text(" · \(L10n.durationSoFar(elapsed))")
                 .font(.system(size: 11))
                 .foregroundColor(PopoverPalette.secondary)
         }
@@ -189,7 +189,7 @@ private struct SingleCard: View {
                 model.openCard(item)
             }
         } label: {
-            Text(canAnswer(item) ? "답하기" : "열기")
+            Text(canAnswer(item) ? L10n.reply : L10n.open)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(Color.black.opacity(0.85))
                 .padding(.horizontal, 11)
@@ -457,7 +457,7 @@ private struct CardButtons: View {
             if showsSnooze {
                 PopoverIconButton(
                     symbol: "clock",
-                    help: item.isStall ? "10분 더 기다리기" : "질문·권한 대기는 미룰 수 없어요",
+                    help: item.isStall ? L10n.waitTenMoreMinutes : L10n.cannotSnoozeQuestion,
                     enabled: item.isStall,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
@@ -469,7 +469,7 @@ private struct CardButtons: View {
             if showsOpen {
                 PopoverIconButton(
                     symbol: "arrow.up.forward.square",
-                    help: "Orca 에서 열기",
+                    help: L10n.openInOrca,
                     enabled: item.isActionable,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
@@ -481,7 +481,7 @@ private struct CardButtons: View {
             if showsAcknowledge {
                 PopoverIconButton(
                     symbol: "checkmark",
-                    help: "확인",
+                    help: L10n.acknowledge,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
                     restingGlyph: PopoverPalette.text
@@ -492,7 +492,7 @@ private struct CardButtons: View {
             if showsAnswer {
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
-                    help: "답하기 · Orca 에서 터미널 열기",
+                    help: L10n.replyInOrca,
                     enabled: canAnswer(item),
                     symbolSize: 13,
                     restingFill: PopoverPalette.attention,

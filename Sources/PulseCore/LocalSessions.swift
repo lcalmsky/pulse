@@ -331,13 +331,13 @@ public enum LocalSessions {
         case "Agent", "Task":
             label = nonEmpty(input["description"] as? String) ?? name
         case "Edit", "Write", "MultiEdit":
-            label = fileName(input["file_path"]).map { "파일 편집 · \($0)" } ?? "파일 편집"
+            label = fileName(input["file_path"]).map { "\(L10n.editFile) · \($0)" } ?? L10n.editFile
         case "Read":
-            label = fileName(input["file_path"]).map { "파일 읽기 · \($0)" } ?? "파일 읽기"
+            label = fileName(input["file_path"]).map { "\(L10n.readFile) · \($0)" } ?? L10n.readFile
         case "Grep", "Glob":
-            label = "검색"
+            label = L10n.search
         case "WebFetch", "WebSearch":
-            label = "웹 조회"
+            label = L10n.webFetch
         default:
             label = name
         }
@@ -407,10 +407,10 @@ public enum LocalSessions {
             bucket = "wait"
             if record.waitingFor == "permission prompt" {
                 status = "waiting_permission"
-                message = "권한 승인을 기다려요"
+                message = L10n.waitingForPermission
             } else {
                 status = "waiting_input"
-                message = "답을 기다리고 있어요"
+                message = L10n.waitingForReply
             }
         case "busy", "shell":
             if let last = summary.lastMeaningfulAt,

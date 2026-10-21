@@ -37,7 +37,7 @@ struct PopoverView: View {
             }
         }
         if model.sessionsUnavailable {
-            PopoverBanner(style: .muted, message: "Claude 세션을 읽지 못했어요") {
+            PopoverBanner(style: .muted, message: L10n.sessionsUnreadable) {
                 model.poll()
             }
         }

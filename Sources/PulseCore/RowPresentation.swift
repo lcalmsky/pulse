@@ -23,11 +23,11 @@ public enum HeaderBadge {
     public static func label(for group: DisplayGroup, count: Int) -> String {
         switch group {
         case .attention:
-            return "확인 \(count)"
+            return L10n.badgeAttention(count)
         case .working:
-            return "진행 \(count)"
+            return L10n.badgeWorking(count)
         case .done:
-            return "완료 \(count)"
+            return L10n.badgeDone(count)
         }
     }
 }
@@ -86,7 +86,7 @@ public enum Stepper {
 public enum RowText {
     public static func waiting(since: Date?, now: Date) -> String? {
         guard let duration = TimePhrase.duration(from: since, to: now) else { return nil }
-        return "\(duration)째 기다림"
+        return L10n.waitingFor(duration)
     }
 
     /// 확인 필요 카드의 본문. 질문 전문이 가장 먼저, 없으면 마지막 답, 그다음 상태 문구.

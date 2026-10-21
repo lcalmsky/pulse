@@ -25,7 +25,7 @@ public enum SessionFilter: Int, CaseIterable, Identifiable, Equatable {
     public var id: Int { rawValue }
 
     public var title: String {
-        guard let group else { return "전체" }
+        guard let group else { return L10n.groupAll }
         return Self.title(for: group)
     }
 
@@ -40,9 +40,9 @@ public enum SessionFilter: Int, CaseIterable, Identifiable, Equatable {
 
     public static func title(for group: DisplayGroup) -> String {
         switch group {
-        case .attention: return "확인 필요"
-        case .working: return "진행 중"
-        case .done: return "완료"
+        case .attention: return L10n.groupAttention
+        case .working: return L10n.groupWorking
+        case .done: return L10n.groupDone
         }
     }
 

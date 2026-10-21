@@ -5,32 +5,32 @@ public enum TimePhrase {
     public static func elapsed(from date: Date?, to now: Date) -> String? {
         guard let date else { return nil }
         let seconds = max(0, now.timeIntervalSince(date))
-        if seconds < 60 { return "방금" }
-        if seconds < 3600 { return "\(Int(seconds / 60))분" }
-        return "\(Int(seconds / 3600))시간"
+        if seconds < 60 { return L10n.justNow }
+        if seconds < 3600 { return L10n.minutes(Int(seconds / 60)) }
+        return L10n.hours(Int(seconds / 3600))
     }
 
     /// 「N분째」처럼 단위만 붙이는 자리에 쓴다. 1분 미만도 1분으로 본다.
     public static func duration(from date: Date?, to now: Date) -> String? {
         guard let date else { return nil }
         let seconds = max(0, now.timeIntervalSince(date))
-        if seconds < 3600 { return "\(max(1, Int(seconds / 60)))분" }
-        return "\(Int(seconds / 3600))시간"
+        if seconds < 3600 { return L10n.minutes(max(1, Int(seconds / 60))) }
+        return L10n.hours(Int(seconds / 3600))
     }
 
     /// 행 오른쪽에 쓰는 「7분 전」. 방금은 단위를 붙이지 않는다.
     public static func relative(from date: Date?, to now: Date) -> String? {
         guard let elapsed = elapsed(from: date, to: now) else { return nil }
-        return elapsed == "방금" ? elapsed : "\(elapsed) 전"
+        return elapsed == L10n.justNow ? elapsed : L10n.ago(elapsed)
     }
 
     /// 활동 줄에 쓰는 「12초 전」. 1분 안쪽도 초 단위로 보여 준다.
     public static func ago(from date: Date?, to now: Date) -> String? {
         guard let date else { return nil }
         let seconds = max(0, Int(now.timeIntervalSince(date)))
-        if seconds < 60 { return "\(seconds)초 전" }
-        if seconds < 3600 { return "\(seconds / 60)분 전" }
-        if seconds < 86_400 { return "\(seconds / 3600)시간 전" }
-        return "\(seconds / 86_400)일 전"
+        if seconds < 60 { return L10n.secondsAgo(seconds) }
+        if seconds < 3600 { return L10n.minutesAgo(seconds / 60) }
+        if seconds < 86_400 { return L10n.hoursAgo(seconds / 3600) }
+        return L10n.daysAgo(seconds / 86_400)
     }
 }

@@ -8,11 +8,11 @@ struct SettingsSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
-                Text("밀도")
+                Text(L10n.density)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(PopoverPalette.tertiary)
                 Spacer(minLength: 0)
-                PopoverIconButton(symbol: "xmark", help: "닫기") {
+                PopoverIconButton(symbol: "xmark", help: L10n.close) {
                     state.settingsOpen = false
                 }
             }
@@ -20,14 +20,14 @@ struct SettingsSheet: View {
 
             HStack(spacing: 6) {
                 SettingsOptionCard(
-                    title: "풍부",
+                    title: L10n.densityRich,
                     selected: model.density == .rich,
                     action: { model.setDensity(.rich) }
                 ) {
                     DensityPreview(compact: false)
                 }
                 SettingsOptionCard(
-                    title: "간결",
+                    title: L10n.densityCompact,
                     selected: model.density == .compact,
                     action: { model.setDensity(.compact) }
                 ) {
@@ -36,7 +36,7 @@ struct SettingsSheet: View {
             }
             .padding(.bottom, 12)
 
-            Text("테마")
+            Text(L10n.theme)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(PopoverPalette.tertiary)
                 .padding(.horizontal, 2)
@@ -55,14 +55,14 @@ struct SettingsSheet: View {
             }
             .padding(.bottom, 12)
 
-            Text("알림")
+            Text(L10n.notifications)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(PopoverPalette.tertiary)
                 .padding(.horizontal, 2)
                 .padding(.bottom, 6)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("확인이 필요할 때")
+                Text(L10n.whenAttentionNeeded)
                     .font(.system(size: 12))
                     .foregroundColor(PopoverPalette.secondary)
                 Picker("", selection: Binding(
@@ -80,7 +80,7 @@ struct SettingsSheet: View {
             .padding(.horizontal, 2)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("작업이 끝났을 때")
+                Text(L10n.whenTaskFinishes)
                     .font(.system(size: 12))
                     .foregroundColor(PopoverPalette.secondary)
                 Picker("", selection: Binding(
@@ -98,7 +98,7 @@ struct SettingsSheet: View {
             .padding(.horizontal, 2)
             .padding(.top, 8)
 
-            Text("Pulse 를 보고 있을 때는 알리지 않아요")
+            Text(L10n.quietWhileLooking)
                 .font(.system(size: 11))
                 .foregroundColor(PopoverPalette.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -106,7 +106,7 @@ struct SettingsSheet: View {
                 .padding(.top, 8)
                 .padding(.bottom, 4)
 
-            Text("화면이 잠긴 사이의 알림은 돌아오면 한 장으로 묶어요")
+            Text(L10n.lockedAlertsGrouped)
                 .font(.system(size: 11))
                 .foregroundColor(PopoverPalette.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -115,7 +115,7 @@ struct SettingsSheet: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Text("단축키")
+                    Text(L10n.shortcut)
                         .font(.system(size: 12))
                         .foregroundColor(PopoverPalette.secondary)
                     Spacer(minLength: 0)
@@ -124,8 +124,8 @@ struct SettingsSheet: View {
                 }
                 Text(
                     model.hotKeyUnavailable
-                        ? "단축키 ⌃⌥P 를 다른 앱이 쓰고 있어요"
-                        : "한 번: 팝오버 · 열린 채로 한 번 더: 플로팅 패널"
+                        ? L10n.shortcutTaken
+                        : L10n.shortcutHint
                 )
                 .font(.system(size: 11))
                 .foregroundColor(PopoverPalette.tertiary.opacity(model.hotKeyUnavailable ? 0.6 : 1))
@@ -150,9 +150,9 @@ struct SettingsSheet: View {
 private extension ThemePreference {
     var title: String {
         switch self {
-        case .system: return "시스템"
-        case .light: return "라이트"
-        case .dark: return "다크"
+        case .system: return L10n.themeSystem
+        case .light: return L10n.themeLight
+        case .dark: return L10n.themeDark
         }
     }
 }
@@ -160,9 +160,9 @@ private extension ThemePreference {
 private extension AttentionAlert {
     var title: String {
         switch self {
-        case .cardAndSound: return "카드와 소리"
-        case .cardOnly: return "카드만"
-        case .off: return "끔"
+        case .cardAndSound: return L10n.alertCardAndSound
+        case .cardOnly: return L10n.alertCardOnly
+        case .off: return L10n.alertOff
         }
     }
 }
@@ -170,8 +170,8 @@ private extension AttentionAlert {
 private extension DoneAlert {
     var title: String {
         switch self {
-        case .card: return "카드"
-        case .off: return "끔"
+        case .card: return L10n.alertCard
+        case .off: return L10n.alertOff
         }
     }
 }

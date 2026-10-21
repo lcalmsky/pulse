@@ -4,6 +4,9 @@ import PulseCore
 var checks = 0
 var failures = 0
 
+// 시스템 언어가 영어인 기계에서도 기존 한국어 기대값으로 검사한다.
+L10n.language = .ko
+
 func expect(_ condition: Bool, _ label: String) {
     checks += 1
     if !condition {
@@ -2984,6 +2987,168 @@ expectEqual(
     "실행 파일: 후보가 없으면 nil"
 )
 expect(!probedExecutables.contains("/c/python3"), "실행 파일: 첫 통과에서 멈춘다")
+
+// MARK: - 영어 문구
+
+L10n.language = .en
+
+expectEqual(Language.resolve(environment: ["PULSE_LANG": "en"], preferredLanguages: ["ko-KR"]), .en,
+            "언어: PULSE_LANG=en 은 한국어 시스템에서도 영어")
+expectEqual(Language.resolve(environment: ["PULSE_LANG": "ko"], preferredLanguages: ["en-US"]), .ko,
+            "언어: PULSE_LANG=ko 는 영어 시스템에서도 한국어")
+expectEqual(Language.resolve(environment: ["PULSE_LANG": "EN"], preferredLanguages: ["ko-KR"]), .en,
+            "언어: PULSE_LANG 대소문자를 가리지 않는다")
+expectEqual(Language.resolve(environment: ["PULSE_LANG": "fr"], preferredLanguages: ["en-US"]), .en,
+            "언어: 모르는 PULSE_LANG 은 시스템 언어로 돌아간다")
+expectEqual(Language.resolve(environment: [:], preferredLanguages: ["en-US"]), .en,
+            "언어: 시스템 선호 언어가 en-US 면 영어")
+expectEqual(Language.resolve(environment: [:], preferredLanguages: ["en"]), .en,
+            "언어: 시스템 선호 언어가 en 이면 영어")
+expectEqual(Language.resolve(environment: [:], preferredLanguages: ["ko-KR", "en-US"]), .ko,
+            "언어: 첫 선호 언어가 한국어면 한국어")
+expectEqual(Language.resolve(environment: [:], preferredLanguages: ["ja-JP"]), .ko,
+            "언어: 영어가 아닌 시스템 언어는 한국어")
+expectEqual(Language.resolve(environment: [:], preferredLanguages: []), .ko,
+            "언어: 선호 언어가 없으면 한국어")
+
+expectEqual(TimePhrase.elapsed(from: now.addingTimeInterval(-30), to: now), "just now", "영어 시간: 30초")
+expectEqual(TimePhrase.elapsed(from: now.addingTimeInterval(-60), to: now), "1 minute", "영어 시간: 1분")
+expectEqual(TimePhrase.elapsed(from: now.addingTimeInterval(-120), to: now), "2 minutes", "영어 시간: 2분")
+expectEqual(TimePhrase.elapsed(from: now.addingTimeInterval(-3600), to: now), "1 hour", "영어 시간: 1시간")
+expectEqual(TimePhrase.elapsed(from: now.addingTimeInterval(-7200), to: now), "2 hours", "영어 시간: 2시간")
+expectEqual(TimePhrase.duration(from: now.addingTimeInterval(-10), to: now), "1 minute", "영어 시간: 10초는 1분")
+expectEqual(TimePhrase.duration(from: now.addingTimeInterval(-720), to: now), "12 minutes", "영어 시간: 12분")
+expectEqual(TimePhrase.relative(from: now.addingTimeInterval(-30), to: now), "just now", "영어 시간: 방금은 단위 없이")
+expectEqual(TimePhrase.relative(from: now.addingTimeInterval(-420), to: now), "7 minutes ago", "영어 시간: 분 전")
+expectEqual(TimePhrase.ago(from: now.addingTimeInterval(-1), to: now), "1 second ago", "영어 시간: 1초 전")
+expectEqual(TimePhrase.ago(from: now.addingTimeInterval(-12), to: now), "12 seconds ago", "영어 시간: 12초 전")
+expectEqual(TimePhrase.ago(from: now.addingTimeInterval(-3600), to: now), "1 hour ago", "영어 시간: 1시간 전")
+expectEqual(TimePhrase.ago(from: now.addingTimeInterval(-86_400 * 3), to: now), "3 days ago", "영어 시간: 3일 전")
+
+let enGroups = Grouping.group(SessionsResponse(sessions: allBuckets), now: now)
+let enById = Dictionary(uniqueKeysWithValues: enGroups.items(for: .attention).map { ($0.sessionId, $0) })
+    .merging(enGroups.items(for: .working).map { ($0.sessionId, $0) }) { a, _ in a }
+    .merging(enGroups.items(for: .done).map { ($0.sessionId, $0) }) { a, _ in a }
+expectEqual(enById["wait"]?.status, "Please grant permission", "영어 문구: wait 기본")
+expectEqual(enById["idle"]?.status, "Waiting for your reply", "영어 문구: idle")
+expectEqual(enById["stall"]?.status, "Background task for 7 minutes · npm test", "영어 문구: stall 백그라운드")
+expectEqual(enById["working"]?.status, "Running for 3 minutes · 테스트 실행", "영어 문구: working")
+expectEqual(enById["untracked"]?.status, "In progress", "영어 문구: untracked")
+expectEqual(enById["done"]?.status, "Finished", "영어 문구: done")
+expectEqual(enById["ended"]?.status, "Finished 5 minutes ago", "영어 문구: ended")
+
+let enStallGroup = Grouping.group(
+    SessionsResponse(sessions: [session("s", "stall", minutesAgo: 12)]),
+    now: now
+)
+expectEqual(enStallGroup.attention.first?.status, "Working for 12 minutes · check if it's stuck",
+            "영어 문구: stall 기본")
+let enEndedRecent = Grouping.group(
+    SessionsResponse(sessions: [session("e", "ended", minutesAgo: 0.5)]),
+    now: now
+)
+expectEqual(enEndedRecent.done.first?.status, "Just finished", "영어 문구: ended 방금")
+
+let enEtaOne = DisplayItem(
+    session: Session(sessionId: "eta1", bucket: "working", since: now, eta: now.addingTimeInterval(60)),
+    group: .working,
+    now: now
+)
+expectEqual(enEtaOne.etaText, "About 1 minute left", "영어 문구: 남은 1분")
+let enEtaThree = DisplayItem(
+    session: Session(sessionId: "eta3", bucket: "working", since: now, eta: now.addingTimeInterval(180)),
+    group: .working,
+    now: now
+)
+expectEqual(enEtaThree.etaText, "About 3 minutes left", "영어 문구: 남은 3분")
+let enEmptyTitled = DisplayItem(session: Session(sessionId: "untitled", bucket: "working"), group: .working, now: now)
+expectEqual(enEmptyTitled.title, "Untitled session", "영어 문구: 제목 없는 세션")
+
+expectEqual(DisplayGroup.attention.title, "Needs attention", "영어 그룹: 확인 필요")
+expectEqual(DisplayGroup.working.title, "In progress", "영어 그룹: 진행중")
+expectEqual(DisplayGroup.done.title, "Done", "영어 그룹: 완료")
+expectEqual(SessionFilter.all.title, "All", "영어 필터: 전체")
+expectEqual(SessionFilter.title(for: .attention), "Needs attention", "영어 필터: 확인 필요")
+expectEqual(SessionFilter.title(for: .working), "In progress", "영어 필터: 진행 중")
+expectEqual(SessionFilter.title(for: .done), "Done", "영어 필터: 완료")
+expectEqual(manyDone.doneOverflowText, "2 more", "영어 그룹: 남은 완료 개수")
+
+expectEqual(HeaderBadge.label(for: .attention, count: 1), "1 waiting", "영어 머리글 뱃지: 확인")
+expectEqual(HeaderBadge.label(for: .working, count: 4), "4 running", "영어 머리글 뱃지: 진행")
+expectEqual(HeaderBadge.label(for: .done, count: 3), "3 done", "영어 머리글 뱃지: 완료")
+expectEqual(CardDeck.headerText(attention: 1, done: 3), "1 waiting · 3 done", "영어 카드: 머리글 확인·끝남")
+expectEqual(CardDeck.headerText(attention: 0, done: 2), "2 done", "영어 카드: 머리글 끝남만")
+
+expectEqual(RowText.waiting(since: now.addingTimeInterval(-60), now: now), "Waiting for 1 minute",
+            "영어 행 문구: 기다린 1분")
+expectEqual(RowText.waiting(since: now.addingTimeInterval(-720), now: now), "Waiting for 12 minutes",
+            "영어 행 문구: 기다린 12분")
+
+expectEqual(StepWindow.trailingText(trailingSteps, index: 1), "대기 · Last", "영어 단계 꼬리: 마지막 남은 단계")
+expectEqual(StepWindow.trailingText([ChecklistStep(label: "a", state: .left)], index: 0), "Last",
+            "영어 단계 꼬리: sub 가 없는 마지막")
+expectEqual(StepWindow.headText(headNoTime, window: headWindow, timeZone: seoul), "4 earlier steps done",
+            "영어 단계 머리: 앞 단계 완료")
+expectEqual(StepWindow.headText(mixedHead, window: StepWindow.make(mixedHead.map(\.state)), timeZone: seoul),
+            "4 earlier steps · 3 done", "영어 단계 머리: 완료 아닌 단계가 섞이면 완료 수")
+expectEqual(
+    StepWindow.headText(Array(repeating: ChecklistStep(label: "x", state: .left), count: 9),
+                       window: startWindow, timeZone: seoul),
+    "Show all 9 steps",
+    "영어 단계 머리: 앞이 비면 전체 보기"
+)
+expectEqual(Checklist.parse(Data("{\"items\":[{}]}".utf8))?.first?.label, "Step 1",
+            "영어 체크리스트: 이름이 없으면 순번")
+
+expectEqual(SessionActivity(compactions: 1, backgroundTasks: 2,
+                            lastTool: LastTool(name: "Bash", at: utcDate(2026, 10, 20, 11, 59, 48)))
+        .line(now: now),
+    "1 compaction · 2 in background · Bash 12 seconds ago", "영어 활동 줄: 세 값을 가운뎃점으로 잇는다")
+expectEqual(SessionActivity(compactions: 2, backgroundTasks: 0, lastTool: LastTool(name: "Read", at: nil))
+        .line(now: now), "2 compactions · Read", "영어 활동 줄: 복수형과 도구 이름만")
+
+expectEqual(NotificationButton.openInOrca.title, "Open in Orca", "영어 알림 스타일: Orca 열기 제목")
+expectEqual(NotificationButton.snooze.title, "Snooze 10 min", "영어 알림 스타일: 10분 더 제목")
+expectEqual(L10n.durationSoFar("12 minutes"), "for 12 minutes", "영어 카드 메타: 경과 시간")
+expectEqual(NotificationButton.acknowledge.title, "Dismiss", "영어 알림 스타일: 확인 제목")
+expectEqual(AttentionNotifier.titlePrefix, "Needs your attention", "영어 알림: 확인 필요 제목 접두어")
+expectEqual(DoneNotifier.titlePrefix, "Finished", "영어 알림: 끝남 제목 접두어")
+
+expectEqual(CardText.doneTrail(runDuration: 840, finishedAt: now, now: now), "Took 14 minutes",
+            "영어 카드 문구: 걸린 시간")
+expectEqual(CardText.doneTrail(runDuration: nil, finishedAt: now.addingTimeInterval(-660), now: now),
+            "11 minutes ago", "영어 카드 문구: 끝난 뒤 흐른 시간")
+expectEqual(CardText.doneMeta(title: "pulse-main", runDuration: 60), "pulse-main · Finished · took 1 minute",
+            "영어 카드 문구: 2행")
+expectEqual(CardText.doneMeta(title: "pulse-main", runDuration: nil), "pulse-main · Finished",
+            "영어 카드 문구: 2행, 걸린 시간 모름")
+expectEqual(CardText.awayTitle, "While you were away", "영어 자리 비움: 제목")
+expectEqual(CardText.awayHeadline(attention: 1, done: 0), "1 session is waiting", "영어 자리 비움: 한 세션 기다림")
+expectEqual(CardText.awayHeadline(attention: 2, done: 0), "2 sessions are waiting", "영어 자리 비움: 여러 세션 기다림")
+expectEqual(CardText.awayHeadline(attention: 2, done: 3), "2 sessions are waiting", "영어 자리 비움: 둘 다 있으면 막힘을 센다")
+expectEqual(CardText.awayHeadline(attention: 0, done: 3), "3 sessions finished", "영어 자리 비움: 끝남만 있으면 끝났다")
+expectEqual(CardText.awayDetail(attention: 2, done: 0), "Click to open the list", "영어 자리 비움: 막힘만 있으면 안내만")
+expectEqual(CardText.awayDetail(attention: 2, done: 3), "3 finished · click to open the list",
+            "영어 자리 비움: 끝남 수도 센다")
+expectEqual(CardText.awayMeta(attention: 2, done: 3), "While you were away · 3 finished · click to open the list",
+            "영어 자리 비움: 2행 메타")
+expectEqual(CardText.awayMeta(attention: 2, done: 0), "While you were away · Click to open the list",
+            "영어 자리 비움: 끝남이 없으면 안내만")
+
+expectEqual(LocalSessions.nowActionLabel(toolName: "Edit", input: ["file_path": "/a/b/App.swift"]),
+            "Edit file · App.swift", "영어 현재 동작: Edit")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Edit", input: [:]), "Edit file",
+            "영어 현재 동작: 파일 이름이 없으면 동작만")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Read", input: ["file_path": "/a/b/App.swift"]),
+            "Read file · App.swift", "영어 현재 동작: Read")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Grep", input: [:]), "Search", "영어 현재 동작: Grep")
+expectEqual(LocalSessions.nowActionLabel(toolName: "WebFetch", input: [:]), "Web fetch", "영어 현재 동작: WebFetch")
+expectEqual(localSession(status: "waiting", waitingFor: "permission prompt").message,
+            "Waiting for permission approval", "영어 상태 표: 권한 대기 문구")
+expectEqual(localSession(status: "waiting", waitingFor: "input needed").message,
+            "Waiting for your reply", "영어 상태 표: 입력 대기 문구")
+
+L10n.language = .ko
 
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

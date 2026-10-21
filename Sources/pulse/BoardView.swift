@@ -34,10 +34,10 @@ struct BoardView: View {
 
             if model.recentAcknowledgedCount > 0 {
                 HStack(spacing: 5) {
-                    Text("완료 \(model.recentAcknowledgedCount)개를 확인했어요 ·")
+                    Text("\(L10n.acknowledgedDone(model.recentAcknowledgedCount)) ·")
                         .font(.system(size: 11))
                         .foregroundColor(PopoverPalette.secondary)
-                    Button("되돌리기") { model.undoRecentAcknowledge() }
+                    Button(L10n.undo) { model.undoRecentAcknowledge() }
                         .font(.system(size: 11))
                         .buttonStyle(.borderless)
                 }
@@ -53,7 +53,7 @@ struct BoardView: View {
             }
 
             if model.sessionsUnavailable {
-                Text("Claude 세션을 읽지 못했어요")
+                Text(L10n.sessionsUnreadable)
                     .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
                     .padding(.horizontal, 14)
@@ -80,7 +80,7 @@ struct BoardView: View {
         // 팝오버 목록과 같은 이유로 LazyVStack 을 쓰지 않는다.
         VStack(alignment: .leading, spacing: 0) {
             if model.groups.totalCount == 0 {
-                Text(model.sessionsUnavailable ? "Claude 세션을 읽지 못했어요" : "지금은 조용해요")
+                Text(model.sessionsUnavailable ? L10n.sessionsUnreadable : L10n.allQuiet)
                     .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
                     .padding(.horizontal, 14)

@@ -26,18 +26,18 @@ struct PopoverFooter: View {
 
                 PopoverIconButton(
                     symbol: "sidebar.right",
-                    help: model.panelVisible ? "플로팅 창 숨기기" : "플로팅 창 보기"
+                    help: model.panelVisible ? L10n.hideFloatingWindow : L10n.showFloatingWindow
                 ) {
                     model.togglePanel()
                 }
                 PopoverIconButton(
                     symbol: "gearshape",
-                    help: "보기 설정 (⌘,)",
+                    help: L10n.viewSettingsShortcut,
                     selected: state.settingsOpen
                 ) {
                     state.settingsOpen.toggle()
                 }
-                PopoverIconButton(symbol: "power", help: "종료") {
+                PopoverIconButton(symbol: "power", help: L10n.quit) {
                     NSApp.terminate(nil)
                 }
             }
@@ -47,6 +47,6 @@ struct PopoverFooter: View {
     }
 
     private var updatedText: String {
-        TimePhrase.relative(from: model.lastSuccess, to: Date()).map { "\($0) 갱신" } ?? "갱신 전"
+        TimePhrase.relative(from: model.lastSuccess, to: Date()).map { L10n.updated($0) } ?? L10n.notUpdatedYet
     }
 }

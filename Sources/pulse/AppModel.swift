@@ -568,13 +568,13 @@ final class AppModel: ObservableObject {
 
     private func switchTerminal(_ handle: String) {
         OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
-            if !ok { self?.showError("터미널이 닫혔어요") }
+            if !ok { self?.showError(L10n.terminalClosed) }
         }
     }
 
     private func switchToCwd(_ cwd: String, name: String) {
         OrcaLauncher.switchToCwd(cwd, name: name) { [weak self] ok in
-            if !ok { self?.showError("Orca 에 이 세션의 터미널이 없어요") }
+            if !ok { self?.showError(L10n.noOrcaTerminal) }
         }
     }
 

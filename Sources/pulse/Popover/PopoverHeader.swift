@@ -19,12 +19,12 @@ struct PopoverHeader: View {
                 Spacer(minLength: 4)
                 PopoverIconButton(
                     symbol: model.collapsed ? "chevron.down" : "chevron.up",
-                    help: model.collapsed ? "펼치기" : "접기",
+                    help: model.collapsed ? L10n.expand : L10n.collapse,
                     symbolSize: 12
                 ) {
                     model.collapsed.toggle()
                 }
-                PopoverIconButton(symbol: "xmark", help: "닫기", symbolSize: 12, action: onClose)
+                PopoverIconButton(symbol: "xmark", help: L10n.close, symbolSize: 12, action: onClose)
             }
             .padding(.top, 12)
             .padding(.leading, 14)

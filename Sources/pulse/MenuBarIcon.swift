@@ -96,7 +96,7 @@ enum MenuBarIcon {
     static func title(counts: GroupedSessions.Counts, unavailable: Bool) -> NSAttributedString {
         if unavailable {
             return NSAttributedString(
-                string: "읽기 실패",
+                string: L10n.readFailed,
                 attributes: [
                     .font: NSFont.systemFont(ofSize: 11, weight: .medium),
                     .foregroundColor: NSColor.tertiaryLabelColor,
