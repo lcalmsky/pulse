@@ -1,11 +1,16 @@
+import Darwin
 import Foundation
+import PulseCore
 
 /// deadhd 진행 페이지를 여는 주소. `open.sh` 와 같은 규칙으로 로컬 서버를 먼저 확인한다.
 enum DeadhdPage {
     static func url(
         for path: String,
         environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> URL {
+    ) -> URL? {
+        guard resolvesUnderTemporaryDirectory(path, rule: DeadhdState.pagePath),
+              isOwnedRegularFile(path)
+        else { return nil }
         let fileURL = URL(fileURLWithPath: path)
         guard let script = scriptURL(environment: environment) else { return fileURL }
         guard run([script.path, "--ensure"]) != nil,
@@ -27,8 +32,11 @@ enum DeadhdPage {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
         let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: path) { return true }
-        guard let dataPath, fileManager.fileExists(atPath: dataPath),
+        guard resolvesUnderTemporaryDirectory(path, rule: DeadhdState.pagePath) else { return false }
+        if fileManager.fileExists(atPath: path) { return isOwnedRegularFile(path) }
+        guard let dataPath,
+              resolvesUnderTemporaryDirectory(dataPath, rule: DeadhdState.dataPath),
+              isOwnedRegularFile(dataPath),
               let script = skillURL("render.py", environment: environment)
         else { return false }
         // render.py 는 이 변수로 세션 상태 파일을 고르므로, 남아 있으면 다른 세션의 상태를 덮어쓴다.
@@ -36,7 +44,36 @@ enum DeadhdPage {
             [script.path, "--page", dataPath, path],
             environment: environment.filter { $0.key != "CLAUDE_CODE_SESSION_ID" }
         )
-        return fileManager.fileExists(atPath: path)
+        return isOwnedRegularFile(path)
+    }
+
+    /// `attributesOfItem` 은 lstat 의미라 심볼릭 링크를 따라가지 않는다.
+    private static func isOwnedRegularFile(_ path: String) -> Bool {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+              attributes[.type] as? FileAttributeType == .typeRegular,
+              let owner = attributes[.ownerAccountID] as? NSNumber
+        else { return false }
+        return owner.uint32Value == getuid()
+    }
+
+    /// 가장 가까운 실제 조상까지 `realpath` 로 풀어, 하위 경로가 링크를 거쳐 /tmp 밖으로 나가는지 본다.
+    /// 대상 없는 링크도 존재로 보고 멈춘다.
+    private static func resolvesUnderTemporaryDirectory(
+        _ path: String,
+        rule: (String?) -> String?
+    ) -> Bool {
+        var existing = path
+        var remainder: [String] = []
+        while (try? FileManager.default.attributesOfItem(atPath: existing)) == nil {
+            let parent = (existing as NSString).deletingLastPathComponent
+            guard parent != existing else { return false }
+            remainder.insert((existing as NSString).lastPathComponent, at: 0)
+            existing = parent
+        }
+        guard let resolved = realpath(existing, nil) else { return false }
+        defer { free(resolved) }
+        let rebuilt = remainder.reduce(String(cString: resolved)) { $0 + "/" + $1 }
+        return rule(rebuilt) != nil
     }
 
     private static func scriptURL(environment: [String: String]) -> URL? {

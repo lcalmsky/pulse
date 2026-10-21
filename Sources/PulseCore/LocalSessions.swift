@@ -125,7 +125,9 @@ public enum LocalSessions {
         guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return nil
         }
-        guard let sessionId = nonEmpty(object["sessionId"] as? String) else { return nil }
+        guard let sessionId = nonEmpty(object["sessionId"] as? String),
+              DeadhdState.isValidSessionId(sessionId)
+        else { return nil }
         guard let pid = integer(object["pid"]), pid > 0 else { return nil }
         return LocalSessionRecord(
             pid: pid,
@@ -244,6 +246,7 @@ public enum LocalSessions {
                 )
             case "pr-link":
                 if let url = nonEmpty(object["prUrl"] as? String),
+                   SafeLink.httpURL(url) != nil,
                    let number = prNumber(object["prNumber"]), number > 0 {
                     pullRequest = PullRequestLink(number: number, url: url)
                 }

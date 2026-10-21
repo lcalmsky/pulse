@@ -39,6 +39,8 @@ final class AppModel: ObservableObject {
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
 
+    private static let checklistFileLimit = 1024 * 1024
+
     private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "notify")
     private static let pageLogger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "page")
 
@@ -410,7 +412,10 @@ final class AppModel: ObservableObject {
                 Self.pageLogger.error("진행 페이지를 만들지 못해 열지 않았다: \(path, privacy: .public)")
                 return
             }
-            let url = DeadhdPage.url(for: path)
+            guard let url = DeadhdPage.url(for: path) else {
+                Self.pageLogger.error("진행 페이지를 열 주소를 만들지 못해 열지 않았다: \(path, privacy: .public)")
+                return
+            }
             DispatchQueue.main.async {
                 NSWorkspace.shared.open(url)
             }
@@ -439,7 +444,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// 파일 하나가 수 KB 라 메인 스레드에서 동기로 읽는다.
+    /// 파일 상한이 1MB 라 메인 스레드에서 동기로 읽는다.
     private func loadChecklist(_ item: DisplayItem) {
         guard let path = item.dataPath else {
             checklists[item.sessionId] = ChecklistSnapshot(steps: nil, modifiedAt: nil)
@@ -451,8 +456,11 @@ final class AppModel: ObservableObject {
         if let modifiedAt, let existing = checklists[item.sessionId], existing.modifiedAt == modifiedAt {
             return
         }
+        let attributes = try? FileManager.default.attributesOfItem(atPath: path)
+        let readable = (attributes?[.type] as? FileAttributeType) == .typeRegular
+            && ((attributes?[.size] as? NSNumber)?.intValue ?? Int.max) <= Self.checklistFileLimit
         checklists[item.sessionId] = ChecklistSnapshot(
-            steps: (try? Data(contentsOf: url)).flatMap { Checklist.parse($0) },
+            steps: readable ? (try? Data(contentsOf: url)).flatMap { Checklist.parse($0) } : nil,
             modifiedAt: modifiedAt
         )
     }
@@ -469,7 +477,7 @@ final class AppModel: ObservableObject {
     }
 
     func openLink(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
+        guard let url = SafeLink.httpURL(urlString) else { return }
         NSWorkspace.shared.open(url)
     }
 

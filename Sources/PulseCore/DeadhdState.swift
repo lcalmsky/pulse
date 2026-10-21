@@ -99,14 +99,14 @@ public struct DeadhdState: Equatable {
             states: states,
             nowLabel: string(summary?["nowLabel"]),
             key: string(summary?["key"]),
-            keyHref: string(summary?["keyHref"]),
+            keyHref: string(summary?["keyHref"]).flatMap { SafeLink.httpURL($0) == nil ? nil : $0 },
             pr: pullRequest(summary?["pr"]),
             dataAt: TimestampParser.parse(string(summary?["dataAt"])),
             eta: TimestampParser.parse(string(summary?["etaCalibrated"]))
                 ?? TimestampParser.parse(string(summary?["eta"])),
             isOff: offAt != nil,
-            pagePath: absolutePath(object["out"]),
-            dataPath: absolutePath(object["data"]),
+            pagePath: pagePath(string(object["out"])),
+            dataPath: dataPath(string(object["data"])),
             hasBackgroundTasks: object["backgroundTasks"] is [Any],
             backgroundTasks: tasksObject.map {
                 BackgroundTask(
@@ -147,7 +147,7 @@ public struct DeadhdState: Equatable {
     private static func pullRequest(_ value: Any?) -> PullRequestLink? {
         guard let object = value as? [String: Any],
               let url = string(object["href"]),
-              url.hasPrefix("http://") || url.hasPrefix("https://")
+              SafeLink.httpURL(url) != nil
         else { return nil }
         let label = string(object["text"])
         let number = trailingNumber(label) ?? trailingNumber(url)
@@ -160,9 +160,22 @@ public struct DeadhdState: Equatable {
         return digits.isEmpty ? nil : Int(String(digits))
     }
 
-    private static func absolutePath(_ value: Any?) -> String? {
+    public static func pagePath(_ value: String?) -> String? {
+        temporaryFilePath(value, suffix: ".html")
+    }
+
+    public static func dataPath(_ value: String?) -> String? {
+        temporaryFilePath(value, suffix: ".json")
+    }
+
+    // 허용 접두사가 /tmp 둘뿐인 이유: 실측한 상태 파일 23건이 전부 /tmp 아래였다.
+    private static func temporaryFilePath(_ value: Any?, suffix: String) -> String? {
         guard let path = string(value), path.hasPrefix("/") else { return nil }
-        return path
+        let standardized = URL(fileURLWithPath: path).standardized.path
+        guard standardized.hasPrefix("/tmp/") || standardized.hasPrefix("/private/tmp/"),
+              standardized.hasSuffix(suffix)
+        else { return nil }
+        return standardized
     }
 
     private static func string(_ value: Any?) -> String? {

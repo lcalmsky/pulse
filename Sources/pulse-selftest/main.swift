@@ -2521,5 +2521,60 @@ expectEqual(CardText.doneMeta(title: "pulse-main", runDuration: nil), "pulse-mai
 expectEqual(CardText.doneSummary(summary: "요약", status: "끝났어요"), "요약", "카드 문구: 요약 먼저")
 expectEqual(CardText.doneSummary(summary: "  ", status: "끝났어요"), "끝났어요", "카드 문구: 요약이 비면 상태")
 
+// MARK: - 입력 경계
+
+expectEqual(DeadhdState.pagePath("/tmp/deadhd-x.html"), "/tmp/deadhd-x.html", "경로: /tmp 아래 html")
+expectEqual(DeadhdState.pagePath("/private/tmp/claude-501/a/b/scratchpad/x.html"),
+            "/private/tmp/claude-501/a/b/scratchpad/x.html", "경로: /private/tmp 아래 html")
+expectEqual(DeadhdState.dataPath("/tmp/deadhd-x.json"), "/tmp/deadhd-x.json", "경로: /tmp 아래 json")
+expectEqual(DeadhdState.pagePath("/tmp/a/../x.html"), "/tmp/x.html", "경로: .. 를 접어 돌려준다")
+expectEqual(DeadhdState.pagePath("/etc/x.html"), nil, "경로: /tmp 밖 거부")
+expectEqual(DeadhdState.pagePath("/tmp/../Users/alex/x.html"), nil, "경로: .. 로 /tmp 밖으로 나가면 거부")
+expectEqual(DeadhdState.pagePath("/tmp/x.txt"), nil, "경로: html 이 아니면 거부")
+expectEqual(DeadhdState.pagePath("relative/x.html"), nil, "경로: 상대 경로 거부")
+expectEqual(DeadhdState.pagePath("/tmpfoo/x.html"), nil, "경로: 접두사 유사 경로 거부")
+expectEqual(DeadhdState.dataPath("/tmp/x.html"), nil, "경로: dataPath 는 json 만 받는다")
+expectEqual(DeadhdState.pagePath(nil), nil, "경로: 값이 없으면 nil")
+
+let untrustedOutState = DeadhdState.parse(Data(
+    #"{"sessionId":"s","out":"/Users/alex/x.html","data":"/tmp/x.json"}"#.utf8
+))
+expect(untrustedOutState != nil, "상태: 밖을 가리키는 out 이 있어도 상태는 읽는다")
+expectEqual(untrustedOutState?.pagePath, nil, "상태: /tmp 밖 out 은 버린다")
+expectEqual(untrustedOutState?.dataPath, "/tmp/x.json", "상태: 허용된 data 는 남긴다")
+
+expect(SafeLink.httpURL("https://github.com/a/b/pull/1") != nil, "링크: https 통과")
+expect(SafeLink.httpURL("http://example.com") != nil, "링크: http 통과")
+expectEqual(SafeLink.httpURL("file:///etc/passwd"), nil, "링크: file 스킴 거부")
+expectEqual(SafeLink.httpURL("javascript:alert(1)"), nil, "링크: javascript 스킴 거부")
+expectEqual(SafeLink.httpURL("x-apple.systempreferences:com.apple.Notifications-Settings.extension"), nil,
+            "링크: 설정 스킴 거부")
+expectEqual(SafeLink.httpURL("http:"), nil, "링크: 호스트 없는 http 거부")
+expectEqual(SafeLink.httpURL("http:///path"), nil, "링크: 빈 호스트 거부")
+expectEqual(SafeLink.httpURL("ftp://example.com"), nil, "링크: ftp 거부")
+
+let untrustedLinkState = DeadhdState.parse(Data(
+    ##"{"sessionId":"s","summary":{"key":"ABC-1","keyHref":"file:///etc/passwd","pr":{"text":"#1","href":"javascript:alert(1)"}}}"##.utf8
+))
+expectEqual(untrustedLinkState?.keyHref, nil, "상태: file 스킴 keyHref 를 버린다")
+expectEqual(untrustedLinkState?.pr, nil, "상태: javascript 스킴 PR 을 버린다")
+
+expectEqual(LocalSessions.parseRecord(Data(#"{"sessionId":"../x","pid":2}"#.utf8)), nil,
+            "세션 파일: 상위 경로를 가리키는 ID 거부")
+expectEqual(
+    LocalSessions.parseRecord(Data(#"{"sessionId":"c6c3102d-84cd-4ac5-bc38-b4363ee03304","pid":2}"#.utf8))?.sessionId,
+    "c6c3102d-84cd-4ac5-bc38-b4363ee03304",
+    "세션 파일: UUID 형태 통과"
+)
+
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(
+        Data(#"{"type":"pr-link","prNumber":1,"prUrl":"file:///etc/passwd"}"#.utf8),
+        droppingPartialFirstLine: false
+    ).pullRequest,
+    nil,
+    "PR: http 가 아닌 주소는 버린다"
+)
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

@@ -61,7 +61,11 @@ final class LocalSessionSource {
     private func deadhdState(for record: LocalSessionRecord) -> DeadhdState? {
         guard DeadhdState.isValidSessionId(record.sessionId) else { return nil }
         let url = stateDirectory.appendingPathComponent(record.sessionId + ".json")
-        guard let data = try? Data(contentsOf: url), data.count <= Self.stateFileLimit else {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              attributes[.type] as? FileAttributeType == .typeRegular,
+              ((attributes[.size] as? NSNumber)?.intValue ?? Int.max) <= Self.stateFileLimit,
+              let data = try? Data(contentsOf: url)
+        else {
             return nil
         }
         guard var state = DeadhdState.parse(data, expectedSessionId: record.sessionId) else {
