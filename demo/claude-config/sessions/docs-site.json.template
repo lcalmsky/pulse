@@ -1,0 +1,11 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/docs-site",
+  "name": "docs-site",
+  "entrypoint": "cli",
+  "status": "idle",
+  "startedAt": __MS_M4__,
+  "updatedAt": __MS_M2__,
+  "statusUpdatedAt": __MS_M2__
+}

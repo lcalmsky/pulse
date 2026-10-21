@@ -1,0 +1,12 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/search-service",
+  "name": "search-service",
+  "entrypoint": "cli",
+  "status": "waiting",
+  "waitingFor": "input",
+  "startedAt": __MS_M5__,
+  "updatedAt": __MS_M1__,
+  "statusUpdatedAt": __MS_M1__
+}

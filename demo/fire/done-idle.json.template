@@ -1,0 +1,11 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/release-tool",
+  "name": "release-tool",
+  "entrypoint": "cli",
+  "status": "idle",
+  "startedAt": __MS_M1__,
+  "updatedAt": __MS_NOW__,
+  "statusUpdatedAt": __MS_NOW__
+}

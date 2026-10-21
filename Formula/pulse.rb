@@ -1,6 +1,8 @@
 class Pulse < Formula
-  desc "macOS 메뉴 막대에서 Claude Code 세션 진행 상황을 보여 주는 앱"
+  desc "Menu bar app that shows Claude Code session progress"
   homepage "https://github.com/lcalmsky/pulse"
+  url "https://github.com/lcalmsky/pulse/archive/refs/tags/v0.1.0.tar.gz"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   head "https://github.com/lcalmsky/pulse.git", branch: "main"
 
   depends_on :macos

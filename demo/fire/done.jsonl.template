@@ -1,0 +1,1 @@
+{"type":"assistant","timestamp":"__ISO_NOW__","message":{"content":[{"type":"text","text":"릴리스 노트를 정리하고 태그를 붙였습니다."},{"type":"tool_use","id":"toolu_demo_release_1","name":"Read","input":{"file_path":"CHANGELOG.md"}}]}}

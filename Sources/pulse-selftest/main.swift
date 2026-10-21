@@ -2952,5 +2952,6 @@ expectEqual(
     "PR: http 가 아닌 주소는 버린다"
 )
 
+runDemoFixtureChecks()
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

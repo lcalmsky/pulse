@@ -1,0 +1,13 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "api-server",
+    "lang": "ko",
+    "counts": {"done": 3, "left": 2, "now": 1, "blocked": 0},
+    "total": 6,
+    "states": ["done", "done", "done", "now", "left", "left"],
+    "nowLabel": "통합 테스트 작성",
+    "renderedAt": "__ISO_NOW__",
+    "dataAt": "__ISO_NOW__"
+  }
+}

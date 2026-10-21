@@ -1,0 +1,11 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/billing-worker",
+  "name": "billing-worker",
+  "entrypoint": "cli",
+  "status": "idle",
+  "startedAt": __MS_M12__,
+  "updatedAt": __MS_M5__,
+  "statusUpdatedAt": __MS_M5__
+}
