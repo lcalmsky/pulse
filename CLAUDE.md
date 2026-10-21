@@ -1,5 +1,46 @@
 # pulse 저장소 규칙
 
+## 변경을 마무리하기 전 확인 순서
+
+어떤 작업이든 main 에 올리기 전에 README, 예시 그림, 릴리즈를 이 순서로 확인한다. `scripts/release.sh` 는 README 와 그림이 갱신됐는지 검사하지 않으므로 이 절차가 유일한 확인 단계다.
+
+1. 코드 변경을 커밋한다. 아직 푸시하지 않는다.
+2. 바뀐 동작을 아래 「README 대조표」에서 찾아 해당 절을 고친다. 맞는 절이 없는 새 기능이면 절을 추가한다.
+3. 바뀐 파일을 아래 「그림 대조표」에서 찾아 해당 그림을 다시 찍는다. 화면에 보이는 새 기능이면 `demo/` 데이터와 `scripts/demo.sh` 를 고쳐 그 기능이 그림에 드러나게 하고, `Sources/pulse-selftest/DemoFixtureChecks.swift` 의 데모 검사도 맞춘다. 그림을 추가하거나 지우면 `docs/images/README.md` 목록을 고친다.
+4. README 와 그림을 `docs:` 로 커밋한다.
+5. `feat` 나 `fix` 가 있으면 마지막에 `scripts/release.sh` 를 실행한다. 스크립트는 워킹트리가 깨끗해야 돌고 직접 푸시하므로, 이 순서를 지켜야 코드·README·그림·릴리즈가 한 푸시에 들어간다. 릴리즈 대상이 아니면 여기서 푸시한다.
+
+작업을 보고할 때는 README, 그림, 릴리즈 세 항목마다 한 일 또는 하지 않은 이유를 한 줄씩 적는다.
+
+### README 대조표
+
+| 바뀐 것 | 고칠 README 절 |
+|---|---|
+| 메뉴 막대 아이콘 | 기능 › 메뉴 막대 아이콘 |
+| 팝오버의 행·배너·토스트·머리글·바닥글 | 기능 › 팝오버 |
+| 플로팅 패널 | 기능 › 플로팅 패널 |
+| 알림 카드와 카드 버튼 | 기능 › 알림 카드, 사용법 › 카드 동작 |
+| 설정 항목과 설정 키 | 기능 › 설정 |
+| 단축키 | 사용법 › 키보드 |
+| 세션을 여는 방법 | 사용법 › 세션 열기 |
+| 세션 파일 해석, 상태 판정, 알림 경로 | 동작 방식 |
+| deadhd 연동 | deadhd 와 함께 쓰기 |
+| 설치 방법, 필요 조건, 빌드·릴리즈 스크립트 | 설치, 개발 |
+
+### 그림 대조표
+
+| 바뀐 파일 | 다시 찍을 그림 |
+|---|---|
+| `MenuBarIcon.swift`, `StatusItemController.swift` | `menubar.png` |
+| `Popover/SessionRowView.swift` | `popover.png`, `deadhd-steps.png`, `panel.png` |
+| `Popover/` 의 나머지 파일(`SettingsSheet.swift`, `PopoverStyle.swift` 제외) | `popover.png`, `deadhd-steps.png` |
+| `BoardView.swift`, `FloatingPanelController.swift` | `panel.png` |
+| `CardPanelView.swift` | `card-done.png`, `card-attention.png`, `card-stack.png` |
+| `Popover/SettingsSheet.swift` | `settings.png` |
+| `DeadhdPage.swift` | `deadhd-steps.png` |
+| `Popover/PopoverStyle.swift`, 화면에 나오는 PulseCore 문구 | 모두 |
+| 어느 그림에 영향이 있는지 판단이 서지 않을 때 | 모두 |
+
 ## 기능이 바뀌면 반드시 릴리즈한다
 
 앱 동작이 바뀌는 변경(`feat`, `fix`)을 main 에 올릴 때는 같은 푸시에서 릴리즈까지 한다. README, 예시 그림, 데모 데이터만 바뀐 경우는 릴리즈하지 않는다.
@@ -51,18 +92,7 @@ scripts/bundle.sh && open build/Pulse.app   # 번들
 
 ## 예시 그림
 
-README 가 쓰는 그림은 `docs/images/` 아래에 있다.
-
-- `menubar.png` 메뉴 막대 아이콘
-- `popover.png` 팝오버
-- `panel.png` 플로팅 패널
-- `card-done.png` 끝남 카드
-- `card-attention.png` 확인 필요 카드
-- `card-stack.png` 여러 장 카드
-- `settings.png` 설정 시트
-- `deadhd-steps.png` deadhd 단계 펼침
-
-화면이 바뀌는 변경을 했으면 같은 푸시에서 그림을 다시 찍는다.
+README 가 쓰는 그림은 `docs/images/` 아래에 있고, 목록의 정본은 `docs/images/README.md` 다. 어떤 변경에 어떤 그림을 다시 찍는지는 위 「그림 대조표」를 따른다.
 
 ```bash
 scripts/demo.sh start           # 데모 세션 5개를 띄운다. 팝오버·단계 펼침·설정·카드 그림용
