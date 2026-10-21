@@ -49,8 +49,9 @@ struct PopoverView: View {
 
     private var list: some View {
         ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                LazyVStack(alignment: .leading, spacing: 0) {
+            SlimScrollView {
+                // LazyVStack 은 행 높이 추정과 스크롤 위치 보정이 맞물려 배치를 끝없이 되풀이한 적이 있다. 행 수가 적어 전부 그린다.
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sections.enumerated()), id: \.element.group.rawValue) { index, section in
                         Section {
                             ForEach(section.items, id: \.rowID) { item in

@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // AppKit 기본 툴팁 지연(약 1초)은 아이콘 버튼에 너무 길다. 밀리초 단위이고 툴팁이 만들어지기 전에 등록해야 한다.
+        UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 500])
         applyTheme(model.theme)
         model.$theme
             .sink { [weak self] theme in self?.applyTheme(theme) }

@@ -10,6 +10,7 @@ struct SessionRowView: View {
     let optionDown: Bool
 
     @State private var hovering = false
+    @State private var stepHovering = false
 
     private var compact: Bool { model.density == .compact }
     private var highlighted: Bool { hovering || selected }
@@ -174,7 +175,6 @@ struct SessionRowView: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(selected ? PopoverPalette.selection : Color.clear, lineWidth: 1.5)
         )
-        .modifier(ReplyHelp(reply: item.replyTail))
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture {
             guard item.isActionable else { return }
@@ -224,10 +224,17 @@ struct SessionRowView: View {
                 Button {
                     model.toggleSteps(item)
                 } label: {
+                    // plain 스타일은 그려진 획만 클릭되므로 줄 전체를 클릭 영역으로 잡는다.
                     stepperContent(segments)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(stepHovering ? PopoverPalette.rowHover : Color.clear)
+                                .padding(.leading, 9)
+                        )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .contentShape(Rectangle())
+                .onHover { stepHovering = $0 }
                 .help(expanded ? "단계 접기" : "단계 펼치기")
             } else {
                 stepperContent(segments)
@@ -263,9 +270,11 @@ struct SessionRowView: View {
             if item.dataPath != nil {
                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(expanded ? PopoverPalette.text : PopoverPalette.secondary)
+                    .foregroundColor(expanded || stepHovering ? PopoverPalette.text : PopoverPalette.secondary)
+                    .frame(width: 22, height: 22)
             }
         }
+        .frame(minHeight: 22)
         .padding(.leading, 15)
         .opacity(item.progressStale ? 0.45 : 1)
     }
@@ -298,6 +307,7 @@ struct SessionRowView: View {
                 .foregroundColor(PopoverPalette.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .modifier(ReplyHelp(reply: item.replyTail))
                 .padding(.leading, 15)
         }
     }
@@ -673,20 +683,6 @@ private struct StepPanel: View {
                 .foregroundColor(PopoverPalette.tertiary)
                 .lineLimit(1)
             Spacer(minLength: 0)
-            if item.pagePath != nil {
-                Button {
-                    model.openPageInBrowser(item)
-                } label: {
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 11))
-                        .foregroundColor(PopoverPalette.text)
-                        .frame(width: 22, height: 22)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(PopoverPalette.rowHover))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("브라우저에서 진행 페이지 열기")
-            }
         }
         .frame(height: 28)
         .padding(.top, 2)
@@ -726,7 +722,7 @@ private struct MetaLink: View {
     }
 }
 
-/// 확인 필요가 아닌 행의 마지막 답은 호버 툴팁으로 보여 준다.
+/// 마지막 답 전문을 호버 툴팁으로 보여 준다. 진행 행은 스크롤 중에 툴팁이 계속 뜨지 않도록 답 요약 줄에만 붙인다.
 private struct ReplyHelp: ViewModifier {
     let reply: String?
 

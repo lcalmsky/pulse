@@ -11,7 +11,7 @@ struct BoardView: View {
     var body: some View {
         Group {
             if naturalHeight > maximumHeight {
-                ScrollView(.vertical) {
+                SlimScrollView {
                     board
                 }
                 .frame(height: maximumHeight)
@@ -77,7 +77,8 @@ struct BoardView: View {
     }
 
     private var content: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // 팝오버 목록과 같은 이유로 LazyVStack 을 쓰지 않는다.
+        VStack(alignment: .leading, spacing: 0) {
             if model.groups.totalCount == 0 {
                 Text(model.sessionsUnavailable ? "Claude 세션을 읽지 못했어요" : "지금은 조용해요")
                     .font(.system(size: 11))
