@@ -1,0 +1,10 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "Review queue layout", "state": "done", "sub": "Done", "doneAt": "__ISO_M22__"},
+    {"label": "Split queue consumers", "state": "now", "sub": "DeepSeek"},
+    {"label": "Retry cleanup", "state": "left", "sub": "SQS"},
+    {"label": "Load test", "state": "left", "sub": "100 req/s"},
+    {"label": "Deploy", "state": "left", "sub": "Staging"}
+  ]
+}

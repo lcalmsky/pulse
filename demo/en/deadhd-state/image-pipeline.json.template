@@ -1,0 +1,14 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "Split thumbnail generation queue",
+    "lang": "en",
+    "counts": {"done": 1, "left": 3, "now": 1, "blocked": 0},
+    "total": 5,
+    "states": ["done", "now", "left", "left", "left"],
+    "nowLabel": "Split queue consumers",
+    "renderedAt": "__ISO_NOW__",
+    "dataAt": "__ISO_NOW__"
+  },
+  "data": "__DATA_DIR__/image-pipeline.json"
+}

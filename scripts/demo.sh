@@ -12,13 +12,17 @@ keepers_file="$run_dir/.demo-keepers"
 data_dir="/tmp/pulse-demo"
 bundle="$root/build/Pulse.app"
 app_bin="$bundle/Contents/MacOS/pulse"
+lang=""
+locale_root="$demo_root"
 
 usage() {
     cat <<'TEXT'
 사용법:
-  scripts/demo.sh start [--dry-run] [--replace] [--many]
+  scripts/demo.sh start [--dry-run] [--replace] [--many] [--lang ko|en]
                                                   실행용 사본을 만들고 데모 Pulse 를 띄운다
-  scripts/demo.sh render [--many] <디렉터리>      템플릿을 현재 시각으로 전개한다
+                                                  --lang en 은 영어 데이터와 PULSE_LANG=en 을 쓴다
+  scripts/demo.sh render [--many] [--lang ko|en] <디렉터리>
+                                                  템플릿을 현재 시각으로 전개한다
                                                   --many 는 세션 15개짜리 묶음(플로팅 패널용)을 쓴다
   scripts/demo.sh fire done                       새 「끝남」 세션으로 끝남 카드를 띄운다
   scripts/demo.sh fire attention                  새 「확인 필요」 세션으로 카드를 띄운다
@@ -28,6 +32,51 @@ usage() {
 데모 Pulse 는 실제 Pulse 와 같은 설정 저장소를 쓴다. 확인(ack) 기록이 섞일 수 있으니
 그림을 다 찍으면 stop 으로 끈다.
 TEXT
+}
+
+parse_args() {
+    many=0 dry_run=0 replace=0 render_dir=""
+    while (( $# > 0 )); do
+        case "$1" in
+            --dry-run) dry_run=1; shift ;;
+            --replace) replace=1; shift ;;
+            --many) many=1; shift ;;
+            --lang)
+                [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+                lang="$2"
+                shift 2
+                ;;
+            --lang=*) lang="${1#--lang=}"; shift ;;
+            -*) echo "알 수 없는 인자입니다 · $1" >&2; usage >&2; exit 2 ;;
+            *)
+                [[ -z "$render_dir" ]] || { usage >&2; exit 2; }
+                render_dir="$1"
+                shift
+                ;;
+        esac
+    done
+    case "$lang" in
+        "") locale_root="$demo_root" ;;
+        ko) locale_root="$demo_root" ;;
+        en) locale_root="$demo_root/en" ;;
+        *) echo "알 수 없는 언어입니다 · $lang" >&2; usage >&2; exit 2 ;;
+    esac
+}
+
+# 언어별 템플릿은 --lang en 이면 demo/en 아래에서만 찾는다. 한국어판에 있는데 영어판이 없으면
+# 조용히 한국어로 되돌아가지 않고 실패한다.
+require_localized() {
+    local relative="$1"
+    if [[ -f "$locale_root/$relative" ]]; then
+        echo "$locale_root/$relative"
+        return 0
+    fi
+    if [[ "$lang" == "en" && -f "$demo_root/$relative" ]]; then
+        echo "영어판 템플릿이 없습니다 · demo/en/$relative" >&2
+        return 1
+    fi
+    echo "템플릿이 없습니다 · $relative" >&2
+    return 1
 }
 
 iso_at() {
@@ -90,7 +139,7 @@ render_into() {
     local keepers="$out/.demo-keepers"
     : > "$keepers"
 
-    local now key sid slug pid index=0
+    local now key sid slug pid index=0 template
     local pids=()
     if [[ -n "${DEMO_PIDS:-}" ]]; then
         IFS=',' read -r -a pids <<< "$DEMO_PIDS"
@@ -109,14 +158,18 @@ render_into() {
         render_file "$demo_root/claude-config/sessions/$key.json.template" \
             "$out/sessions/$pid.json" "$pid" "$sid" "$now"
         mkdir -p "$out/projects/$slug"
-        render_file "$demo_root/claude-config/projects/$slug/transcript.jsonl.template" \
+        template="$(require_localized "claude-config/projects/$slug/transcript.jsonl.template")" || return 1
+        render_file "$template" \
             "$out/projects/$slug/$sid.jsonl" "$pid" "$sid" "$now"
-        if [[ -f "$demo_root/deadhd-state/$key.json.template" ]]; then
-            render_file "$demo_root/deadhd-state/$key.json.template" \
+        # deadhd 파일은 원본에도 없는 세션이 있어, 두 언어판 모두 없을 때만 건너뛴다.
+        if [[ -f "$demo_root/deadhd-state/$key.json.template" || -f "$locale_root/deadhd-state/$key.json.template" ]]; then
+            template="$(require_localized "deadhd-state/$key.json.template")" || return 1
+            render_file "$template" \
                 "$out/deadhd-state/$sid.json" "$pid" "$sid" "$now"
         fi
-        if [[ -f "$demo_root/deadhd-data/$key.json.template" ]]; then
-            render_file "$demo_root/deadhd-data/$key.json.template" \
+        if [[ -f "$demo_root/deadhd-data/$key.json.template" || -f "$locale_root/deadhd-data/$key.json.template" ]]; then
+            template="$(require_localized "deadhd-data/$key.json.template")" || return 1
+            render_file "$template" \
                 "$data_dir/$key.json" "$pid" "$sid" "$now"
         fi
         index=$((index + 1))
@@ -124,18 +177,13 @@ render_into() {
 }
 
 start() {
-    local dry_run=0 replace=0 many=0 arg
-    for arg in "$@"; do
-        case "$arg" in
-            --dry-run) dry_run=1 ;;
-            --replace) replace=1 ;;
-            --many) many=1 ;;
-            *) usage; exit 2 ;;
-        esac
-    done
+    parse_args "$@"
+    [[ -z "$render_dir" ]] || { usage >&2; exit 2; }
 
     if (( dry_run )); then
-        echo "CLAUDE_CONFIG_DIR=\"$run_dir\" DEADHD_STATE_DIR=\"$state_dir\" \"$app_bin\" &"
+        local lang_env=""
+        [[ -n "$lang" ]] && lang_env="PULSE_LANG=$lang "
+        echo "${lang_env}CLAUDE_CONFIG_DIR=\"$run_dir\" DEADHD_STATE_DIR=\"$state_dir\" \"$app_bin\" &"
         return 0
     fi
 
@@ -160,9 +208,11 @@ start() {
     local sessions="$demo_root/sessions.tsv"
     (( many )) && sessions="$demo_root/sessions-many.tsv"
     render_into "$run_dir" "$sessions"
-    CLAUDE_CONFIG_DIR="$run_dir" DEADHD_STATE_DIR="$state_dir" "$app_bin" &
+    # fire 가 start 가 고른 언어를 따르도록 남긴다.
+    echo "${lang:-ko}" > "$run_dir/lang"
+    env ${lang:+PULSE_LANG="$lang"} CLAUDE_CONFIG_DIR="$run_dir" DEADHD_STATE_DIR="$state_dir" "$app_bin" &
     echo "$!" > "$pid_file"
-    echo "데모 Pulse 시작 · CLAUDE_CONFIG_DIR=$run_dir"
+    echo "데모 Pulse 시작 · CLAUDE_CONFIG_DIR=$run_dir · 언어=${lang:-ko}"
 }
 
 fire_attention() {
@@ -173,7 +223,9 @@ fire_attention() {
     render_file "$demo_root/fire/attention.json.template" \
         "$run_dir/sessions/$pid.json" "$pid" "$sid" "$now"
     mkdir -p "$run_dir/projects/$slug"
-    render_file "$demo_root/fire/attention.jsonl.template" \
+    local template
+    template="$(require_localized "fire/attention.jsonl.template")" || exit 1
+    render_file "$template" \
         "$run_dir/projects/$slug/$sid.jsonl" "$pid" "$sid" "$now"
     echo "확인 필요 세션 추가 · search-service"
 }
@@ -184,7 +236,9 @@ fire_done() {
     spawn_keeper "$keepers_file"
     pid="$!"
     mkdir -p "$run_dir/projects/$slug"
-    render_file "$demo_root/fire/done.jsonl.template" \
+    local template
+    template="$(require_localized "fire/done.jsonl.template")" || exit 1
+    render_file "$template" \
         "$run_dir/projects/$slug/$sid.jsonl" "$pid" "$sid" "$now"
     render_file "$demo_root/fire/done-working.json.template" \
         "$run_dir/sessions/$pid.json" "$pid" "$sid" "$now"
@@ -201,6 +255,11 @@ fire() {
         echo "fire: 먼저 scripts/demo.sh start 를 실행하세요" >&2
         exit 1
     fi
+    lang="$(cat "$run_dir/lang" 2>/dev/null || true)"
+    case "$lang" in
+        en) locale_root="$demo_root/en" ;;
+        *) lang="ko"; locale_root="$demo_root" ;;
+    esac
     local now
     now=$(date +%s)
     case "$kind" in
@@ -225,15 +284,11 @@ case "$command" in
     start) shift; start "$@" ;;
     render)
         shift
-        many=0
-        if [[ "${1:-}" == "--many" ]]; then
-            many=1
-            shift
-        fi
-        [[ -n "${1:-}" ]] || { usage; exit 2; }
+        parse_args "$@"
+        [[ -n "$render_dir" ]] || { usage >&2; exit 2; }
         sessions="$demo_root/sessions.tsv"
         (( many )) && sessions="$demo_root/sessions-many.tsv"
-        render_into "$1" "$sessions"
+        render_into "$render_dir" "$sessions"
         ;;
     fire) shift; fire "${1:-}" ;;
     stop) stop ;;

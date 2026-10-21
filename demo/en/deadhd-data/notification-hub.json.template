@@ -1,0 +1,9 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "Review policy doc", "state": "done", "sub": "Done", "doneAt": "__ISO_M35__"},
+    {"label": "Apply retry backoff", "state": "now", "sub": "DeepSeek"},
+    {"label": "Check external API quota", "state": "blocked", "sub": "Awaiting quota response"},
+    {"label": "Load test", "state": "left", "sub": "Staging"}
+  ]
+}

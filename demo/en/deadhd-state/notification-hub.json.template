@@ -1,0 +1,14 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "Push delivery retry policy",
+    "lang": "en",
+    "counts": {"done": 1, "left": 1, "now": 1, "blocked": 1},
+    "total": 4,
+    "states": ["done", "now", "blocked", "left"],
+    "nowLabel": "Apply retry backoff",
+    "renderedAt": "__ISO_NOW__",
+    "dataAt": "__ISO_NOW__"
+  },
+  "data": "__DATA_DIR__/notification-hub.json"
+}

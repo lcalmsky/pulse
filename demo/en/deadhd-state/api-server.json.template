@@ -1,0 +1,23 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "Retry queue backoff cleanup and integration tests",
+    "lang": "en",
+    "counts": {"done": 3, "left": 2, "now": 1, "blocked": 0},
+    "total": 6,
+    "states": ["done", "done", "done", "now", "left", "left"],
+    "nowLabel": "Write integration tests",
+    "key": "APP-128",
+    "keyHref": "https://example.com/browse/APP-128",
+    "pr": {"href": "https://example.com/pulse-demo/api-server/pull/42", "text": "PR #42"},
+    "eta": "__ISO_P14__",
+    "renderedAt": "__ISO_NOW__",
+    "dataAt": "__ISO_NOW__"
+  },
+  "data": "__DATA_DIR__/api-server.json",
+  "backgroundTasks": [
+    {"type": "bash", "description": "go test ./internal/retry"},
+    {"type": "agent", "description": "Polish doc drafts"}
+  ],
+  "compactions": {"count": 1}
+}

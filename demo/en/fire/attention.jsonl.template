@@ -1,0 +1,2 @@
+{"type":"custom-title","customTitle":"Rebuild search index","sessionId":"__SESSION_ID__"}
+{"type":"assistant","timestamp":"__ISO_M1__","message":{"content":[{"type":"text","text":"Should I rebuild the index now, or run it overnight when traffic is low?"}]}}
