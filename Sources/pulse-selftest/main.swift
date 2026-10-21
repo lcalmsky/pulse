@@ -1201,6 +1201,7 @@ let deadhdJSON = """
 {
   "sessionId": "local",
   "out": "/tmp/deadhd-x.html",
+  "data": "/tmp/deadhd-x.json",
   "cwd": "/Users/a/proj",
   "lastTool": {"name": "Bash", "at": "2026-10-20T11:59:48+00:00", "durationMs": 12},
   "backgroundTasks": [{"type": "shell", "description": "npm test"}, {"type": "shell", "description": "watch"}],
@@ -1234,6 +1235,7 @@ expectEqual(parsedState?.pr, PullRequestLink(number: 16331,
 expectEqual(parsedState?.eta, utcDate(2026, 10, 20, 12, 3), "상태 파일: 보정된 예상 시각을 먼저 쓴다")
 expectEqual(parsedState?.dataAt, utcDate(2026, 10, 20, 11, 58), "상태 파일: 데이터 시각")
 expectEqual(parsedState?.pagePath, "/tmp/deadhd-x.html", "상태 파일: 진행 페이지 경로")
+expectEqual(parsedState?.dataPath, "/tmp/deadhd-x.json", "상태 파일: 체크리스트 데이터 경로")
 expectEqual(parsedState?.hasChecklist, true, "상태 파일: 체크리스트가 있다")
 expectEqual(parsedState?.hasCompactions, true, "상태 파일: 압축 필드가 있다")
 expectEqual(parsedState?.compactions?.count, 1, "상태 파일: 압축 횟수")
@@ -1258,6 +1260,7 @@ let lenientStateJSON = """
 {
   "sessionId": "local",
   "out": "relative/deadhd.html",
+  "data": "relative/deadhd.json",
   "backgroundTasks": {"type": "shell"},
   "compactions": {"count": "many"},
   "lastTool": {"name": 42},
@@ -1284,6 +1287,7 @@ expectEqual(lenientState?.pr, nil, "상태 파일: http 가 아닌 PR 링크는 
 expectEqual(lenientState?.eta, nil, "상태 파일: 못 읽는 시각은 버린다")
 expectEqual(lenientState?.dataAt, nil, "상태 파일: 숫자 시각은 버린다")
 expectEqual(lenientState?.pagePath, nil, "상태 파일: 상대 경로는 진행 페이지로 쓰지 않는다")
+expectEqual(lenientState?.dataPath, nil, "상태 파일: 상대 경로는 체크리스트 데이터로 쓰지 않는다")
 expectEqual(lenientState?.hasBackgroundTasks, false, "상태 파일: 배열이 아닌 작업 목록은 버린다")
 expectEqual(lenientState?.backgroundTasks, [], "상태 파일: 버린 작업 목록은 빈 배열")
 expectEqual(lenientState?.compactions?.count, 0, "상태 파일: 어긋난 압축 횟수는 0")

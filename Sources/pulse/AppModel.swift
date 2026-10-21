@@ -30,6 +30,7 @@ final class AppModel: ObservableObject {
     private static let acknowledgedKey = "acknowledgedDoneKeys"
 
     private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "notify")
+    private static let pageLogger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "page")
 
     private let defaults = UserDefaults.standard
     private let failureGrace: TimeInterval = 15
@@ -259,10 +260,15 @@ final class AppModel: ObservableObject {
         openPage(item, path: path)
     }
 
+    /// HTML 이 아직 없으면 render.py 로 만든 뒤 연다.
     /// deadhd 의 serve.py 주소 규칙을 먼저 시도하고, 실패하면 file:// 로 연다.
     /// 서버 확인이 파일 IO 라서 화면을 붙잡지 않도록 백그라운드에서 돈다.
     private func openPage(_ item: DisplayItem, path: String) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard DeadhdPage.ensurePage(path: path, dataPath: item.dataPath) else {
+                Self.pageLogger.error("진행 페이지를 만들지 못해 열지 않았다: \(path, privacy: .public)")
+                return
+            }
             let url = DeadhdPage.url(for: path)
             DispatchQueue.main.async {
                 guard let self else { return }

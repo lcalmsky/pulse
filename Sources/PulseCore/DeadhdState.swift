@@ -30,6 +30,8 @@ public struct DeadhdState: Equatable {
     /// `--off` 로 갱신을 끈 세션. 요약이 남아 있어도 체크리스트로 쓰지 않는다.
     public let isOff: Bool
     public var pagePath: String?
+    /// 체크리스트 JSON 의 절대 경로. 진행 페이지 HTML 이 아직 없을 때 만드는 데 쓴다.
+    public var dataPath: String?
     public let hasBackgroundTasks: Bool
     public let backgroundTasks: [BackgroundTask]
     public let hasCompactions: Bool
@@ -95,6 +97,7 @@ public struct DeadhdState: Equatable {
                 ?? TimestampParser.parse(string(summary?["eta"])),
             isOff: offAt != nil,
             pagePath: absolutePath(object["out"]),
+            dataPath: absolutePath(object["data"]),
             hasBackgroundTasks: object["backgroundTasks"] is [Any],
             backgroundTasks: tasksObject.map {
                 BackgroundTask(

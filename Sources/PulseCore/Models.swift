@@ -156,6 +156,8 @@ public struct Session: Equatable, Identifiable {
     public let nowLabel: String?
     /// deadhd 진행 페이지 HTML 의 절대 경로. 체크리스트가 있는 세션에만 있다.
     public let pagePath: String?
+    /// deadhd 체크리스트 JSON 의 절대 경로. 진행 페이지 HTML 이 아직 없을 때 만들 때 쓴다.
+    public let dataPath: String?
     public let counts: SessionCounts?
     public let total: Int?
     public let pr: PullRequestLink?
@@ -191,6 +193,7 @@ public struct Session: Equatable, Identifiable {
         updatedAt: Date? = nil,
         nowLabel: String? = nil,
         pagePath: String? = nil,
+        dataPath: String? = nil,
         counts: SessionCounts? = nil,
         total: Int? = nil,
         pr: PullRequestLink? = nil,
@@ -219,6 +222,7 @@ public struct Session: Equatable, Identifiable {
         self.updatedAt = updatedAt
         self.nowLabel = nowLabel
         self.pagePath = pagePath
+        self.dataPath = dataPath
         self.counts = counts
         self.total = total
         self.pr = pr
@@ -286,6 +290,7 @@ extension Session: Decodable {
             ?? Lenient.object(summary, .counts, as: SessionCounts.self)
         total = Lenient.int(container, .total) ?? Lenient.int(summary, .total)
         pagePath = nil
+        dataPath = nil
         pr = nil
         extraPRs = []
         jiraKey = nil

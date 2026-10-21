@@ -19,17 +19,44 @@ enum DeadhdPage {
         return url
     }
 
+    /// HTML 이 아직 없으면 render.py 로 한 번 만들어 둔다. 만들었거나 이미 있으면 true.
+    /// `--view` 는 넘기지 않아 band·statusline 세션의 보기가 바뀌지 않는다.
+    static func ensurePage(
+        path: String,
+        dataPath: String?,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: path) { return true }
+        guard let dataPath, fileManager.fileExists(atPath: dataPath),
+              let script = skillURL("render.py", environment: environment)
+        else { return false }
+        // render.py 는 이 변수로 세션 상태 파일을 고르므로, 남아 있으면 다른 세션의 상태를 덮어쓴다.
+        _ = run(
+            [script.path, "--page", dataPath, path],
+            environment: environment.filter { $0.key != "CLAUDE_CODE_SESSION_ID" }
+        )
+        return fileManager.fileExists(atPath: path)
+    }
+
     private static func scriptURL(environment: [String: String]) -> URL? {
+        skillURL("serve.py", environment: environment)
+    }
+
+    private static func skillURL(_ name: String, environment: [String: String]) -> URL? {
         let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
         let url = URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath)
-            .appendingPathComponent("skills/deadhd/serve.py")
+            .appendingPathComponent("skills/deadhd/\(name)")
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    private static func run(_ arguments: [String]) -> String? {
+    private static func run(_ arguments: [String], environment: [String: String]? = nil) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["python3"] + arguments
+        if let environment {
+            process.environment = environment
+        }
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice

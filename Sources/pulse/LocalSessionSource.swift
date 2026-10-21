@@ -67,7 +67,10 @@ final class LocalSessionSource {
         guard var state = DeadhdState.parse(data, expectedSessionId: record.sessionId) else {
             return nil
         }
-        if let page = state.pagePath, !fileManager.fileExists(atPath: page) {
+        // HTML 이 아직 없어도 데이터 파일이 있으면 누를 때 만들 수 있어 경로를 남긴다.
+        if let page = state.pagePath,
+           !fileManager.fileExists(atPath: page),
+           state.dataPath.map({ fileManager.fileExists(atPath: $0) }) != true {
             state.pagePath = nil
         }
         return state

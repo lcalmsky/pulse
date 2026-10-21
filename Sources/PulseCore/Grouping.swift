@@ -58,6 +58,8 @@ public struct DisplayItem: Equatable, Identifiable {
     public let orcaTerminal: String?
     public let cwd: String?
     public let pagePath: String?
+    /// 진행 페이지 HTML 이 아직 없을 때 만들 때 쓰는 체크리스트 JSON 의 절대 경로.
+    public let dataPath: String?
     public let acknowledgeKey: String
     public let sortDate: Date?
 
@@ -117,6 +119,7 @@ public struct DisplayItem: Equatable, Identifiable {
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)
         self.cwd = Grouping.nonEmpty(session.cwd)
         self.pagePath = Grouping.nonEmpty(session.pagePath)
+        self.dataPath = Grouping.nonEmpty(session.dataPath)
         self.acknowledgeKey = Self.acknowledgeKey(sessionId: session.sessionId, since: session.since)
         self.sortDate = session.since ?? session.updatedAt
     }
