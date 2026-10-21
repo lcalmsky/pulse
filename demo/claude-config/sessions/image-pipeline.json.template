@@ -1,0 +1,11 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/image-pipeline",
+  "name": "thumbs",
+  "entrypoint": "cli",
+  "status": "busy",
+  "startedAt": __MS_M22__,
+  "updatedAt": __MS_S30__,
+  "statusUpdatedAt": __MS_M12__
+}

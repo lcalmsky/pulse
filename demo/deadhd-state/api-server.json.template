@@ -1,13 +1,23 @@
 {
   "sessionId": "__SESSION_ID__",
   "summary": {
-    "title": "api-server",
+    "title": "재시도 큐 백오프 정리와 통합 테스트",
     "lang": "ko",
     "counts": {"done": 3, "left": 2, "now": 1, "blocked": 0},
     "total": 6,
     "states": ["done", "done", "done", "now", "left", "left"],
     "nowLabel": "통합 테스트 작성",
+    "key": "APP-128",
+    "keyHref": "https://example.com/browse/APP-128",
+    "pr": {"href": "https://example.com/pulse-demo/api-server/pull/42", "text": "PR #42"},
+    "eta": "__ISO_P14__",
     "renderedAt": "__ISO_NOW__",
     "dataAt": "__ISO_NOW__"
-  }
+  },
+  "data": "__DATA_DIR__/api-server.json",
+  "backgroundTasks": [
+    {"type": "bash", "description": "go test ./internal/retry"},
+    {"type": "agent", "description": "문서 초안 정리"}
+  ],
+  "compactions": {"count": 1}
 }

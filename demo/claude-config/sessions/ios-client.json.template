@@ -1,0 +1,11 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/ios-client",
+  "name": "ios",
+  "entrypoint": "cli",
+  "status": "idle",
+  "startedAt": __MS_M35__,
+  "updatedAt": __MS_M35__,
+  "statusUpdatedAt": __MS_M35__
+}

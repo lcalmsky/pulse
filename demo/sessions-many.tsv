@@ -1,0 +1,16 @@
+# key	session_id	slug
+api-server	6a1f0b3c-2d4e-4f5a-9b6c-1d2e3f4a5b6c	-Users-demo-projects-api-server
+web-dashboard	7b2e1c4d-3e5f-4a6b-8c7d-2e3f4a5b6c7d	-Users-demo-projects-web-dashboard
+mobile-app	8c3f2d5e-4f6a-4b7c-9d8e-3f4a5b6c7d8e	-Users-demo-projects-mobile-app
+docs-site	9d4a3e6f-5a7b-4c8d-8e9f-4a5b6c7d8e9f	-Users-demo-projects-docs-site
+billing-worker	ae5b4f7a-6b8c-4d9e-9fa0-5b6c7d8e9fa0	-Users-demo-projects-billing-worker
+auth-gateway	b1c2d3e4-5f6a-4b7c-8d9e-0f1a2b3c4d5e	-Users-demo-projects-auth-gateway
+image-pipeline	c2d3e4f5-6a7b-4c8d-9e0f-1a2b3c4d5e6f	-Users-demo-projects-image-pipeline
+notification-hub	d3e4f5a6-7b8c-4d9e-8f0a-2b3c4d5e6f7a	-Users-demo-projects-notification-hub
+search-indexer	e4f5a6b7-8c9d-4e0f-9a1b-3c4d5e6f7a8b	-Users-demo-projects-search-indexer
+admin-console	f5a6b7c8-9d0e-4f1a-8b2c-4d5e6f7a8b9c	-Users-demo-projects-admin-console
+data-export	a6b7c8d9-0e1f-4a2b-9c3d-5e6f7a8b9c0d	-Users-demo-projects-data-export
+payment-webhook	b7c8d9e0-1f2a-4b3c-8d4e-6f7a8b9c0d1e	-Users-demo-projects-payment-webhook
+ios-client	c8d9e0f1-2a3b-4c4d-9e5f-7a8b9c0d1e2f	-Users-demo-projects-ios-client
+design-system	d9e0f1a2-3b4c-4d5e-8f6a-8b9c0d1e2f3a	-Users-demo-projects-design-system
+infra-terraform	e0f1a2b3-4c5d-4e6f-9a7b-9c0d1e2f3a4b	-Users-demo-projects-infra-terraform

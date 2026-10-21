@@ -1,0 +1,10 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "큐 구조 확인", "state": "done", "sub": "완료", "doneAt": "__ISO_M22__"},
+    {"label": "큐 소비자 분리", "state": "now", "sub": "DeepSeek"},
+    {"label": "재시도 정리", "state": "left", "sub": "SQS"},
+    {"label": "부하 테스트", "state": "left", "sub": "100 req/s"},
+    {"label": "배포", "state": "left", "sub": "스테이징"}
+  ]
+}

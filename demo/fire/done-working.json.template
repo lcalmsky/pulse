@@ -2,7 +2,7 @@
   "pid": __PID__,
   "sessionId": "__SESSION_ID__",
   "cwd": "/Users/demo/projects/release-tool",
-  "name": "release-tool",
+  "name": "release",
   "entrypoint": "cli",
   "status": "busy",
   "startedAt": __MS_M1__,

@@ -1,0 +1,11 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/payment-webhook",
+  "name": "webhook",
+  "entrypoint": "cli",
+  "status": "idle",
+  "startedAt": __MS_M22__,
+  "updatedAt": __MS_M22__,
+  "statusUpdatedAt": __MS_M22__
+}

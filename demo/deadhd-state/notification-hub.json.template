@@ -1,0 +1,14 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "푸시 발송 재시도 정책",
+    "lang": "ko",
+    "counts": {"done": 1, "left": 1, "now": 1, "blocked": 1},
+    "total": 4,
+    "states": ["done", "now", "blocked", "left"],
+    "nowLabel": "재시도 백오프 적용",
+    "renderedAt": "__ISO_NOW__",
+    "dataAt": "__ISO_NOW__"
+  },
+  "data": "__DATA_DIR__/notification-hub.json"
+}

@@ -65,9 +65,10 @@ README 가 쓰는 그림은 `docs/images/` 아래에 있다.
 화면이 바뀌는 변경을 했으면 같은 푸시에서 그림을 다시 찍는다.
 
 ```bash
-scripts/demo.sh start       # 데모 세션을 띄운다
-scripts/demo.sh fire done   # 끝남 카드를 띄운다. attention, both 도 있다
-scripts/demo.sh stop        # 데모 세션을 내린다
+scripts/demo.sh start           # 데모 세션 5개를 띄운다. 팝오버·단계 펼침·설정·카드 그림용
+scripts/demo.sh start --many    # 세션 15개를 띄운다. 플로팅 패널 그림용
+scripts/demo.sh fire done       # 끝남 카드를 띄운다. attention, both 도 있다
+scripts/demo.sh stop            # 데모 세션을 내린다
 ```
 
-`scripts/demo.sh` 는 `start`, `fire done|attention|both`, `stop` 을 받는다.
+`scripts/demo.sh` 는 `start [--many] [--replace]`, `render [--many] <디렉터리>`, `fire done|attention|both`, `stop` 을 받는다. 단계 펼침은 팝오버에서 `api-server` 행의 단계 줄을 누른 상태로 찍고, 카드는 팝오버와 패널을 닫은 뒤 `fire` 로 띄워 찍는다. 끝남 카드는 8초 뒤 사라지므로 `fire done` 이 끝나고 4초 안에 찍는다. 메뉴 막대 줄에 다른 앱의 아이콘이 함께 찍히면 Pulse 아이콘 주변만 남기고 지운다.

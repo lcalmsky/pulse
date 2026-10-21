@@ -1,0 +1,11 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "요구사항 정리", "state": "done", "sub": "완료", "doneAt": "__ISO_M22__"},
+    {"label": "재시도 큐 설계", "state": "done", "sub": "완료", "doneAt": "__ISO_M12__"},
+    {"label": "백오프 함수 구현", "state": "done", "sub": "공통 함수로", "doneAt": "__ISO_M3__"},
+    {"label": "통합 테스트 작성", "state": "now", "sub": "DeepSeek"},
+    {"label": "문서 갱신", "state": "left", "sub": "README"},
+    {"label": "PR 올리기", "state": "left", "sub": "리뷰 요청"}
+  ]
+}

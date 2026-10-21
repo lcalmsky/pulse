@@ -2,7 +2,7 @@
   "pid": __PID__,
   "sessionId": "__SESSION_ID__",
   "cwd": "/Users/demo/projects/api-server",
-  "name": "api-server",
+  "name": "api",
   "entrypoint": "cli",
   "status": "busy",
   "startedAt": __MS_M22__,

@@ -2,7 +2,7 @@
   "pid": __PID__,
   "sessionId": "__SESSION_ID__",
   "cwd": "/Users/demo/projects/mobile-app",
-  "name": "mobile-app",
+  "name": "ios-push",
   "entrypoint": "cli",
   "status": "waiting",
   "waitingFor": "input",

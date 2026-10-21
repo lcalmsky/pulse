@@ -1,0 +1,9 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "정책 문서 확인", "state": "done", "sub": "완료", "doneAt": "__ISO_M35__"},
+    {"label": "재시도 백오프 적용", "state": "now", "sub": "DeepSeek"},
+    {"label": "외부 API 한도 확인", "state": "blocked", "sub": "한도 응답 대기"},
+    {"label": "부하 테스트", "state": "left", "sub": "스테이징"}
+  ]
+}

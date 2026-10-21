@@ -2,7 +2,7 @@
   "pid": __PID__,
   "sessionId": "__SESSION_ID__",
   "cwd": "/Users/demo/projects/docs-site",
-  "name": "docs-site",
+  "name": "docs",
   "entrypoint": "cli",
   "status": "idle",
   "startedAt": __MS_M4__,

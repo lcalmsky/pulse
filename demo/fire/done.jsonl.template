@@ -1,1 +1,2 @@
-{"type":"assistant","timestamp":"__ISO_NOW__","message":{"content":[{"type":"text","text":"릴리스 노트를 정리하고 태그를 붙였습니다."},{"type":"tool_use","id":"toolu_demo_release_1","name":"Read","input":{"file_path":"CHANGELOG.md"}}]}}
+{"type":"custom-title","customTitle":"릴리즈 노트 자동 생성","sessionId":"__SESSION_ID__"}
+{"type":"assistant","timestamp":"__ISO_NOW__","message":{"content":[{"type":"text","text":"릴리즈 노트 템플릿을 만들고 CI 에 연결했습니다."},{"type":"tool_use","id":"toolu_demo_release_1","name":"Read","input":{"file_path":"CHANGELOG.md"}}]}}

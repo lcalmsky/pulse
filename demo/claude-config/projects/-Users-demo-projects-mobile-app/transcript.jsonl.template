@@ -1,1 +1,2 @@
+{"type":"custom-title","customTitle":"푸시 알림 권한 요청 시점","sessionId":"__SESSION_ID__"}
 {"type":"assistant","timestamp":"__ISO_M3__","message":{"content":[{"type":"text","text":"푸시 알림 권한을 앱 첫 실행에 요청할까요, 설정 화면에서 요청할까요?"}]}}

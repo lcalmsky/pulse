@@ -1,1 +1,2 @@
-{"type":"assistant","timestamp":"__ISO_M1__","message":{"content":[{"type":"text","text":"검색 인덱스 재생성 주기를 서버 설정으로 뺄까요, 그대로 둘까요?"}]}}
+{"type":"custom-title","customTitle":"검색 인덱스 재구축","sessionId":"__SESSION_ID__"}
+{"type":"assistant","timestamp":"__ISO_M1__","message":{"content":[{"type":"text","text":"인덱스를 지금 바로 다시 만들까요, 트래픽이 적은 새벽에 돌릴까요?"}]}}

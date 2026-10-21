@@ -2,7 +2,7 @@
   "pid": __PID__,
   "sessionId": "__SESSION_ID__",
   "cwd": "/Users/demo/projects/web-dashboard",
-  "name": "web-dashboard",
+  "name": "charts",
   "entrypoint": "cli",
   "status": "busy",
   "startedAt": __MS_M35__,

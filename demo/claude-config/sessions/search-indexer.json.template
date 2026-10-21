@@ -1,0 +1,12 @@
+{
+  "pid": __PID__,
+  "sessionId": "__SESSION_ID__",
+  "cwd": "/Users/demo/projects/search-indexer",
+  "name": "index",
+  "entrypoint": "cli",
+  "status": "waiting",
+  "waitingFor": "permission prompt",
+  "startedAt": __MS_M9__,
+  "updatedAt": __MS_M4__,
+  "statusUpdatedAt": __MS_M4__
+}

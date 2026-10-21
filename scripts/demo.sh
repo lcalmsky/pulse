@@ -8,14 +8,18 @@ run_dir="$demo_root/.run"
 state_dir="$run_dir/deadhd-state"
 pid_file="$run_dir/pulse.pid"
 keepers_file="$run_dir/.demo-keepers"
+# Pulse 는 /tmp 아래 절대 경로만 체크리스트 데이터로 읽는다.
+data_dir="/tmp/pulse-demo"
 bundle="$root/build/Pulse.app"
 app_bin="$bundle/Contents/MacOS/pulse"
 
 usage() {
     cat <<'TEXT'
 사용법:
-  scripts/demo.sh start [--dry-run] [--replace]   실행용 사본을 만들고 데모 Pulse 를 띄운다
-  scripts/demo.sh render <디렉터리>               템플릿을 현재 시각으로 전개한다
+  scripts/demo.sh start [--dry-run] [--replace] [--many]
+                                                  실행용 사본을 만들고 데모 Pulse 를 띄운다
+  scripts/demo.sh render [--many] <디렉터리>      템플릿을 현재 시각으로 전개한다
+                                                  --many 는 세션 15개짜리 묶음(플로팅 패널용)을 쓴다
   scripts/demo.sh fire done                       새 「끝남」 세션으로 끝남 카드를 띄운다
   scripts/demo.sh fire attention                  새 「확인 필요」 세션으로 카드를 띄운다
   scripts/demo.sh fire both                       둘 다 넣어 여러 장 카드를 띄운다
@@ -33,12 +37,18 @@ iso_at() {
 render_file() {
     local template="$1" output="$2" pid="$3" sid="$4" now="$5"
     local spec label offset
-    local args=(-e "s|__PID__|$pid|g" -e "s|__SESSION_ID__|$sid|g")
+    local args=(-e "s|__PID__|$pid|g" -e "s|__SESSION_ID__|$sid|g" -e "s|__DATA_DIR__|$data_dir|g")
     for spec in NOW:0 S30:30 M1:60 M2:120 M3:180 M4:240 M5:300 M8:480 M9:540 M12:720 M22:1320 M35:2100; do
         label="${spec%%:*}"
         offset="${spec#*:}"
         args+=(-e "s|__ISO_${label}__|$(iso_at $((now - offset)))|g")
         args+=(-e "s|__MS_${label}__|$(((now - offset) * 1000))|g")
+    done
+    for spec in P5:300 P14:840 P30:1800; do
+        label="${spec%%:*}"
+        offset="${spec#*:}"
+        args+=(-e "s|__ISO_${label}__|$(iso_at $((now + offset)))|g")
+        args+=(-e "s|__MS_${label}__|$(((now + offset) * 1000))|g")
     done
     sed "${args[@]}" "$template" > "$output"
 }
@@ -71,12 +81,12 @@ kill_run_processes() {
 }
 
 render_into() {
-    local out="$1"
+    local out="$1" sessions="$2"
     if [[ -e "$out" ]] && [[ -n "$(ls -A "$out" 2>/dev/null)" ]]; then
         echo "render: 비어 있지 않은 디렉터리입니다 · $out" >&2
         return 1
     fi
-    mkdir -p "$out/sessions" "$out/projects" "$out/deadhd-state"
+    mkdir -p "$out/sessions" "$out/projects" "$out/deadhd-state" "$data_dir"
     local keepers="$out/.demo-keepers"
     : > "$keepers"
 
@@ -105,16 +115,21 @@ render_into() {
             render_file "$demo_root/deadhd-state/$key.json.template" \
                 "$out/deadhd-state/$sid.json" "$pid" "$sid" "$now"
         fi
+        if [[ -f "$demo_root/deadhd-data/$key.json.template" ]]; then
+            render_file "$demo_root/deadhd-data/$key.json.template" \
+                "$data_dir/$key.json" "$pid" "$sid" "$now"
+        fi
         index=$((index + 1))
-    done < "$demo_root/sessions.tsv"
+    done < "$sessions"
 }
 
 start() {
-    local dry_run=0 replace=0 arg
+    local dry_run=0 replace=0 many=0 arg
     for arg in "$@"; do
         case "$arg" in
             --dry-run) dry_run=1 ;;
             --replace) replace=1 ;;
+            --many) many=1 ;;
             *) usage; exit 2 ;;
         esac
     done
@@ -142,7 +157,9 @@ start() {
 
     kill_run_processes
     rm -rf "$run_dir"
-    render_into "$run_dir"
+    local sessions="$demo_root/sessions.tsv"
+    (( many )) && sessions="$demo_root/sessions-many.tsv"
+    render_into "$run_dir" "$sessions"
     CLAUDE_CONFIG_DIR="$run_dir" DEADHD_STATE_DIR="$state_dir" "$app_bin" &
     echo "$!" > "$pid_file"
     echo "데모 Pulse 시작 · CLAUDE_CONFIG_DIR=$run_dir"
@@ -199,7 +216,7 @@ fire() {
 
 stop() {
     kill_run_processes
-    rm -rf "$run_dir"
+    rm -rf "$run_dir" "$data_dir"
     echo "데모 Pulse 종료 · 실행용 사본 삭제"
 }
 
@@ -207,8 +224,16 @@ command="${1:-}"
 case "$command" in
     start) shift; start "$@" ;;
     render)
-        [[ -n "${2:-}" ]] || { usage; exit 2; }
-        render_into "$2"
+        shift
+        many=0
+        if [[ "${1:-}" == "--many" ]]; then
+            many=1
+            shift
+        fi
+        [[ -n "${1:-}" ]] || { usage; exit 2; }
+        sessions="$demo_root/sessions.tsv"
+        (( many )) && sessions="$demo_root/sessions-many.tsv"
+        render_into "$1" "$sessions"
         ;;
     fire) shift; fire "${1:-}" ;;
     stop) stop ;;

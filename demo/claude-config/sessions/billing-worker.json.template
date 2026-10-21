@@ -2,7 +2,7 @@
   "pid": __PID__,
   "sessionId": "__SESSION_ID__",
   "cwd": "/Users/demo/projects/billing-worker",
-  "name": "billing-worker",
+  "name": "billing",
   "entrypoint": "cli",
   "status": "idle",
   "startedAt": __MS_M12__,

@@ -1,0 +1,14 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "썸네일 생성 큐 분리",
+    "lang": "ko",
+    "counts": {"done": 1, "left": 3, "now": 1, "blocked": 0},
+    "total": 5,
+    "states": ["done", "now", "left", "left", "left"],
+    "nowLabel": "큐 소비자 분리",
+    "renderedAt": "__ISO_NOW__",
+    "dataAt": "__ISO_NOW__"
+  },
+  "data": "__DATA_DIR__/image-pipeline.json"
+}
