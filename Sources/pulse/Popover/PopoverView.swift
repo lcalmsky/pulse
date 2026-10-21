@@ -6,27 +6,32 @@ struct PopoverView: View {
     @ObservedObject var state: PopoverState
 
     var body: some View {
-        VStack(spacing: 0) {
-            PopoverHeader(model: model, state: state)
-            banners
+        if let detail = model.detail {
+            DetailPageView(model: model, target: detail)
+                .frame(width: 560, height: 620)
+        } else {
+            VStack(spacing: 0) {
+                PopoverHeader(model: model, state: state)
+                banners
 
-            if !model.sessionsUnavailable, model.groups.totalCount == 0 {
-                PopoverEmptyState()
-            } else if model.groups.totalCount > 0 {
-                if model.density == .rich {
-                    FilterChips(model: model, state: state)
+                if !model.sessionsUnavailable, model.groups.totalCount == 0 {
+                    PopoverEmptyState()
+                } else if model.groups.totalCount > 0 {
+                    if model.density == .rich {
+                        FilterChips(model: model, state: state)
+                    }
+                    list
                 }
-                list
-            }
 
-            PopoverFooter(model: model)
+                PopoverFooter(model: model)
+            }
+            .frame(width: model.density == .compact ? 340 : 400)
+            .background(PopoverBackground())
+            .overlay(alignment: .topTrailing) { settingsSheet }
+            .overlay(alignment: .bottom) { toast }
+            .animation(.easeOut(duration: 0.18), value: model.recentAcknowledgedCount)
+            .onAppear { state.selectedIndex = nil }
         }
-        .frame(width: model.density == .compact ? 340 : 400)
-        .background(PopoverBackground())
-        .overlay(alignment: .topTrailing) { settingsSheet }
-        .overlay(alignment: .bottom) { toast }
-        .animation(.easeOut(duration: 0.18), value: model.recentAcknowledgedCount)
-        .onAppear { state.selectedIndex = nil }
     }
 
     @ViewBuilder

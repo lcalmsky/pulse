@@ -10,7 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
     private var statusController: StatusItemController?
     private var panelController: FloatingPanelController?
-    private var detailController: DetailWindowController?
     private var hotKey: GlobalHotKey?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -20,8 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] theme in self?.applyTheme(theme) }
             .store(in: &cancellables)
 
-        detailController = DetailWindowController(model: model)
-        model.detailPresenter = detailController
         statusController = StatusItemController(model: model)
         panelController = FloatingPanelController(model: model)
 

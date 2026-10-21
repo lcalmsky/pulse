@@ -10,7 +10,19 @@ struct BoardView: View {
 
     var body: some View {
         Group {
-            if naturalHeight > maximumHeight {
+            if let detail = model.detail {
+                DetailPageView(model: model, target: detail)
+                    .frame(minWidth: 520, maxWidth: .infinity)
+                    .frame(height: detailHeight)
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: BoardHeightKey.self, value: proxy.size.height)
+                        }
+                    )
+                    .onPreferenceChange(BoardHeightKey.self) { _ in
+                        onContentHeightChange?()
+                    }
+            } else if naturalHeight > maximumHeight {
                 ScrollView(.vertical) {
                     board
                 }
@@ -26,6 +38,10 @@ struct BoardView: View {
     private var maximumHeight: CGFloat {
         guard let screen = NSScreen.main else { return .greatestFiniteMagnitude }
         return floor(screen.visibleFrame.height * 0.7)
+    }
+
+    private var detailHeight: CGFloat {
+        min(maximumHeight, 640)
     }
 
     private var board: some View {

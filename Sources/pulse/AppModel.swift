@@ -4,8 +4,9 @@ import Foundation
 import OSLog
 import PulseCore
 
-protocol DetailPresenting: AnyObject {
-    func showDetail(for item: DisplayItem, url: String)
+struct DetailTarget: Equatable {
+    let item: DisplayItem
+    let url: URL
 }
 
 final class AppModel: ObservableObject {
@@ -24,8 +25,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var doneNotifications: Bool
     @Published private(set) var notificationPermission: NotificationPermission = .unknown
     @Published private(set) var hotKeyUnavailable = false
-
-    weak var detailPresenter: DetailPresenting?
+    @Published private(set) var detail: DetailTarget?
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
 
@@ -266,13 +266,13 @@ final class AppModel: ObservableObject {
             let url = DeadhdPage.url(for: path)
             DispatchQueue.main.async {
                 guard let self else { return }
-                if let presenter = self.detailPresenter {
-                    presenter.showDetail(for: item, url: url.absoluteString)
-                } else {
-                    NSWorkspace.shared.open(url)
-                }
+                self.detail = DetailTarget(item: item, url: url)
             }
         }
+    }
+
+    func closeDetail() {
+        detail = nil
     }
 
     func openLink(_ urlString: String) {

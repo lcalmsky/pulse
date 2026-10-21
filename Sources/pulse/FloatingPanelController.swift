@@ -12,6 +12,7 @@ final class FloatingPanelController: NSObject {
     private var programmaticSize: NSSize?
 
     private static let defaultWidth: CGFloat = 440
+    private static let detailWidth: CGFloat = 520
     private static let minimumWidth: CGFloat = 340
 
     init(model: AppModel) {
@@ -50,6 +51,9 @@ final class FloatingPanelController: NSObject {
             .sink { [weak self] _ in self?.updateSize() }
             .store(in: &cancellables)
         model.$recentAcknowledgedCount
+            .sink { [weak self] _ in self?.updateSize() }
+            .store(in: &cancellables)
+        model.$detail
             .sink { [weak self] _ in self?.updateSize() }
             .store(in: &cancellables)
 
@@ -114,7 +118,8 @@ final class FloatingPanelController: NSObject {
             guard let self, !self.manualSize else { return }
             self.hosting.layoutSubtreeIfNeeded()
             let fitting = self.hosting.fittingSize
-            let width = min(max(Self.defaultWidth, ceil(fitting.width)), 1200)
+            let minimum = self.model.detail != nil ? Self.detailWidth : Self.defaultWidth
+            let width = min(max(minimum, ceil(fitting.width)), 1200)
             let height = min(max(44, ceil(fitting.height)), self.maximumContentHeight)
 
             var frame = self.panel.frame
