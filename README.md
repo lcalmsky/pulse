@@ -1,5 +1,7 @@
 # Pulse
 
+<p align="center"><b>한국어</b> · <a href="README.en.md">English</a></p>
+
 Claude Code 세션의 진행 상황을 macOS 메뉴 막대와 팝오버, 알림 카드로 보여 주는 앱입니다. 세션이 답을 기다리는지, 작업 중인지, 끝났는지 한눈에 보이고, 항목을 누르면 Orca 터미널의 해당 세션으로 이동합니다.
 
 <p align="center"><img src="docs/images/popover.png" alt="세션 목록을 보여 주는 Pulse 팝오버" width="400"></p>
@@ -75,6 +77,8 @@ Pulse 는 macOS 알림 배너를 쓰지 않고 앱이 직접 카드 패널을 �
 - 화면이 잠긴 사이의 알림은 돌아오면 한 장으로 묶는다는 안내가 있습니다.
 
 값은 UserDefaults 키 `density`, `theme`, `attentionAlert`, `doneAlert` 에 저장됩니다. 이전 키 `attentionNotifications`, `doneNotifications` 값이 남아 있으면 새 키가 없을 때 그 값을 옮겨 읽습니다.
+
+Pulse 는 화면 문구에 시스템 선호 언어를 따릅니다. 첫 선호 언어가 `en` 으로 시작하면 영어, 그 밖에는 한국어로 보여 줍니다. 설정 시트에는 언어 항목이 없고, 환경 변수 `PULSE_LANG` 에 `en` 또는 `ko` 를 넣어 덮어쓸 수 있습니다. 번들 앱을 그 언어로 띄우려면 `PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &` 처럼 실행합니다.
 
 ## deadhd 와 함께 쓰기
 

@@ -5,8 +5,8 @@
 어떤 작업이든 main 에 올리기 전에 README, 예시 그림, 릴리즈를 이 순서로 확인한다. `scripts/release.sh` 는 README 와 그림이 갱신됐는지 검사하지 않으므로 이 절차가 유일한 확인 단계다.
 
 1. 코드 변경을 커밋한다. 아직 푸시하지 않는다.
-2. 바뀐 동작을 아래 「README 대조표」에서 찾아 해당 절을 고친다. 맞는 절이 없는 새 기능이면 절을 추가한다.
-3. 바뀐 파일을 아래 「그림 대조표」에서 찾아 해당 그림을 다시 찍는다. 화면에 보이는 새 기능이면 `demo/` 데이터와 `scripts/demo.sh` 를 고쳐 그 기능이 그림에 드러나게 하고, `Sources/pulse-selftest/DemoFixtureChecks.swift` 의 데모 검사도 맞춘다. 그림을 추가하거나 지우면 `docs/images/README.md` 목록을 고친다.
+2. 바뀐 동작을 아래 「README 대조표」에서 찾아 `README.md` 와 `README.en.md` 의 해당 절을 함께 고친다. 맞는 절이 없는 새 기능이면 두 파일에 절을 추가한다.
+3. 바뀐 파일을 아래 「그림 대조표」에서 찾아 해당 그림을 한국어판과 `*.en.png` 영어판으로 함께 다시 찍는다. 화면에 보이는 새 기능이면 `demo/` 데이터와 `scripts/demo.sh` 를 고쳐 그 기능이 그림에 드러나게 하고, `Sources/pulse-selftest/DemoFixtureChecks.swift` 의 데모 검사도 맞춘다. 그림을 추가하거나 지우면 `docs/images/README.md` 목록을 고친다.
 4. README 와 그림을 `docs:` 로 커밋한다.
 5. `feat` 나 `fix` 가 있으면 마지막에 `scripts/release.sh` 를 실행한다. 스크립트는 워킹트리가 깨끗해야 돌고 직접 푸시하므로, 이 순서를 지켜야 코드·README·그림·릴리즈가 한 푸시에 들어간다. 릴리즈 대상이 아니면 여기서 푸시한다.
 
@@ -40,6 +40,8 @@
 | `DeadhdPage.swift` | `deadhd-steps.png` |
 | `Popover/PopoverStyle.swift`, 화면에 나오는 PulseCore 문구 | 모두 |
 | 어느 그림에 영향이 있는지 판단이 서지 않을 때 | 모두 |
+
+표의 그림마다 같은 이름의 `.en.png` 가 있고 함께 다시 찍는다.
 
 ## 기능이 바뀌면 반드시 릴리즈한다
 
@@ -94,10 +96,12 @@ scripts/bundle.sh && open build/Pulse.app   # 번들
 README 가 쓰는 그림은 `docs/images/` 아래에 있고, 목록의 정본은 `docs/images/README.md` 다. 어떤 변경에 어떤 그림을 다시 찍는지는 위 「그림 대조표」를 따른다.
 
 ```bash
-scripts/demo.sh start           # 데모 세션 5개를 띄운다. 팝오버·단계 펼침·설정·카드 그림용
-scripts/demo.sh start --many    # 세션 15개를 띄운다. 플로팅 패널 그림용
-scripts/demo.sh fire done       # 끝남 카드를 띄운다. attention, both 도 있다
-scripts/demo.sh stop            # 데모 세션을 내린다
+scripts/demo.sh start                       # 데모 세션 5개를 띄운다. 팝오버·단계 펼침·설정·카드 그림용
+scripts/demo.sh start --many                # 세션 15개를 띄운다. 플로팅 패널 그림용
+scripts/demo.sh start --lang en             # 영어 데모 세션 5개를 띄운다. 영어판 그림용
+scripts/demo.sh start --many --lang en      # 영어 세션 15개를 띄운다. 영어판 플로팅 패널 그림용
+scripts/demo.sh fire done                   # 끝남 카드를 띄운다. attention, both 도 있다
+scripts/demo.sh stop                        # 데모 세션을 내린다
 ```
 
-`scripts/demo.sh` 는 `start [--many] [--replace]`, `render [--many] <디렉터리>`, `fire done|attention|both`, `stop` 을 받는다. 단계 펼침은 팝오버에서 `api-server` 행의 단계 줄을 누른 상태로 찍고, 카드는 팝오버와 패널을 닫은 뒤 `fire` 로 띄워 찍는다. 끝남 카드는 8초 뒤 사라지므로 `fire done` 이 끝나고 4초 안에 찍는다. 메뉴 막대 줄에 다른 앱의 아이콘이 함께 찍히면 Pulse 아이콘 주변만 남기고 지운다.
+`scripts/demo.sh` 는 `start [--many] [--replace] [--lang ko|en]`, `render [--many] [--lang ko|en] <디렉터리>`, `fire done|attention|both`, `stop` 을 받는다. 영어 그림은 `--lang en` 데모로 찍고 이름을 `<이름>.en.png` 로 붙인다. 단계 펼침은 팝오버에서 `api-server` 행의 단계 줄을 누른 상태로 찍고, 카드는 팝오버와 패널을 닫은 뒤 `fire` 로 띄워 찍는다. 끝남 카드는 8초 뒤 사라지므로 `fire done` 이 끝나고 4초 안에 찍는다. 메뉴 막대 줄에 다른 앱의 아이콘이 함께 찍히면 Pulse 아이콘 주변만 남기고 지운다.
