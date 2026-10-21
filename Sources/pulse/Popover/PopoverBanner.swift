@@ -69,35 +69,33 @@ struct PopoverEmptyState: View {
 }
 
 private struct EmptyOrb: View {
-    @State private var angle = 0.0
-
+    // 스피너와 같은 이유로 무한 반복 애니메이션 대신 시각에서 각도를 계산한다.
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    AngularGradient(
-                        gradient: Gradient(colors: [.green, .blue, .purple, .green]),
-                        center: .center
+        TimelineView(.animation) { context in
+            let angle = context.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 8) / 8 * 360
+            ZStack {
+                Circle()
+                    .fill(
+                        AngularGradient(
+                            gradient: Gradient(colors: [.green, .blue, .purple, .green]),
+                            center: .center
+                        )
                     )
-                )
-                .rotationEffect(.degrees(angle))
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.white.opacity(0.35), .clear],
-                        center: UnitPoint(x: 0.35, y: 0.3),
-                        startRadius: 0,
-                        endRadius: 42
+                    .rotationEffect(.degrees(angle))
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.35), .clear],
+                            center: UnitPoint(x: 0.35, y: 0.3),
+                            startRadius: 0,
+                            endRadius: 42
+                        )
                     )
-                )
+            }
         }
         .frame(width: 84, height: 84)
         .clipShape(Circle())
         .shadow(color: Color.blue.opacity(0.35), radius: 18, y: 8)
-        .onAppear {
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                angle = 360
-            }
-        }
     }
 }

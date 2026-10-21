@@ -358,25 +358,24 @@ private struct WorkingAvatar: View {
 private struct SpinningAvatar: View {
     let size: CGFloat
 
-    @State private var spinning = false
-
+    // 무한 반복 애니메이션을 걸면 같은 트랜잭션의 레이아웃 변화까지 영원히 애니메이션해
+    // 패널 내용이 계속 출렁인다. 각도는 시각에서 계산해 레이아웃에 애니메이션을 남기지 않는다.
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.primary.opacity(0.10), lineWidth: size * 0.11)
-            Circle()
-                .trim(from: 0, to: 0.28)
-                .stroke(
-                    Color.blue,
-                    style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round)
-                )
-                .rotationEffect(.degrees(spinning ? 270 : -90))
-        }
-        .frame(width: size, height: size)
-        .onAppear {
-            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
-                spinning = true
+        TimelineView(.animation) { context in
+            let phase = context.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 1.1) / 1.1
+            ZStack {
+                Circle()
+                    .stroke(Color.primary.opacity(0.10), lineWidth: size * 0.11)
+                Circle()
+                    .trim(from: 0, to: 0.28)
+                    .stroke(
+                        Color.blue,
+                        style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(phase * 360 - 90))
             }
+            .frame(width: size, height: size)
         }
     }
 }
