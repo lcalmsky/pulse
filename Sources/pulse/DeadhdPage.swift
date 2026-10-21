@@ -87,10 +87,17 @@ enum DeadhdPage {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    // `/usr/bin/python3`(3.9.6)에서도 render.py·serve.py 가 3.14 와 같은 결과를 냈고 deadhd 테스트 451건이 통과했다.
+    private static let pythonCandidates = ["/usr/bin/python3", "/opt/homebrew/bin/python3", "/usr/local/bin/python3"]
+
     private static func run(_ arguments: [String], environment: [String: String]? = nil) -> String? {
+        guard let executable = ExecutablePath.firstExecutable(
+            in: pythonCandidates,
+            isExecutable: { FileManager.default.isExecutableFile(atPath: $0) }
+        ) else { return nil }
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["python3"] + arguments
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
         if let environment {
             process.environment = environment
         }

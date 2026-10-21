@@ -34,7 +34,7 @@ enum OrcaLauncher {
     }
 
     private static func matchingHandle(for cwd: String, name: String?) -> String? {
-        let process = command(arguments: ["terminal", "list", "--json"])
+        guard let process = command(arguments: ["terminal", "list", "--json"]) else { return nil }
         let pipe = Pipe()
         process.standardOutput = pipe
         do {
@@ -67,7 +67,7 @@ enum OrcaLauncher {
     }
 
     private static func run(arguments: [String]) -> Bool {
-        let process = command(arguments: arguments)
+        guard let process = command(arguments: arguments) else { return false }
         process.standardOutput = FileHandle.nullDevice
         do {
             try process.run()
@@ -87,15 +87,15 @@ enum OrcaLauncher {
         return true
     }
 
-    private static func command(arguments: [String]) -> Process {
-        let process = Process()
-        if FileManager.default.isExecutableFile(atPath: cliPath) {
-            process.executableURL = URL(fileURLWithPath: cliPath)
-            process.arguments = arguments
-        } else {
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["orca"] + arguments
+    // Orca CLI 는 앱 번들 안의 고정 경로만 쓴다. PATH 의 orca 로 대신하지 않는다.
+    private static func command(arguments: [String]) -> Process? {
+        guard FileManager.default.isExecutableFile(atPath: cliPath) else {
+            logger.error("orca 실행 파일 없음: \(cliPath, privacy: .public)")
+            return nil
         }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: cliPath)
+        process.arguments = arguments
         process.standardError = FileHandle.nullDevice
         return process
     }

@@ -2953,5 +2953,37 @@ expectEqual(
 )
 
 runDemoFixtureChecks()
+
+var probedExecutables: [String] = []
+expectEqual(
+    ExecutablePath.firstExecutable(in: ["/a/python3", "/b/python3", "/c/python3"]) { path in
+        probedExecutables.append(path)
+        return path == "/a/python3" || path == "/b/python3"
+    },
+    "/a/python3",
+    "실행 파일: 첫 후보가 있으면 첫 후보를 고른다"
+)
+expectEqual(
+    ExecutablePath.firstExecutable(in: ["/a/python3", "/b/python3", "/c/python3"]) { $0 == "/b/python3" },
+    "/b/python3",
+    "실행 파일: 첫 후보가 없으면 둘째 후보를 고른다"
+)
+expectEqual(
+    ExecutablePath.firstExecutable(in: ["/a/python3", "/b/python3", "/c/python3"]) { _ in false },
+    nil,
+    "실행 파일: 모두 없으면 nil"
+)
+expectEqual(
+    ExecutablePath.firstExecutable(in: ["python3", "/b/python3"]) { _ in true },
+    "/b/python3",
+    "실행 파일: 절대 경로가 아닌 후보는 건너뛴다"
+)
+expectEqual(
+    ExecutablePath.firstExecutable(in: []) { _ in true },
+    nil,
+    "실행 파일: 후보가 없으면 nil"
+)
+expect(!probedExecutables.contains("/c/python3"), "실행 파일: 첫 통과에서 멈춘다")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)
