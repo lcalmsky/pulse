@@ -169,7 +169,8 @@ struct SessionRowView: View {
     @ViewBuilder
     private var metadata: some View {
         let tags = item.keyTag.map { [$0] } ?? []
-        if item.progress != nil || !tags.isEmpty {
+        let pullRequest = item.prURL != nil ? item.prTag : nil
+        if item.progress != nil || !tags.isEmpty || pullRequest != nil {
             HStack(spacing: 5) {
                 if let progress = item.progress {
                     ProgressBar(fraction: progress.fraction)
@@ -180,6 +181,11 @@ struct SessionRowView: View {
                 }
                 ForEach(tags, id: \.self) { tag in
                     TagView(text: tag)
+                }
+                if let pullRequest, let url = item.prURL {
+                    PullRequestTagButton(text: pullRequest) {
+                        model.openPullRequest(url)
+                    }
                 }
             }
             .padding(.top, 3)
@@ -292,6 +298,36 @@ private struct TagView: View {
                 RoundedRectangle(cornerRadius: 5)
                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             )
+    }
+}
+
+private struct PullRequestTagButton: View {
+    let text: String
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(text)
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundColor(hovering ? .primary : PopoverPalette.secondary)
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .frame(minWidth: 22, minHeight: 22)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.primary.opacity(hovering ? 0.12 : 0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("PR \(text) 열기")
     }
 }
 

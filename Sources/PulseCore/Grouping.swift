@@ -41,6 +41,8 @@ public struct DisplayItem: Equatable, Identifiable {
     public let progress: ChecklistProgress?
     public let replyTail: String?
     public let nowLabel: String?
+    public let prTag: String?
+    public let prURL: String?
     public let group: DisplayGroup
     public let isStall: Bool
     public let orcaTerminal: String?
@@ -78,6 +80,8 @@ public struct DisplayItem: Equatable, Identifiable {
         }
         self.replyTail = Grouping.clean(session.replyTail)
         self.nowLabel = Grouping.nonEmpty(session.nowLabel)
+        self.prTag = session.pr.map { "#\($0.number)" }
+        self.prURL = Grouping.nonEmpty(session.pr?.url)
         self.group = group
         self.isStall = session.bucket == "stall"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)

@@ -47,6 +47,8 @@ public struct TranscriptSummary: Equatable {
     public let lastToolName: String?
     public let lastToolAt: Date?
     public let lastMeaningfulAt: Date?
+    public let pendingToolLabel: String?
+    public let pullRequest: PullRequestLink?
 
     public init(
         customTitle: String? = nil,
@@ -55,7 +57,9 @@ public struct TranscriptSummary: Equatable {
         lastAssistantText: String? = nil,
         lastToolName: String? = nil,
         lastToolAt: Date? = nil,
-        lastMeaningfulAt: Date? = nil
+        lastMeaningfulAt: Date? = nil,
+        pendingToolLabel: String? = nil,
+        pullRequest: PullRequestLink? = nil
     ) {
         self.customTitle = customTitle
         self.agentName = agentName
@@ -64,6 +68,8 @@ public struct TranscriptSummary: Equatable {
         self.lastToolName = lastToolName
         self.lastToolAt = lastToolAt
         self.lastMeaningfulAt = lastMeaningfulAt
+        self.pendingToolLabel = pendingToolLabel
+        self.pullRequest = pullRequest
     }
 }
 
@@ -71,6 +77,7 @@ public enum LocalSessions {
     public static let stallThreshold: TimeInterval = 10 * 60
     public static let replyTailLimit = 160
     public static let promptTitleLimit = 60
+    public static let actionLabelLimit = 40
 
     // MARK: - 파일 규칙
 
@@ -136,6 +143,9 @@ public enum LocalSessions {
         var lastToolName: String?
         var lastToolAt: Date?
         var lastMeaningfulAt: Date?
+        var pendingToolUses: [(id: String?, name: String, input: [String: Any])] = []
+        var resolvedToolUseIds: Set<String> = []
+        var pullRequest: PullRequestLink?
 
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: false)
         let firstIndex = droppingPartialFirstLine && !lines.isEmpty ? 1 : 0
@@ -176,6 +186,11 @@ public enum LocalSessions {
                         if let name = nonEmpty(block["name"] as? String) {
                             lastToolName = name
                             lastToolAt = timestamp
+                            pendingToolUses.append((
+                                id: nonEmpty(block["id"] as? String),
+                                name: name,
+                                input: block["input"] as? [String: Any] ?? [:]
+                            ))
                         }
                     default:
                         break
@@ -185,10 +200,28 @@ public enum LocalSessions {
                 if let timestamp = TimestampParser.parse(object["timestamp"] as? String) {
                     lastMeaningfulAt = timestamp
                 }
+                let message = object["message"] as? [String: Any]
+                let blocks = message?["content"] as? [[String: Any]] ?? []
+                for block in blocks where block["type"] as? String == "tool_result" {
+                    if let id = nonEmpty(block["tool_use_id"] as? String) {
+                        resolvedToolUseIds.insert(id)
+                    }
+                }
+            case "pr-link":
+                if let url = nonEmpty(object["prUrl"] as? String),
+                   let number = prNumber(object["prNumber"]), number > 0 {
+                    pullRequest = PullRequestLink(number: number, url: url)
+                }
             default:
                 break
             }
         }
+
+        let pending = pendingToolUses.last { entry in
+            guard let id = entry.id else { return true }
+            return !resolvedToolUseIds.contains(id)
+        }
+        let pendingLabel = pending.flatMap { nowActionLabel(toolName: $0.name, input: $0.input) }
 
         return TranscriptSummary(
             customTitle: customTitle,
@@ -197,8 +230,93 @@ public enum LocalSessions {
             lastAssistantText: lastAssistantText,
             lastToolName: lastToolName,
             lastToolAt: lastToolAt,
-            lastMeaningfulAt: lastMeaningfulAt
+            lastMeaningfulAt: lastMeaningfulAt,
+            pendingToolLabel: pendingLabel,
+            pullRequest: pullRequest
         )
+    }
+
+    // MARK: - 현재 동작
+
+    /// 진행 중인 세션이 마지막으로 실행한 도구를 화면 문구로 바꾼다.
+    public static func nowActionLabel(toolName: String, input: [String: Any]?) -> String? {
+        guard let name = nonEmpty(toolName) else { return nil }
+        let input = input ?? [:]
+
+        if name.hasPrefix("mcp__") {
+            let tool = name.components(separatedBy: "__").last ?? name
+            return clippedActionLabel(tool)
+        }
+
+        let label: String
+        switch name {
+        case "Bash":
+            if let description = nonEmpty(input["description"] as? String) {
+                label = description
+            } else if let command = nonEmpty(input["command"] as? String) {
+                label = command.split(separator: "\n", omittingEmptySubsequences: false)
+                    .first
+                    .map(String.init) ?? command
+            } else {
+                label = name
+            }
+        case "Agent", "Task":
+            label = nonEmpty(input["description"] as? String) ?? name
+        case "Edit", "Write", "MultiEdit":
+            label = fileName(input["file_path"]).map { "파일 편집 · \($0)" } ?? "파일 편집"
+        case "Read":
+            label = fileName(input["file_path"]).map { "파일 읽기 · \($0)" } ?? "파일 읽기"
+        case "Grep", "Glob":
+            label = "검색"
+        case "WebFetch", "WebSearch":
+            label = "웹 조회"
+        default:
+            label = name
+        }
+        return clippedActionLabel(label)
+    }
+
+    /// 화면 옆에 붙는 짧은 위치. 홈 밖이면 마지막 칸만 쓴다.
+    public static func shortLocation(forCwd cwd: String?, home: String?) -> String? {
+        guard let cwd = nonEmpty(cwd) else { return nil }
+        let components = pathComponents(cwd)
+        guard !components.isEmpty else { return nil }
+        let homeComponents = pathComponents(nonEmpty(home) ?? "")
+
+        if !homeComponents.isEmpty {
+            if components == homeComponents { return "~" }
+
+            let orcaPrefix = homeComponents + ["orca", "workspaces"]
+            if components.starts(with: orcaPrefix), components.count > orcaPrefix.count + 1 {
+                return components[orcaPrefix.count] + "/" + components[orcaPrefix.count + 1]
+            }
+        }
+
+        if let index = components.firstIndex(of: ".claude"),
+           index > 0,
+           components.count > index + 2,
+           components[index + 1] == "worktrees" {
+            return components[index - 1] + "/" + components[index + 2]
+        }
+
+        if !homeComponents.isEmpty {
+            let gitPrefix = homeComponents + ["git-repo"]
+            if components.starts(with: gitPrefix), components.count > gitPrefix.count {
+                let repo = components[gitPrefix.count]
+                if components.count > gitPrefix.count + 1 {
+                    return repo + "/" + components[gitPrefix.count + 1]
+                }
+                return repo
+            }
+        }
+
+        return components.last
+    }
+
+    /// 제목과 같은 이름의 위치는 카드에 같은 글자를 두 번 보이므로 그리지 않는다.
+    public static func locationMatchesTitle(_ location: String, title: String?) -> Bool {
+        guard let title = nonEmpty(title) else { return false }
+        return normalizedLabel(location) == normalizedLabel(title)
     }
 
     // MARK: - 화면 모델
@@ -206,7 +324,8 @@ public enum LocalSessions {
     public static func makeSession(
         record: LocalSessionRecord,
         summary: TranscriptSummary,
-        now: Date
+        now: Date,
+        home: String? = nil
     ) -> Session {
         var bucket: String
         var status: String?
@@ -248,6 +367,13 @@ public enum LocalSessions {
             .compactMap { $0 }
             .max()
         let lastTool = summary.lastToolName.map { LastTool(name: $0, at: summary.lastToolAt) }
+        let location = shortLocation(forCwd: record.cwd, home: home)
+        let place = location.flatMap { location in
+            locationMatchesTitle(location, title: title)
+                ? nil
+                : Place(label: location, branch: nil, path: record.cwd)
+        }
+        let nowLabel = bucket == "working" ? summary.pendingToolLabel : nil
 
         return Session(
             sessionId: record.sessionId,
@@ -258,9 +384,12 @@ public enum LocalSessions {
             since: record.statusUpdatedAt ?? record.startedAt,
             message: message,
             replyTail: summary.lastAssistantText,
+            place: place,
             cwd: record.cwd,
             lastTool: lastTool,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            nowLabel: nowLabel,
+            pr: summary.pullRequest
         )
     }
 
@@ -299,6 +428,31 @@ public enum LocalSessions {
               !trimmed.isEmpty
         else { return nil }
         return String(trimmed.prefix(replyTailLimit))
+    }
+
+    static func prNumber(_ value: Any?) -> Int? {
+        if let number = integer(value) { return number }
+        if let raw = value as? String { return Int(raw.trimmingCharacters(in: .whitespaces)) }
+        return nil
+    }
+
+    static func clippedActionLabel(_ raw: String) -> String? {
+        let plain = PlainText.markdown(raw)
+        guard !plain.isEmpty else { return nil }
+        return String(plain.prefix(actionLabelLimit))
+    }
+
+    static func fileName(_ value: Any?) -> String? {
+        guard let path = nonEmpty(value as? String) else { return nil }
+        return nonEmpty((path as NSString).lastPathComponent)
+    }
+
+    static func pathComponents(_ path: String) -> [String] {
+        path.split(separator: "/").map(String.init)
+    }
+
+    static func normalizedLabel(_ value: String) -> String {
+        String(value.lowercased().filter { $0 != "-" && $0 != "_" })
     }
 
     static func firstNonEmpty(_ values: String?...) -> String? {
@@ -361,7 +515,8 @@ public struct EndedSessionTracker {
             nowLabel: session.nowLabel,
             href: session.href,
             counts: session.counts,
-            total: session.total
+            total: session.total,
+            pr: session.pr
         )
     }
 }
@@ -373,6 +528,9 @@ public enum SessionOverlay {
         let byId = Dictionary(remote.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
         return local.map { session in
             guard let remote = byId[session.sessionId] else { return session }
+            let overlayPlace = remote.place.flatMap { place in
+                place.label?.isEmpty == false || place.branch?.isEmpty == false ? place : nil
+            }
             return Session(
                 sessionId: session.sessionId,
                 bucket: session.bucket,
@@ -382,16 +540,17 @@ public enum SessionOverlay {
                 since: session.since,
                 message: session.message,
                 replyTail: session.replyTail,
-                place: remote.place,
+                place: overlayPlace ?? session.place,
                 cwd: session.cwd,
                 orcaTerminal: remote.orcaTerminal,
                 backgroundTasks: remote.backgroundTasks,
                 lastTool: session.lastTool,
                 updatedAt: session.updatedAt,
-                nowLabel: remote.nowLabel,
+                nowLabel: remote.nowLabel ?? session.nowLabel,
                 href: remote.href,
                 counts: remote.counts,
-                total: session.total
+                total: session.total,
+                pr: session.pr
             )
         }
     }

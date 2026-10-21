@@ -155,6 +155,7 @@ public struct Session: Equatable, Identifiable {
     public let href: String?
     public let counts: SessionCounts?
     public let total: Int?
+    public let pr: PullRequestLink?
 
     public var id: String { sessionId }
 
@@ -178,7 +179,8 @@ public struct Session: Equatable, Identifiable {
         nowLabel: String? = nil,
         href: String? = nil,
         counts: SessionCounts? = nil,
-        total: Int? = nil
+        total: Int? = nil,
+        pr: PullRequestLink? = nil
     ) {
         self.sessionId = sessionId
         self.bucket = bucket
@@ -198,6 +200,7 @@ public struct Session: Equatable, Identifiable {
         self.href = href
         self.counts = counts
         self.total = total
+        self.pr = pr
     }
 
     enum CodingKeys: String, CodingKey {
@@ -255,6 +258,7 @@ extension Session: Decodable {
         counts = Lenient.object(container, .counts, as: SessionCounts.self)
             ?? Lenient.object(summary, .counts, as: SessionCounts.self)
         total = Lenient.int(container, .total) ?? Lenient.int(summary, .total)
+        pr = nil
     }
 }
 
@@ -305,6 +309,16 @@ extension BackgroundTask: Decodable {
         let container = try? decoder.container(keyedBy: CodingKeys.self)
         type = Lenient.string(container, .type)
         taskDescription = Lenient.string(container, .taskDescription)
+    }
+}
+
+public struct PullRequestLink: Equatable {
+    public let number: Int
+    public let url: String
+
+    public init(number: Int, url: String) {
+        self.number = number
+        self.url = url
     }
 }
 

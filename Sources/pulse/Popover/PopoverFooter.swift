@@ -32,8 +32,6 @@ struct PopoverFooter: View {
 
                 HStack(spacing: 3) {
                     KeyHint("↑↓")
-                    KeyHint("↩")
-                    KeyHint("⌫")
                     KeyHint("⌥")
                 }
                 .padding(.trailing, 4)

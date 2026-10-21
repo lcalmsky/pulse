@@ -237,6 +237,11 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func openPullRequest(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     func openInOrca(_ item: DisplayItem) {
         if let handle = item.orcaTerminal, !handle.isEmpty {
             switchTerminal(handle)

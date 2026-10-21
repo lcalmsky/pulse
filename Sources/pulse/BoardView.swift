@@ -1,10 +1,34 @@
+import AppKit
 import SwiftUI
 import PulseCore
 
 struct BoardView: View {
     @ObservedObject var model: AppModel
+    var onContentHeightChange: (() -> Void)?
+
+    @State private var naturalHeight: CGFloat = 0
 
     var body: some View {
+        Group {
+            if naturalHeight > maximumHeight {
+                ScrollView(.vertical) {
+                    board
+                }
+                .frame(height: maximumHeight)
+            } else {
+                board
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// 패널 높이는 내용에 맞추되 화면의 70% 를 넘으면 그 안에서 스크롤한다.
+    private var maximumHeight: CGFloat {
+        guard let screen = NSScreen.main else { return .greatestFiniteMagnitude }
+        return floor(screen.visibleFrame.height * 0.7)
+    }
+
+    private var board: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
 
@@ -33,13 +57,21 @@ struct BoardView: View {
             }
 
             if !model.collapsed {
-                ScrollView(.vertical) {
-                    content
-                }
+                content
             }
         }
         .padding(12)
         .frame(minWidth: 340, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: BoardHeightKey.self, value: proxy.size.height)
+            }
+        )
+        .onPreferenceChange(BoardHeightKey.self) { height in
+            guard abs(height - naturalHeight) > 0.5 else { return }
+            naturalHeight = height
+            onContentHeightChange?()
+        }
     }
 
     private var header: some View {
@@ -160,6 +192,14 @@ struct BoardView: View {
         }
         .padding(.trailing, 8)
         .padding(.bottom, 4)
+    }
+}
+
+private struct BoardHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 

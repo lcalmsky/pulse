@@ -671,6 +671,134 @@ expectEqual(
     "요약: 깨진 줄은 건너뛴다"
 )
 
+// MARK: - 현재 동작
+
+let pendingToolJSON = """
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"a","name":"Read","input":{"file_path":"/x/a.swift"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"a","content":"ok"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"b","name":"Bash","input":{"description":"테스트 실행"}}]}}
+"""
+let pendingToolSummary = LocalSessions.summarizeTranscriptTail(
+    Data(pendingToolJSON.utf8),
+    droppingPartialFirstLine: false
+)
+expectEqual(pendingToolSummary.pendingToolLabel, "테스트 실행", "현재 동작: 짝이 없는 마지막 tool_use")
+expectEqual(pendingToolSummary.lastToolName, "Bash", "현재 동작: 마지막 tool_use 이름은 그대로")
+
+let matchedToolJSON = """
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"a","name":"Read","input":{"file_path":"/x/a.swift"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"a","content":"ok"}]}}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(matchedToolJSON.utf8), droppingPartialFirstLine: false)
+        .pendingToolLabel,
+    nil,
+    "현재 동작: 짝이 맞은 tool_use 는 제외"
+)
+
+let stackedToolJSON = """
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"a","name":"Read","input":{"file_path":"/x/a.swift"}},{"type":"tool_use","id":"b","name":"Bash","input":{"description":"테스트 실행"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"b","content":"ok"}]}}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(stackedToolJSON.utf8), droppingPartialFirstLine: false)
+        .pendingToolLabel,
+    "파일 읽기 · a.swift",
+    "현재 동작: 짝이 없는 것 중 마지막"
+)
+
+expectEqual(LocalSessions.nowActionLabel(toolName: "Bash", input: ["description": "테스트 실행"]),
+            "테스트 실행", "현재 동작: Bash 설명")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Bash", input: ["command": "npm test\n--watch"]),
+            "npm test", "현재 동작: Bash 명령은 첫 줄")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Bash", input: [:]), "Bash",
+            "현재 동작: Bash 에 설명도 명령도 없으면 도구 이름")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Bash",
+                                         input: ["description": String(repeating: "가", count: 60)])?.count,
+            40, "현재 동작: 40자로 자른다")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Bash", input: ["description": "**테스트** 실행"]),
+            "테스트 실행", "현재 동작: 마크다운은 평문화")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Agent", input: ["description": "코드 조사"]),
+            "코드 조사", "현재 동작: Agent 설명")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Task", input: ["description": "코드 조사"]),
+            "코드 조사", "현재 동작: Task 설명")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Edit", input: ["file_path": "/a/b/LocalSessions.swift"]),
+            "파일 편집 · LocalSessions.swift", "현재 동작: Edit")
+expectEqual(LocalSessions.nowActionLabel(toolName: "MultiEdit", input: ["file_path": "/a/b/App.swift"]),
+            "파일 편집 · App.swift", "현재 동작: MultiEdit")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Write", input: ["file_path": "/a/b/App.swift"]),
+            "파일 편집 · App.swift", "현재 동작: Write")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Edit", input: [:]),
+            "파일 편집", "현재 동작: 파일 이름이 없으면 동작만")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Read", input: ["file_path": "/a/b/LocalSessions.swift"]),
+            "파일 읽기 · LocalSessions.swift", "현재 동작: Read")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Grep", input: [:]), "검색", "현재 동작: Grep")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Glob", input: [:]), "검색", "현재 동작: Glob")
+expectEqual(LocalSessions.nowActionLabel(toolName: "WebFetch", input: [:]), "웹 조회", "현재 동작: WebFetch")
+expectEqual(LocalSessions.nowActionLabel(toolName: "WebSearch", input: [:]), "웹 조회", "현재 동작: WebSearch")
+expectEqual(LocalSessions.nowActionLabel(toolName: "Skill", input: [:]), "Skill", "현재 동작: 그 밖의 도구는 이름")
+expectEqual(LocalSessions.nowActionLabel(toolName: "mcp__keenable__search_web_pages", input: [:]),
+            "search_web_pages", "현재 동작: MCP 도구는 도구 이름만")
+
+// MARK: - PR 태그
+
+let pullRequestJSON = """
+{"type":"pr-link","prNumber":16428,"prUrl":"https://github.com/example-org/shop-api/pull/16428","prRepository":"example-org/shop-api"}
+{"type":"pr-link","prNumber":16500,"prUrl":"https://github.com/example-org/shop-api/pull/16500","prRepository":"example-org/shop-api"}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(pullRequestJSON.utf8), droppingPartialFirstLine: false)
+        .pullRequest,
+    PullRequestLink(number: 16500, url: "https://github.com/example-org/shop-api/pull/16500"),
+    "PR: 마지막 pr-link 를 쓴다"
+)
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(
+        Data(#"{"type":"pr-link","prNumber":"16428","prUrl":"https://github.com/example-org/shop-api/pull/16428"}"#.utf8),
+        droppingPartialFirstLine: false
+    ).pullRequest,
+    PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428"),
+    "PR: 문자열 번호도 읽는다"
+)
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(#"{"type":"pr-link","prUrl":"https://x"}"#.utf8),
+                                          droppingPartialFirstLine: false).pullRequest,
+    nil,
+    "PR: 번호가 없으면 버린다"
+)
+
+// MARK: - 짧은 위치
+
+let sampleHome = "/Users/alex"
+expectEqual(
+    LocalSessions.shortLocation(forCwd: "/Users/alex/orca/workspaces/shop/app-1256-demo", home: sampleHome),
+    "shop/app-1256-demo", "위치: orca 워크스페이스는 저장소/이름"
+)
+expectEqual(
+    LocalSessions.shortLocation(forCwd: "/Users/alex/orca/workspaces/shop/app-1256-demo/Sources", home: sampleHome),
+    "shop/app-1256-demo", "위치: orca 워크스페이스 하위 폴더도 같은 위치"
+)
+expectEqual(
+    LocalSessions.shortLocation(forCwd: "/Users/alex/git-repo/deadhd-bar/.claude/worktrees/wbig1", home: sampleHome),
+    "deadhd-bar/wbig1", "위치: worktree 는 저장소/이름"
+)
+expectEqual(
+    LocalSessions.shortLocation(forCwd: "/tmp/x/other/.claude/worktrees/w2/sub", home: sampleHome),
+    "other/w2", "위치: 홈 밖 worktree 도 저장소/이름"
+)
+expectEqual(
+    LocalSessions.shortLocation(forCwd: "/Users/alex/git-repo/deadhd-bar", home: sampleHome),
+    "deadhd-bar", "위치: git-repo 아래 저장소"
+)
+expectEqual(
+    LocalSessions.shortLocation(forCwd: "/Users/alex/git-repo/deadhd-bar/Sources", home: sampleHome),
+    "deadhd-bar/Sources", "위치: git-repo 하위 첫 칸"
+)
+expectEqual(LocalSessions.shortLocation(forCwd: sampleHome, home: sampleHome), "~", "위치: 홈 자체")
+expectEqual(LocalSessions.shortLocation(forCwd: "/opt/tools/foo", home: sampleHome), "foo", "위치: 그 밖은 마지막 칸")
+expectEqual(LocalSessions.shortLocation(forCwd: nil, home: sampleHome), nil, "위치: cwd 가 없으면 nil")
+expectEqual(LocalSessions.shortLocation(forCwd: "/Users/alex", home: nil), "alex", "위치: 홈을 모르면 마지막 칸")
+
 // MARK: - 인용 평문화
 
 expectEqual(PlainText.markdown("**굵게**"), "굵게", "평문화: 굵게")
@@ -871,6 +999,68 @@ let noStatusTime = LocalSessions.makeSession(
 )
 expectEqual(noStatusTime.since, startedAt, "시각: statusUpdatedAt 이 없으면 startedAt")
 
+// MARK: - 로컬 위치·현재 동작·PR 태그
+
+let sameTitleRecord = LocalSessionRecord(
+    pid: 100,
+    sessionId: "loc",
+    cwd: "/Users/alex/git-repo/deadhd-bar",
+    name: "deadhdbar",
+    entrypoint: "cli",
+    status: "busy"
+)
+let sameTitleSession = LocalSessions.makeSession(
+    record: sameTitleRecord,
+    summary: TranscriptSummary(),
+    now: now,
+    home: sampleHome
+)
+expectEqual(sameTitleSession.title, "deadhdbar", "위치: 제목은 세션 파일 이름")
+expectEqual(sameTitleSession.place, nil, "위치: 제목과 같으면(대소문자·-·_ 무시) 그리지 않는다")
+
+let differentTitleRecord = LocalSessionRecord(
+    pid: 100,
+    sessionId: "loc",
+    cwd: "/Users/alex/git-repo/deadhd-bar",
+    name: "pulse",
+    entrypoint: "cli",
+    status: "busy"
+)
+let differentTitleSession = LocalSessions.makeSession(
+    record: differentTitleRecord,
+    summary: TranscriptSummary(),
+    now: now,
+    home: sampleHome
+)
+expectEqual(differentTitleSession.place?.label, "deadhd-bar", "위치: 제목과 다르면 그린다")
+let locatedItem = DisplayItem(session: differentTitleSession, group: .working, now: now)
+expectEqual(locatedItem.placeText, "deadhd-bar", "위치: 행은 place 를 상태 옆에 그린다")
+
+let actionWorking = localSession(status: "busy", summary: TranscriptSummary(pendingToolLabel: "테스트 실행"))
+expectEqual(actionWorking.nowLabel, "테스트 실행", "현재 동작: 진행 중 세션에 넣는다")
+let actionItem = Grouping.group(SessionsResponse(sessions: [actionWorking]), now: now).working.first
+expectEqual(actionItem?.status, "2분째 · 테스트 실행", "현재 동작: 상태 문구 뒤에 붙는다")
+
+let actionWaiting = localSession(
+    status: "waiting",
+    waitingFor: "input needed",
+    summary: TranscriptSummary(pendingToolLabel: "테스트 실행")
+)
+expectEqual(actionWaiting.nowLabel, nil, "현재 동작: 대기 세션에는 넣지 않는다")
+let actionIdle = localSession(status: "idle", summary: TranscriptSummary(pendingToolLabel: "테스트 실행"))
+expectEqual(actionIdle.nowLabel, nil, "현재 동작: 완료 세션에는 넣지 않는다")
+
+let pullRequestSession = localSession(
+    status: "busy",
+    summary: TranscriptSummary(
+        pullRequest: PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428")
+    )
+)
+let pullRequestItem = Grouping.group(SessionsResponse(sessions: [pullRequestSession]), now: now).working.first
+expectEqual(pullRequestItem?.prTag, "#16428", "PR: 태그 문구")
+expectEqual(pullRequestItem?.prURL, "https://github.com/example-org/shop-api/pull/16428", "PR: 태그가 여는 주소")
+expectEqual(actionItem?.prTag, nil, "PR: pr-link 가 없으면 태그도 없다")
+
 let richSummary = TranscriptSummary(
     lastAssistantText: "마지막 답변",
     lastToolName: "Read",
@@ -1020,6 +1210,23 @@ expectEqual(overlaid.first?.bucket, "working", "보강: bucket 은 로컬 값을
 expectEqual(overlaid.first?.title, "로컬 제목", "보강: title 은 로컬 값을 지킨다")
 expectEqual(overlaid.first?.cwd, "/a/b", "보강: cwd 는 로컬 값을 지킨다")
 expectEqual(SessionOverlay.apply(local: [localOnly], remote: []), [localOnly], "보강: deadhd 응답이 없으면 로컬 그대로")
+
+let localLocated = Session(
+    sessionId: "p",
+    bucket: "working",
+    place: Place(label: "deadhd-bar", branch: nil, path: "/Users/alex/git-repo/deadhd-bar"),
+    nowLabel: "테스트 실행",
+    pr: PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428")
+)
+let remoteEmpty = Session(sessionId: "p", bucket: "working")
+let keptLocal = SessionOverlay.apply(local: [localLocated], remote: [remoteEmpty])
+expectEqual(keptLocal.first?.place?.label, "deadhd-bar", "보강: deadhd 에 위치가 없으면 로컬 위치")
+expectEqual(keptLocal.first?.nowLabel, "테스트 실행", "보강: deadhd 에 현재 동작이 없으면 로컬 값")
+expectEqual(keptLocal.first?.pr, PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428"),
+            "보강: PR 태그는 로컬 값을 지킨다")
+expectEqual(SessionOverlay.apply(local: [localLocated], remote: [Session(sessionId: "p", bucket: "working",
+                                                                     place: Place())]).first?.place?.label,
+            "deadhd-bar", "보강: 빈 deadhd 위치는 로컬 값을 덮지 않는다")
 
 // MARK: - 팝오버 링과 숫자
 

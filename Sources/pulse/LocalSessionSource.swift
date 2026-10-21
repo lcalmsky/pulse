@@ -39,7 +39,9 @@ final class LocalSessionSource {
             else { continue }
 
             let summary = transcriptSummary(for: record)
-            sessions.append(LocalSessions.makeSession(record: record, summary: summary, now: now))
+            sessions.append(LocalSessions.makeSession(
+                record: record, summary: summary, now: now, home: NSHomeDirectory()
+            ))
         }
         return sessions
     }

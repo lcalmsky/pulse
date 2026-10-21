@@ -25,6 +25,7 @@ final class FloatingPanelController: NSObject {
         hosting = FirstMouseHostingView(rootView: BoardView(model: model))
         super.init()
 
+        hosting.rootView = BoardView(model: model) { [weak self] in self?.updateSize() }
         configurePanel()
         configureContent()
         restoreSize()
