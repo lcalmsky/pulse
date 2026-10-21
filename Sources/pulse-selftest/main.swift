@@ -1338,11 +1338,25 @@ expectEqual(singleAck.hiddenCount(in: SessionsResponse(sessions: [doneSession]),
 expectEqual(AppSettings.default.density, .rich, "설정: 기본 밀도는 풍부")
 expectEqual(AppSettings.default.theme, .system, "설정: 기본 테마는 시스템")
 expectEqual(AppSettings.default.attentionNotifications, true, "설정: 기본 알림은 켜짐")
+expectEqual(AppSettings.default.doneNotifications, true, "설정: 기본 완료 알림은 켜짐")
 
 let storedSettings = AppSettings(densityRaw: "compact", themeRaw: "dark", attentionNotifications: false)
 expectEqual(storedSettings.density, .compact, "설정: 저장된 밀도를 읽는다")
 expectEqual(storedSettings.theme, .dark, "설정: 저장된 테마를 읽는다")
 expectEqual(storedSettings.attentionNotifications, false, "설정: 저장된 알림 값을 읽는다")
+expectEqual(storedSettings.doneNotifications, true, "설정: 완료 알림 키가 없으면 켜짐")
+
+let storedDone = AppSettings(
+    densityRaw: nil,
+    themeRaw: nil,
+    attentionNotifications: nil,
+    doneNotifications: false
+)
+expectEqual(storedDone.doneNotifications, false, "설정: 저장된 완료 알림 값을 읽는다")
+expectEqual(AppSettings.densityKey, "density", "설정: 밀도 키")
+expectEqual(AppSettings.themeKey, "theme", "설정: 테마 키")
+expectEqual(AppSettings.attentionNotificationsKey, "attentionNotifications", "설정: 알림 키")
+expectEqual(AppSettings.doneNotificationsKey, "doneNotifications", "설정: 완료 알림 키")
 
 let unknownSettings = AppSettings(densityRaw: "dense", themeRaw: "sepia", attentionNotifications: nil)
 expectEqual(unknownSettings, AppSettings.default, "설정: 알 수 없는 값과 없는 값은 기본값")
@@ -1414,6 +1428,173 @@ expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true
 _ = pruneNotifier.notes(for: [], popoverVisible: false, enabled: true, isFirstUpdate: false)
 expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
             "알림: 응답에서 빠진 키는 지워 다시 새 항목이 된다")
+
+var batchNotifier = AttentionNotifier()
+let firstBatch = batchNotifier.evaluate(
+    for: noteA,
+    popoverVisible: false,
+    enabled: true,
+    isFirstUpdate: true
+)
+expectEqual(firstBatch.candidates, 1, "알림 후보: 첫 갱신에도 후보 수는 센다")
+expectEqual(firstBatch.notes.count, 0, "알림 후보: 첫 갱신은 보내지 않는다")
+expectEqual(firstBatch.suppression, NotificationSuppression.firstUpdate, "알림 후보: 억제 사유는 첫 갱신")
+let openBatch = batchNotifier.evaluate(for: noteA + noteB, popoverVisible: true, enabled: true, isFirstUpdate: false)
+expectEqual(openBatch.suppression, NotificationSuppression.popoverVisible, "알림 후보: 억제 사유는 팝오버 열림")
+let offBatch = batchNotifier.evaluate(for: noteB, popoverVisible: false, enabled: false, isFirstUpdate: false)
+expectEqual(offBatch.suppression, NotificationSuppression.disabled, "알림 후보: 억제 사유는 설정 꺼짐")
+let sentBatch = batchNotifier.evaluate(for: noteA + noteB, popoverVisible: false, enabled: true, isFirstUpdate: false)
+expectEqual(sentBatch.suppression, nil, "알림 후보: 보낼 때는 억제 사유가 없다")
+expectEqual(sentBatch.notes.count, 1, "알림 후보: 새 항목 하나를 보낸다")
+
+expectEqual(NotificationPermission.authorized.isAuthorized, true, "권한: 허용")
+expectEqual(NotificationPermission.denied.isAuthorized, false, "권한: 거부")
+expectEqual(NotificationPermission.notDetermined.isAuthorized, false, "권한: 아직 묻지 않음")
+expectEqual(NotificationPermission.unknown.isAuthorized, false, "권한: 모름")
+
+// MARK: - 완료 알림
+
+let doneWorkItem = Grouping.group(
+    SessionsResponse(sessions: [session("done-a", "working", minutesAgo: 4)]),
+    now: now
+).working
+let doneDoneItem = Grouping.group(
+    SessionsResponse(sessions: [session("done-a", "done", minutesAgo: 1, replyTail: "**마무리했습니다**")]),
+    now: now
+).done
+let doneStatusItem = Grouping.group(
+    SessionsResponse(sessions: [session("done-b", "done", minutesAgo: 1)]),
+    now: now
+).done
+let doneWorkB = Grouping.group(
+    SessionsResponse(sessions: [session("done-b", "working", minutesAgo: 4)]),
+    now: now
+).working
+let doneStallItem = Grouping.group(
+    SessionsResponse(sessions: [session("done-s", "stall", minutesAgo: 9)]),
+    now: now
+).attention
+
+func doneNotes(
+    _ notifier: inout DoneNotifier,
+    done: [DisplayItem],
+    working: [DisplayItem] = [],
+    attention: [DisplayItem] = [],
+    popoverVisible: Bool = false,
+    enabled: Bool = true,
+    isFirstUpdate: Bool = false
+) -> [AttentionNote] {
+    notifier.notes(
+        done: done,
+        working: working,
+        attention: attention,
+        popoverVisible: popoverVisible,
+        enabled: enabled,
+        isFirstUpdate: isFirstUpdate
+    )
+}
+
+var doneNotifier = DoneNotifier()
+expectEqual(doneNotes(&doneNotifier, done: doneDoneItem, isFirstUpdate: true).count, 0,
+            "완료 알림: 첫 갱신에 이미 완료면 알리지 않는다")
+expectEqual(doneNotes(&doneNotifier, done: doneDoneItem, isFirstUpdate: false).count, 0,
+            "완료 알림: 첫 갱신에 이미 완료였던 세션은 나중에도 알리지 않는다")
+_ = doneNotes(&doneNotifier, done: [], working: doneWorkItem)
+let transitioned = doneNotes(&doneNotifier, done: doneDoneItem)
+expectEqual(transitioned.count, 1, "완료 알림: 진행 중에서 완료로 바뀌면 알린다")
+expectEqual(transitioned.first?.title, "끝났어요 · done-a", "완료 알림: 제목")
+expectEqual(transitioned.first?.body, "마무리했습니다", "완료 알림: 본문은 평문 마지막 답")
+expectEqual(transitioned.first?.identifier, doneDoneItem[0].acknowledgeKey, "완료 알림: 식별자는 sessionId+since")
+expectEqual(transitioned.first?.sessionId, "done-a", "완료 알림: sessionId")
+expectEqual(doneNotes(&doneNotifier, done: doneDoneItem).count, 0, "완료 알림: 같은 키는 다시 알리지 않는다")
+
+var doneStatusNotifier = DoneNotifier()
+_ = doneNotes(&doneStatusNotifier, done: [], working: doneWorkB)
+let statusOnly = doneNotes(&doneStatusNotifier, done: doneStatusItem)
+expectEqual(statusOnly.count, 1, "완료 알림: 답이 없어도 알린다")
+expectEqual(statusOnly.first?.body, doneStatusItem[0].status, "완료 알림: 답이 없으면 상태 문구")
+
+var doneStallNotifier = DoneNotifier()
+_ = doneNotes(&doneStallNotifier, done: [], attention: doneStallItem)
+let stallDone = Grouping.group(
+    SessionsResponse(sessions: [session("done-s", "done", minutesAgo: 1)]),
+    now: now
+).done
+expectEqual(doneNotes(&doneStallNotifier, done: stallDone).count, 1, "완료 알림: stall 에서 완료로 바뀌어도 알린다")
+
+var doneIdleNotifier = DoneNotifier()
+_ = doneNotes(&doneIdleNotifier, done: [], attention: noteA)
+let idleToDone = Grouping.group(
+    SessionsResponse(sessions: [session("attn-a", "done", minutesAgo: 1)]),
+    now: now
+).done
+expectEqual(doneNotes(&doneIdleNotifier, done: idleToDone).count, 0,
+            "완료 알림: 진행 중을 거치지 않은 세션은 알리지 않는다")
+
+var doneFreshNotifier = DoneNotifier()
+expectEqual(doneNotes(&doneFreshNotifier, done: doneDoneItem).count, 0,
+            "완료 알림: 처음부터 완료로 보인 세션은 알리지 않는다")
+
+var doneFirstNotifier = DoneNotifier()
+_ = doneNotes(&doneFirstNotifier, done: [], working: doneWorkItem)
+let firstUpdateBatch = doneFirstNotifier.evaluate(
+    done: doneDoneItem, working: [], attention: [],
+    popoverVisible: false, enabled: true, isFirstUpdate: true
+)
+expectEqual(firstUpdateBatch.candidates, 1, "완료 알림 후보: 첫 갱신에도 후보 수는 센다")
+expectEqual(firstUpdateBatch.suppression, NotificationSuppression.firstUpdate, "완료 알림 후보: 억제 사유는 첫 갱신")
+expectEqual(firstUpdateBatch.notes.count, 0, "완료 알림: 첫 갱신에는 보내지 않는다")
+expectEqual(doneNotes(&doneFirstNotifier, done: doneDoneItem).count, 0,
+            "완료 알림: 첫 갱신에 본 완료는 나중에도 알리지 않는다")
+let doneFirstBatch = doneFirstNotifier.evaluate(
+    done: doneDoneItem, working: [], attention: [],
+    popoverVisible: false, enabled: true, isFirstUpdate: false
+)
+expectEqual(doneFirstBatch.suppression, nil, "완료 알림: 기록된 항목은 후보가 아니다")
+expectEqual(doneFirstBatch.candidates, 0, "완료 알림: 기록된 항목은 후보 수에도 없다")
+
+var donePopoverNotifier = DoneNotifier()
+_ = doneNotes(&donePopoverNotifier, done: [], working: doneWorkItem)
+expectEqual(doneNotes(&donePopoverNotifier, done: doneDoneItem, popoverVisible: true).count, 0,
+            "완료 알림: 팝오버가 열려 있으면 보내지 않는다")
+expectEqual(doneNotes(&donePopoverNotifier, done: doneDoneItem).count, 0,
+            "완료 알림: 열려 있는 동안 본 완료는 나중에도 알리지 않는다")
+
+var doneOffNotifier = DoneNotifier()
+_ = doneNotes(&doneOffNotifier, done: [], working: doneWorkItem)
+expectEqual(doneNotes(&doneOffNotifier, done: doneDoneItem, enabled: false).count, 0,
+            "완료 알림: 설정이 꺼져 있으면 보내지 않는다")
+expectEqual(doneNotes(&doneOffNotifier, done: doneDoneItem).count, 0,
+            "완료 알림: 꺼져 있는 동안 본 완료는 켠 뒤에도 알리지 않는다")
+
+var doneSuppressNotifier = DoneNotifier()
+_ = doneNotes(&doneSuppressNotifier, done: [], working: doneWorkItem)
+let disabledBatch = doneSuppressNotifier.evaluate(
+    done: doneDoneItem, working: [], attention: [],
+    popoverVisible: false, enabled: false, isFirstUpdate: false
+)
+expectEqual(disabledBatch.candidates, 1, "완료 알림 후보: 후보 수")
+expectEqual(disabledBatch.suppression, NotificationSuppression.disabled, "완료 알림 후보: 억제 사유")
+expectEqual(disabledBatch.notes.count, 0, "완료 알림 후보: 보내지 않음")
+
+// MARK: - 알림이 거둬지는 키
+
+let notifiedGroups = Grouping.group(
+    SessionsResponse(sessions: [
+        session("keep-a", "idle", minutesAgo: 3),
+        session("keep-done", "done", minutesAgo: 1),
+    ]),
+    now: now
+)
+expectEqual(Set((notifiedGroups.attention + notifiedGroups.done).map(\.acknowledgeKey)).count, 2,
+            "알림 키: 확인 필요와 완료를 함께 지킨다")
+let acknowledgedNotified = Grouping.group(
+    SessionsResponse(sessions: [session("keep-done", "done", minutesAgo: 1)]),
+    now: now,
+    acknowledgedDone: [DisplayItem.acknowledgeKey(sessionId: "keep-done", since: notifiedGroups.done[0].sortDate)]
+)
+expectEqual(acknowledgedNotified.done.count, 0, "알림 키: 확인한 완료는 키 집합에서 빠진다")
+expectEqual(notifiedGroups.allItems.count, 2, "알림 키: 전체 항목에서 알림의 세션을 찾는다")
 
 // MARK: - 전역 단축키
 

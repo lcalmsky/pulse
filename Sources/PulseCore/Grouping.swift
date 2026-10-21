@@ -155,6 +155,9 @@ public struct GroupedSessions: Equatable {
         }
     }
 
+    /// 알림에서 세션을 찾을 때 쓰는 전체 목록. 완료 알림도 여기서 항목을 찾는다.
+    public var allItems: [DisplayItem] { attention + working + done }
+
     /// 메뉴와 패널이 실제로 그리는 항목. 완료 그룹만 5개로 자른다.
     public func visibleItems(for group: DisplayGroup) -> [DisplayItem] {
         switch group {

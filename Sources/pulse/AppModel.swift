@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import OSLog
 import PulseCore
 
 protocol DetailPresenting: AnyObject {
@@ -20,11 +21,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var density: Density
     @Published private(set) var theme: ThemePreference
     @Published private(set) var attentionNotifications: Bool
+    @Published private(set) var doneNotifications: Bool
+    @Published private(set) var notificationPermission: NotificationPermission = .unknown
     @Published private(set) var hotKeyUnavailable = false
 
     weak var detailPresenter: DetailPresenting?
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
+
+    private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "notify")
 
     private let defaults = UserDefaults.standard
     private let port: String
@@ -35,6 +40,7 @@ final class AppModel: ObservableObject {
     private lazy var notificationCenter = AttentionNotificationCenter(model: self)
 
     private var attentionNotifier = AttentionNotifier()
+    private var doneNotifier = DoneNotifier()
     private var popoverVisible = false
     private var hasHandledFirstUpdate = false
 
@@ -53,11 +59,13 @@ final class AppModel: ObservableObject {
         let settings = AppSettings(
             densityRaw: defaults.string(forKey: AppSettings.densityKey),
             themeRaw: defaults.string(forKey: AppSettings.themeKey),
-            attentionNotifications: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool
+            attentionNotifications: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool,
+            doneNotifications: defaults.object(forKey: AppSettings.doneNotificationsKey) as? Bool
         )
         density = settings.density
         theme = settings.theme
         attentionNotifications = settings.attentionNotifications
+        doneNotifications = settings.doneNotifications
 
         port = ProcessInfo.processInfo.environment["DEADHD_PORT"] ?? "47320"
         acknowledgements = DoneAcknowledgements(
@@ -86,8 +94,39 @@ final class AppModel: ObservableObject {
         if enabled {
             notificationCenter.requestAuthorizationIfNeeded()
         } else {
-            notificationCenter.removeAllDelivered()
+            notificationCenter.removeDelivered(kind: .attention)
         }
+    }
+
+    func setDoneNotifications(_ enabled: Bool) {
+        guard doneNotifications != enabled else { return }
+        doneNotifications = enabled
+        defaults.set(enabled, forKey: AppSettings.doneNotificationsKey)
+        if enabled {
+            notificationCenter.requestAuthorizationIfNeeded()
+        } else {
+            notificationCenter.removeDelivered(kind: .done)
+        }
+    }
+
+    func updateNotificationPermission(_ value: NotificationPermission) {
+        guard notificationPermission != value else { return }
+        notificationPermission = value
+    }
+
+    func refreshNotificationPermission() {
+        notificationCenter.refreshPermission()
+    }
+
+    func requestNotificationAuthorization() {
+        notificationCenter.requestAuthorization(force: true)
+    }
+
+    func openNotificationSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=io.github.lcalmsky.pulse"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func setPopoverVisible(_ visible: Bool) {
@@ -99,7 +138,8 @@ final class AppModel: ObservableObject {
     }
 
     func start() {
-        if attentionNotifications {
+        notificationCenter.logStartupState()
+        if attentionNotifications || doneNotifications {
             notificationCenter.requestAuthorizationIfNeeded()
         }
         poll()
@@ -210,17 +250,39 @@ final class AppModel: ObservableObject {
             snoozedUntil: snoozes
         )
         hiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
-        notificationCenter.syncDelivered(keeping: Set(groups.attention.map(\.acknowledgeKey)))
+        // 완료 알림도 확인(숨김)하거나 진행 중으로 돌아가면 이 집합에서 빠져 알림 센터에서 거둬진다.
+        notificationCenter.syncDelivered(
+            keeping: Set((groups.attention + groups.done).map(\.acknowledgeKey))
+        )
     }
 
     private func deliverAttentionNotes(isFirstUpdate: Bool) {
-        let notes = attentionNotifier.notes(
+        let attention = attentionNotifier.evaluate(
             for: groups.attention,
             popoverVisible: popoverVisible,
             enabled: attentionNotifications,
             isFirstUpdate: isFirstUpdate
         )
-        notificationCenter.post(notes)
+        let done = doneNotifier.evaluate(
+            done: groups.done,
+            working: groups.working,
+            attention: groups.attention,
+            popoverVisible: popoverVisible,
+            enabled: doneNotifications,
+            isFirstUpdate: isFirstUpdate
+        )
+        Self.logBatch("확인 필요", attention)
+        Self.logBatch("완료", done)
+        notificationCenter.post(attention.notes, kind: .attention)
+        notificationCenter.post(done.notes, kind: .done)
+    }
+
+    /// 갱신마다 후보 수와 억제 사유를 남긴다. 후보가 있으면 기본 로그로도 남긴다.
+    private static func logBatch(_ label: String, _ batch: NotificationBatch) {
+        let line = "\(label) 후보=\(batch.candidates) 전송=\(batch.notes.count) 억제=\(batch.suppression?.rawValue ?? "없음")"
+        logger.info("\(line, privacy: .public)")
+        guard batch.candidates > 0 else { return }
+        logger.notice("\(line, privacy: .public)")
     }
 
     // MARK: - 동작
