@@ -27,8 +27,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastSuccess: Date?
     @Published private(set) var density: Density
     @Published private(set) var theme: ThemePreference
-    @Published private(set) var attentionNotifications: Bool
-    @Published private(set) var doneNotifications: Bool
+    @Published private(set) var attentionAlert: AttentionAlert
+    @Published private(set) var doneAlert: DoneAlert
     @Published private(set) var notificationPermission: NotificationPermission = .unknown
     @Published private(set) var hotKeyUnavailable = false
     /// 단계를 펼친 세션. 팝오버와 플로팅 패널이 같은 펼침을 본다.
@@ -54,6 +54,8 @@ final class AppModel: ObservableObject {
 
     private var attentionNotifier = AttentionNotifier()
     private var doneNotifier = DoneNotifier()
+    /// 재생하는 동안 해제되지 않도록 잡아 둔다.
+    private var cardSound: NSSound?
     private var deck = CardDeck()
     private var cardExpiry: DispatchWorkItem?
     private var popoverVisible = false
@@ -71,13 +73,15 @@ final class AppModel: ObservableObject {
         let settings = AppSettings(
             densityRaw: defaults.string(forKey: AppSettings.densityKey),
             themeRaw: defaults.string(forKey: AppSettings.themeKey),
-            attentionNotifications: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool,
-            doneNotifications: defaults.object(forKey: AppSettings.doneNotificationsKey) as? Bool
+            attentionAlertRaw: defaults.string(forKey: AppSettings.attentionAlertKey),
+            doneAlertRaw: defaults.string(forKey: AppSettings.doneAlertKey),
+            legacyAttention: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool,
+            legacyDone: defaults.object(forKey: AppSettings.doneNotificationsKey) as? Bool
         )
         density = settings.density
         theme = settings.theme
-        attentionNotifications = settings.attentionNotifications
-        doneNotifications = settings.doneNotifications
+        attentionAlert = settings.attentionAlert
+        doneAlert = settings.doneAlert
 
         acknowledgements = DoneAcknowledgements(
             keys: Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
@@ -98,24 +102,34 @@ final class AppModel: ObservableObject {
         defaults.set(value.rawValue, forKey: AppSettings.themeKey)
     }
 
-    func setAttentionNotifications(_ enabled: Bool) {
-        guard attentionNotifications != enabled else { return }
-        attentionNotifications = enabled
-        defaults.set(enabled, forKey: AppSettings.attentionNotificationsKey)
-        if enabled {
-            notificationCenter.requestAuthorizationIfNeeded()
+    func setAttentionAlert(_ value: AttentionAlert) {
+        guard attentionAlert != value else { return }
+        attentionAlert = value
+        defaults.set(value.rawValue, forKey: AppSettings.attentionAlertKey)
+        defaults.removeObject(forKey: AppSettings.attentionNotificationsKey)
+        if value.showsCard {
+            if Self.systemNotificationPolicy == .always {
+                notificationCenter.requestAuthorizationIfNeeded()
+            }
         } else {
+            deck.dismiss(kind: .attention)
+            publishCards()
             notificationCenter.removeDelivered(kind: .attention)
         }
     }
 
-    func setDoneNotifications(_ enabled: Bool) {
-        guard doneNotifications != enabled else { return }
-        doneNotifications = enabled
-        defaults.set(enabled, forKey: AppSettings.doneNotificationsKey)
-        if enabled {
-            notificationCenter.requestAuthorizationIfNeeded()
+    func setDoneAlert(_ value: DoneAlert) {
+        guard doneAlert != value else { return }
+        doneAlert = value
+        defaults.set(value.rawValue, forKey: AppSettings.doneAlertKey)
+        defaults.removeObject(forKey: AppSettings.doneNotificationsKey)
+        if value.showsCard {
+            if Self.systemNotificationPolicy == .always {
+                notificationCenter.requestAuthorizationIfNeeded()
+            }
         } else {
+            deck.dismiss(kind: .done)
+            publishCards()
             notificationCenter.removeDelivered(kind: .done)
         }
     }
@@ -154,7 +168,7 @@ final class AppModel: ObservableObject {
 
     func start() {
         notificationCenter.logStartupState()
-        if attentionNotifications || doneNotifications {
+        if Self.systemNotificationPolicy == .always && (attentionAlert.showsCard || doneAlert.showsCard) {
             notificationCenter.requestAuthorizationIfNeeded()
         }
         poll()
@@ -236,7 +250,7 @@ final class AppModel: ObservableObject {
             for: groups.attention,
             popoverVisible: popoverVisible,
             panelVisible: panelVisible,
-            enabled: attentionNotifications,
+            enabled: attentionAlert.showsCard,
             isFirstUpdate: isFirstUpdate
         )
         let done = doneNotifier.evaluate(
@@ -245,7 +259,7 @@ final class AppModel: ObservableObject {
             attention: groups.attention,
             popoverVisible: popoverVisible,
             panelVisible: panelVisible,
-            enabled: doneNotifications,
+            enabled: doneAlert.showsCard,
             isFirstUpdate: isFirstUpdate
         )
         Self.logBatch("확인 필요", attention)
@@ -266,6 +280,9 @@ final class AppModel: ObservableObject {
             now: Date()
         )
         publishCards()
+        if route.cards, !newAttention.isEmpty, let soundName = attentionAlert.soundName {
+            playCardSound(named: soundName)
+        }
         if newAttention.count + newDone.count > 0 {
             let path: String
             switch (route.cards, route.system) {
@@ -278,6 +295,14 @@ final class AppModel: ObservableObject {
                 "카드 추가 확인=\(newAttention.count) 끝남=\(newDone.count) 떠 있음=\(self.deck.cards.count) 경로=\(path, privacy: .public)"
             )
         }
+    }
+
+    /// 재생 중 해제되지 않도록 인스턴스를 잡아 두고, 이름이 바뀌면 다시 만든다.
+    private func playCardSound(named name: String) {
+        if cardSound?.name != name {
+            cardSound = NSSound(named: name)
+        }
+        cardSound?.play()
     }
 
     private func items(for notes: [AttentionNote], in items: [DisplayItem]) -> [DisplayItem] {

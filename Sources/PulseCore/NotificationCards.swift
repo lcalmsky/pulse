@@ -89,6 +89,11 @@ public struct CardDeck: Equatable {
         endPauseIfEmpty()
     }
 
+    public mutating func dismiss(kind: CardKind) {
+        cards.removeAll { $0.kind == kind }
+        endPauseIfEmpty()
+    }
+
     /// 패널 위에 마우스가 있는 동안 끝남 카드의 시간을 멈춘다.
     public mutating func setPaused(_ value: Bool, now: Date) {
         guard paused != value else { return }

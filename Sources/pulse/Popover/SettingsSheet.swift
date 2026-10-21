@@ -55,39 +55,56 @@ struct SettingsSheet: View {
             }
             .padding(.bottom, 12)
 
-            HStack(spacing: 6) {
-                Text("확인 필요 알림 띄우기")
+            Text("알림")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(PopoverPalette.tertiary)
+                .padding(.horizontal, 2)
+                .padding(.bottom, 6)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("확인이 필요할 때")
                     .font(.system(size: 12))
                     .foregroundColor(PopoverPalette.secondary)
-                Spacer(minLength: 0)
-                Toggle("", isOn: Binding(
-                    get: { model.attentionNotifications },
-                    set: { model.setAttentionNotifications($0) }
-                ))
-                .toggleStyle(.switch)
-                .controlSize(.small)
+                Picker("", selection: Binding(
+                    get: { model.attentionAlert },
+                    set: { model.setAttentionAlert($0) }
+                )) {
+                    ForEach(AttentionAlert.allCases, id: \.self) { alert in
+                        Text(alert.title).tag(alert)
+                    }
+                }
+                .pickerStyle(.segmented)
                 .labelsHidden()
+                .controlSize(.small)
             }
             .padding(.horizontal, 2)
 
-            permissionNote
-
-            HStack(spacing: 6) {
-                Text("작업이 끝나면 알림 띄우기")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("작업이 끝났을 때")
                     .font(.system(size: 12))
                     .foregroundColor(PopoverPalette.secondary)
-                Spacer(minLength: 0)
-                Toggle("", isOn: Binding(
-                    get: { model.doneNotifications },
-                    set: { model.setDoneNotifications($0) }
-                ))
-                .toggleStyle(.switch)
-                .controlSize(.small)
+                Picker("", selection: Binding(
+                    get: { model.doneAlert },
+                    set: { model.setDoneAlert($0) }
+                )) {
+                    ForEach(DoneAlert.allCases, id: \.self) { alert in
+                        Text(alert.title).tag(alert)
+                    }
+                }
+                .pickerStyle(.segmented)
                 .labelsHidden()
+                .controlSize(.small)
             }
             .padding(.horizontal, 2)
             .padding(.top, 8)
-            .padding(.bottom, 10)
+
+            Text("Pulse 를 보고 있을 때는 알리지 않아요")
+                .font(.system(size: 11))
+                .foregroundColor(PopoverPalette.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 2)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
@@ -109,7 +126,6 @@ struct SettingsSheet: View {
             }
             .padding(.horizontal, 2)
         }
-        .onAppear { model.refreshNotificationPermission() }
         .padding(12)
         .frame(width: 260)
         .background(
@@ -122,44 +138,6 @@ struct SettingsSheet: View {
         )
         .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
     }
-
-    @ViewBuilder
-    private var permissionNote: some View {
-        switch model.notificationPermission {
-        case .notDetermined:
-            permissionButton("알림 권한을 아직 받지 않았어요", action: "허용하기") {
-                model.requestNotificationAuthorization()
-            }
-        case .denied:
-            permissionButton("시스템 설정에서 알림이 꺼져 있어요", action: "설정 열기") {
-                model.openNotificationSettings()
-            }
-        case .unknown, .authorized:
-            EmptyView()
-        }
-    }
-
-    private func permissionButton(
-        _ text: String,
-        action: String,
-        _ run: @escaping () -> Void
-    ) -> some View {
-        Button(action: run) {
-            HStack(spacing: 0) {
-                Text(text)
-                    .foregroundColor(PopoverPalette.tertiary)
-                Text(" · ")
-                    .foregroundColor(PopoverPalette.tertiary)
-                Text(action)
-                    .foregroundColor(.blue)
-            }
-            .font(.system(size: 11))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 2)
-        .padding(.top, 4)
-    }
 }
 
 private extension ThemePreference {
@@ -168,6 +146,25 @@ private extension ThemePreference {
         case .system: return "시스템"
         case .light: return "라이트"
         case .dark: return "다크"
+        }
+    }
+}
+
+private extension AttentionAlert {
+    var title: String {
+        switch self {
+        case .cardAndSound: return "카드와 소리"
+        case .cardOnly: return "카드만"
+        case .off: return "끔"
+        }
+    }
+}
+
+private extension DoneAlert {
+    var title: String {
+        switch self {
+        case .card: return "카드"
+        case .off: return "끔"
         }
     }
 }

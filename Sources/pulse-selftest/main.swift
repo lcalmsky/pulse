@@ -1657,36 +1657,60 @@ expectEqual(singleAck.hiddenCount(in: SessionsResponse(sessions: [doneSession]),
 
 expectEqual(AppSettings.default.density, .rich, "설정: 기본 밀도는 풍부")
 expectEqual(AppSettings.default.theme, .system, "설정: 기본 테마는 시스템")
-expectEqual(AppSettings.default.attentionNotifications, true, "설정: 기본 알림은 켜짐")
-expectEqual(AppSettings.default.doneNotifications, true, "설정: 기본 완료 알림은 켜짐")
+expectEqual(AppSettings.default.attentionAlert, .cardAndSound, "설정: 기본 확인 필요 알림은 카드와 소리")
+expectEqual(AppSettings.default.doneAlert, .card, "설정: 기본 끝남 알림은 카드")
 
-let storedSettings = AppSettings(densityRaw: "compact", themeRaw: "dark", attentionNotifications: false)
+let storedSettings = AppSettings(densityRaw: "compact", themeRaw: "dark", attentionAlertRaw: "cardOnly")
 expectEqual(storedSettings.density, .compact, "설정: 저장된 밀도를 읽는다")
 expectEqual(storedSettings.theme, .dark, "설정: 저장된 테마를 읽는다")
-expectEqual(storedSettings.attentionNotifications, false, "설정: 저장된 알림 값을 읽는다")
-expectEqual(storedSettings.doneNotifications, true, "설정: 완료 알림 키가 없으면 켜짐")
+expectEqual(storedSettings.attentionAlert, .cardOnly, "설정: 저장된 확인 필요 알림을 읽는다")
+expectEqual(storedSettings.doneAlert, .card, "설정: 끝남 알림 키가 없으면 카드")
 
-let storedDone = AppSettings(
-    densityRaw: nil,
-    themeRaw: nil,
-    attentionNotifications: nil,
-    doneNotifications: false
-)
-expectEqual(storedDone.doneNotifications, false, "설정: 저장된 완료 알림 값을 읽는다")
+let storedDone = AppSettings(densityRaw: nil, themeRaw: nil, doneAlertRaw: "off")
+expectEqual(storedDone.doneAlert, .off, "설정: 저장된 끝남 알림을 읽는다")
+
 expectEqual(AppSettings.densityKey, "density", "설정: 밀도 키")
 expectEqual(AppSettings.themeKey, "theme", "설정: 테마 키")
-expectEqual(AppSettings.attentionNotificationsKey, "attentionNotifications", "설정: 알림 키")
-expectEqual(AppSettings.doneNotificationsKey, "doneNotifications", "설정: 완료 알림 키")
+expectEqual(AppSettings.attentionAlertKey, "attentionAlert", "설정: 확인 필요 알림 키")
+expectEqual(AppSettings.doneAlertKey, "doneAlert", "설정: 끝남 알림 키")
+expectEqual(AppSettings.attentionNotificationsKey, "attentionNotifications", "설정: 이전 확인 필요 알림 키")
+expectEqual(AppSettings.doneNotificationsKey, "doneNotifications", "설정: 이전 끝남 알림 키")
 
-let unknownSettings = AppSettings(densityRaw: "dense", themeRaw: "sepia", attentionNotifications: nil)
+let unknownSettings = AppSettings(densityRaw: "dense", themeRaw: "sepia")
 expectEqual(unknownSettings, AppSettings.default, "설정: 알 수 없는 값과 없는 값은 기본값")
-expectEqual(AppSettings(densityRaw: "", themeRaw: " ", attentionNotifications: nil), AppSettings.default,
+expectEqual(AppSettings(densityRaw: "", themeRaw: " "), AppSettings.default,
             "설정: 빈 문자열과 공백은 기본값")
 
+expectEqual(AttentionAlert.allCases.map(\.rawValue), ["cardAndSound", "cardOnly", "off"], "설정: 확인 필요 알림 저장값")
+expectEqual(DoneAlert.allCases.map(\.rawValue), ["card", "off"], "설정: 끝남 알림 저장값")
 expectEqual(Density.allCases.map(\.rawValue), ["rich", "compact"], "설정: 밀도 저장값")
 expectEqual(ThemePreference.allCases.map(\.rawValue), ["system", "light", "dark"], "설정: 테마 저장값")
-expectEqual(AppSettings(densityRaw: "light", themeRaw: nil, attentionNotifications: true).density, .rich,
+expectEqual(AppSettings(densityRaw: "light", themeRaw: nil).density, .rich,
             "설정: 밀도 키에 테마 값이 와도 기본값")
+
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, legacyAttention: true).attentionAlert, .cardAndSound,
+            "설정: 이전 확인 필요 알림 true 는 카드와 소리")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, legacyAttention: false).attentionAlert, .off,
+            "설정: 이전 확인 필요 알림 false 는 끔")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, legacyDone: true).doneAlert, .card,
+            "설정: 이전 끝남 알림 true 는 카드")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, legacyDone: false).doneAlert, .off,
+            "설정: 이전 끝남 알림 false 는 끔")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, attentionAlertRaw: "cardOnly", legacyAttention: false).attentionAlert,
+            .cardOnly, "설정: 새 원문이 이전 불리언보다 우선")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, attentionAlertRaw: "bogus", legacyAttention: false).attentionAlert,
+            .off, "설정: 새 원문이 알 수 없는 값이면 이전 불리언")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, attentionAlertRaw: "bogus").attentionAlert,
+            .cardAndSound, "설정: 둘 다 없으면 기본값")
+
+expectEqual(AttentionAlert.cardAndSound.showsCard, true, "설정: 카드와 소리는 카드를 띄운다")
+expectEqual(AttentionAlert.cardOnly.showsCard, true, "설정: 카드만은 카드를 띄운다")
+expectEqual(AttentionAlert.off.showsCard, false, "설정: 끔은 카드를 띄우지 않는다")
+expectEqual(AttentionAlert.cardAndSound.soundName, "Tink", "설정: 카드와 소리만 소리를 낸다")
+expectEqual(AttentionAlert.cardOnly.soundName, nil, "설정: 카드만은 소리가 없다")
+expectEqual(AttentionAlert.off.soundName, nil, "설정: 끔은 소리가 없다")
+expectEqual(DoneAlert.card.showsCard, true, "설정: 끝남 카드는 카드를 띄운다")
+expectEqual(DoneAlert.off.showsCard, false, "설정: 끝남 끔은 카드를 띄우지 않는다")
 
 // MARK: - 확인 필요 알림
 
@@ -2456,6 +2480,20 @@ dismissLastDeck.update(
 dismissLastDeck.setPaused(true, now: now)
 dismissLastDeck.dismiss("d")
 expectEqual(dismissLastDeck.paused, false, "알림 카드: 마지막 카드를 거두면 멈춤이 풀린다")
+
+var dismissKindDeck = CardDeck()
+dismissKindDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+dismissKindDeck.setPaused(true, now: now)
+dismissKindDeck.dismiss(kind: .attention)
+expectEqual(dismissKindDeck.cards.map(\.kind), [.done], "알림 카드: 종류로 거두면 그 종류만 사라진다")
+dismissKindDeck.dismiss(kind: .done)
+expectEqual(dismissKindDeck.cards.isEmpty, true, "알림 카드: 남은 종류까지 거두면 빈다")
+expectEqual(dismissKindDeck.paused, false, "알림 카드: 종류로 마저 거두면 멈춤이 풀린다")
 
 let alwaysRoute = NotificationRoute.decide(policy: .always)
 expect(alwaysRoute.cards && alwaysRoute.system, "알림 경로: always 는 둘 다")
