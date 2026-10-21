@@ -9,7 +9,10 @@ struct PopoverHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 0) {
-                Text("Claude 세션")
+                PulseLogo(counts: model.groups.counts)
+                    .frame(width: 18, height: 18)
+                    .padding(.trailing, 7)
+                Text("Pulse")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(PopoverPalette.text)
                     .lineLimit(1)
@@ -75,6 +78,59 @@ struct PopoverHeader: View {
         case .working: return PopoverPalette.working.opacity(0.16)
         case .done: return PopoverPalette.done.opacity(0.16)
         case .muted: return PopoverPalette.glassHi
+        }
+    }
+}
+
+/// 머리글 로고. 파형은 메뉴 막대 아이콘과 같은 꼭짓점을 쓴다.
+struct PulseLogo: View {
+    let counts: GroupedSessions.Counts
+
+    private static let lineRatio: CGFloat = 0.13
+    private static let radiusRatio = (1 - lineRatio) / 2
+
+    private var waveStyle: AnyShapeStyle {
+        let palette = [PopoverPalette.attention, PopoverPalette.working, PopoverPalette.done]
+        let stops = PulseGlyph.stops(counts: counts)
+        switch stops.count {
+        case 0: return AnyShapeStyle(PopoverPalette.text)
+        case 1: return AnyShapeStyle(palette[stops[0].group])
+        default:
+            let first = 0.5 + PulseGlyph.wave.first!.x * Self.radiusRatio
+            let last = 0.5 + PulseGlyph.wave.last!.x * Self.radiusRatio
+            return AnyShapeStyle(LinearGradient(
+                stops: stops.map { .init(color: palette[$0.group], location: $0.location) },
+                startPoint: UnitPoint(x: first, y: 0.5),
+                endPoint: UnitPoint(x: last, y: 0.5)
+            ))
+        }
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let line = side * Self.lineRatio
+            let radius = (side - line) / 2
+            ZStack {
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [PopoverPalette.working, PopoverPalette.purple, PopoverPalette.working],
+                            center: .center
+                        ),
+                        lineWidth: line
+                    )
+                    .frame(width: radius * 2, height: radius * 2)
+                Path { path in
+                    let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                    for (index, point) in PulseGlyph.wave.enumerated() {
+                        let target = CGPoint(x: center.x + point.x * radius, y: center.y - point.y * radius)
+                        if index == 0 { path.move(to: target) } else { path.addLine(to: target) }
+                    }
+                }
+                .stroke(waveStyle, style: StrokeStyle(lineWidth: side * 0.085, lineCap: .round, lineJoin: .round))
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 }

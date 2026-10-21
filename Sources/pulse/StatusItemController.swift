@@ -8,8 +8,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let model: AppModel
     private let state = PopoverState()
     private var cancellables: Set<AnyCancellable> = []
-    private var spinTimer: Timer?
-    private var spinPhase: Double = 0
     private var keyMonitor: Any?
     private var lastClose = Date.distantPast
     private var appearanceObservation: NSKeyValueObservation?
@@ -36,7 +34,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             button.action = #selector(togglePopover)
             button.imagePosition = .imageLeading
         }
-        updateSpin()
         updateStatusItem()
         updatePopoverAppearance()
 
@@ -60,13 +57,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     deinit {
-        spinTimer?.invalidate()
         removeKeyMonitor()
         appearanceObservation?.invalidate()
     }
 
     private func dataChanged() {
-        updateSpin()
         updateStatusItem()
     }
 
@@ -83,7 +78,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         button.image = MenuBarIcon.image(
             counts: model.groups.counts,
-            phase: spinPhase,
             unavailable: model.sessionsUnavailable,
             appearance: button.effectiveAppearance
         )
@@ -99,25 +93,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             let name = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) ?? .aqua
             popover.appearance = NSAppearance(named: name)
         }
-    }
-
-    private func updateSpin() {
-        let shouldSpin = !model.sessionsUnavailable && model.groups.counts.working > 0
-        guard shouldSpin else {
-            spinTimer?.invalidate()
-            spinTimer = nil
-            spinPhase = 0
-            return
-        }
-        guard spinTimer == nil else { return }
-        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.spinPhase = (self.spinPhase + 1.0 / 24.0).truncatingRemainder(dividingBy: 1)
-            self.updateIcon()
-        }
-        timer.tolerance = 0.02
-        RunLoop.main.add(timer, forMode: .common)
-        spinTimer = timer
     }
 
     // MARK: - 팝오버

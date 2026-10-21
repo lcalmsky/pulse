@@ -1585,6 +1585,18 @@ expectEqual(MenuBarCounter.make(attention: 0, working: 0), .none, "메뉴 숫자
 expectEqual(MenuBarCounter.none.count, nil, "메뉴 숫자: 없음은 숫자가 없다")
 expectEqual(MenuBarCounter.attention(4).count, 4, "메뉴 숫자: 확인 필요 개수")
 
+let noStops = PulseGlyph.stops(counts: GroupedSessions.Counts())
+expect(noStops.isEmpty, "파형 색: 세션이 없으면 정지점 없음")
+let oneStop = PulseGlyph.stops(counts: GroupedSessions.Counts(working: 3))
+expectEqual(oneStop.map(\.group), [1], "파형 색: 한 그룹이면 그 그룹 하나")
+expectEqual(oneStop.map(\.location), [0.5], "파형 색: 한 그룹은 가운데")
+let threeStops = PulseGlyph.stops(counts: GroupedSessions.Counts(attention: 1, working: 2, done: 1))
+expectEqual(threeStops.map(\.group), [0, 1, 2], "파형 색: 확인·진행·완료 순서")
+expectEqual(threeStops.map(\.location), [0.125, 0.5, 0.875], "파형 색: 각 구간의 가운데")
+let gapStops = PulseGlyph.stops(counts: GroupedSessions.Counts(attention: 1, done: 1))
+expectEqual(gapStops.map(\.group), [0, 2], "파형 색: 빈 그룹은 건너뜀")
+expectEqual(gapStops.map(\.location), [0.25, 0.75], "파형 색: 빈 그룹은 구간을 차지하지 않음")
+
 // MARK: - 필터
 
 let filterCounts = grouped.counts
