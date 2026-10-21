@@ -1,11 +1,13 @@
 import AppKit
 import PulseCore
 import Foundation
+import os
 
 enum OrcaLauncher {
     private static let bundleIdentifier = "com.stablyai.orca"
     private static let appPath = "/Applications/Orca.app"
     private static let cliPath = "/Applications/Orca.app/Contents/Resources/bin/orca"
+    private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "orca")
 
     /// Orca 터미널로 이동한다. 완료 콜백은 메인 스레드에서 호출된다.
     static func switchTerminal(handle: String, completion: @escaping (Bool) -> Void) {
@@ -21,9 +23,9 @@ enum OrcaLauncher {
 
     /// 핸들 없이 cwd 만 아는 세션의 터미널을 목록에서 찾아 이동한다.
     /// 완료 콜백은 메인 스레드에서 호출된다.
-    static func switchToCwd(_ cwd: String, completion: @escaping (Bool) -> Void) {
+    static func switchToCwd(_ cwd: String, name: String?, completion: @escaping (Bool) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let handle = matchingHandle(for: cwd) else {
+            guard let handle = matchingHandle(for: cwd, name: name) else {
                 DispatchQueue.main.async { completion(false) }
                 return
             }
@@ -31,23 +33,37 @@ enum OrcaLauncher {
         }
     }
 
-    private static func matchingHandle(for cwd: String) -> String? {
+    private static func matchingHandle(for cwd: String, name: String?) -> String? {
         let process = command(arguments: ["terminal", "list", "--json"])
         let pipe = Pipe()
         process.standardOutput = pipe
         do {
             try process.run()
         } catch {
+            logger.error("orca terminal list 실행 실패: \(error.localizedDescription, privacy: .public)")
             return nil
         }
         // waitUntilExit 전에 읽어야 출력이 파이프 버퍼를 넘어도 멈추지 않는다.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        guard process.terminationStatus == 0,
-              let list = try? JSONDecoder().decode(OrcaTerminalList.self, from: data) else {
+        guard process.terminationStatus == 0 else {
+            logger.error("orca terminal list 종료 코드 \(process.terminationStatus)")
             return nil
         }
-        return OrcaTerminalMatch.bestHandle(for: cwd, among: list.terminals)
+        let list: OrcaTerminalList
+        do {
+            list = try JSONDecoder().decode(OrcaTerminalList.self, from: data)
+        } catch {
+            logger.error("orca terminal list 디코딩 실패: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        guard let handle = OrcaTerminalMatch.bestHandle(for: cwd, name: name, among: list.terminals) else {
+            logger.notice(
+                "orca 에 맞는 터미널 없음: cwd \(cwd, privacy: .public), 이름 \(name ?? "-", privacy: .public), 터미널 \(list.terminals.count)개"
+            )
+            return nil
+        }
+        return handle
     }
 
     private static func run(arguments: [String]) -> Bool {
@@ -55,11 +71,20 @@ enum OrcaLauncher {
         process.standardOutput = FileHandle.nullDevice
         do {
             try process.run()
-            process.waitUntilExit()
-            return process.terminationStatus == 0
         } catch {
+            logger.error(
+                "orca \(arguments.joined(separator: " "), privacy: .public) 실행 실패: \(error.localizedDescription, privacy: .public)"
+            )
             return false
         }
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            logger.error(
+                "orca \(arguments.joined(separator: " "), privacy: .public) 종료 코드 \(process.terminationStatus)"
+            )
+            return false
+        }
+        return true
     }
 
     private static func command(arguments: [String]) -> Process {

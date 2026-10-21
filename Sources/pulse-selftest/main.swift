@@ -405,10 +405,17 @@ expectEqual(clickItems["none"]?.isActionable, false, "클릭 규칙: 대상 없�
 func terminal(
     _ handle: String,
     _ worktreePath: String?,
+    title: String? = nil,
     connected: Bool = true,
     lastOutputAt: Double? = nil
 ) -> OrcaTerminal {
-    OrcaTerminal(handle: handle, worktreePath: worktreePath, connected: connected, lastOutputAt: lastOutputAt)
+    OrcaTerminal(
+        handle: handle,
+        worktreePath: worktreePath,
+        title: title,
+        connected: connected,
+        lastOutputAt: lastOutputAt
+    )
 }
 
 let oneTerminal = [terminal("exact", "/a/b")]
@@ -443,6 +450,44 @@ expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: disconnected), "ali
 expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/c", among: [terminal("gone", "/a/c", connected: false)]), nil,
             "터미널 매칭: 끊긴 터미널만 있으면 없음")
 
+expectEqual(OrcaTerminalMatch.sessionName(fromTitle: "✳ app1256demo3"), "app1256demo3",
+            "터미널 제목: 상태 기호를 뗀다")
+expectEqual(OrcaTerminalMatch.sessionName(fromTitle: "◐ notes4"), "notes4",
+            "터미널 제목: 다른 상태 기호도 뗀다")
+expectEqual(OrcaTerminalMatch.sessionName(fromTitle: "deadhdbar"), "deadhdbar",
+            "터미널 제목: 기호가 없으면 그대로")
+expectEqual(OrcaTerminalMatch.sessionName(fromTitle: "  ◑  shop2  "), "shop2",
+            "터미널 제목: 앞뒤 공백을 지운다")
+expectEqual(OrcaTerminalMatch.sessionName(fromTitle: "✳"), nil, "터미널 제목: 기호뿐이면 이름이 없다")
+
+let sameCwdTerminals = [
+    terminal("app3", "/w/app", title: "✳ app1256demo3", lastOutputAt: 100),
+    terminal("app2", "/w/app", title: "◐ app1256demo2", lastOutputAt: 300),
+    terminal("app1", "/w/app", title: "✳ app1256demo", lastOutputAt: 200),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "app1256demo3", among: sameCwdTerminals), "app3",
+            "터미널 매칭: 같은 폴더에서 세션 이름이 맞는 터미널")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "APP1256DEMO2", among: sameCwdTerminals), "app2",
+            "터미널 매칭: 세션 이름 대소문자 무시")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "없는이름", among: sameCwdTerminals), "app2",
+            "터미널 매칭: 이름이 안 맞으면 가장 최근 출력")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", among: sameCwdTerminals), "app2",
+            "터미널 매칭: 이름이 없으면 가장 최근 출력")
+
+let otherFolderSameName = [
+    terminal("other", "/elsewhere", title: "✳ target", lastOutputAt: 900),
+    terminal("here", "/w/app", title: "다른 이름", lastOutputAt: 100),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "target", among: otherFolderSameName), "here",
+            "터미널 매칭: 다른 폴더의 같은 이름은 고르지 않는다")
+
+let disconnectedNamed = [
+    terminal("gone", "/w/app", title: "✳ target", connected: false, lastOutputAt: 900),
+    terminal("alive", "/w/app", title: "다른 이름", lastOutputAt: 100),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "target", among: disconnectedNamed), "alive",
+            "터미널 매칭: 끊긴 터미널은 이름이 맞아도 제외")
+
 let orcaListJSON = """
 {"ok":true,"result":{"terminals":[
   {"handle":"term_091e","worktreePath":"/Users/a/notes","title":"◐ notes4","connected":true,"lastOutputAt":1792488183685},
@@ -453,8 +498,11 @@ let orcaListJSON = """
 if let list = try? JSONDecoder().decode(OrcaTerminalList.self, from: Data(orcaListJSON.utf8)) {
     expectEqual(list.terminals.count, 2, "터미널 목록: 핸들 없는 항목은 버린다")
     expectEqual(list.terminals.first?.lastOutputAt, 1792488183685, "터미널 목록: 밀리초 epoch")
+    expectEqual(list.terminals.first?.title, "◐ notes4", "터미널 목록: 제목")
     expectEqual(OrcaTerminalMatch.bestHandle(for: "/Users/a/notes", among: list.terminals), "term_091e",
                 "터미널 목록: 목록에서 핸들을 찾는다")
+    expectEqual(OrcaTerminalMatch.bestHandle(for: "/Users/a/notes", name: "notes4", among: list.terminals),
+                "term_091e", "터미널 목록: 제목으로 세션 터미널을 찾는다")
 } else {
     expect(false, "터미널 목록: 응답을 읽지 못했다")
 }

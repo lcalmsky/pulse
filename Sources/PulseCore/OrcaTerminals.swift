@@ -3,12 +3,20 @@ import Foundation
 public struct OrcaTerminal: Equatable {
     public let handle: String
     public let worktreePath: String?
+    public let title: String?
     public let connected: Bool
     public let lastOutputAt: Double?
 
-    public init(handle: String, worktreePath: String? = nil, connected: Bool = true, lastOutputAt: Double? = nil) {
+    public init(
+        handle: String,
+        worktreePath: String? = nil,
+        title: String? = nil,
+        connected: Bool = true,
+        lastOutputAt: Double? = nil
+    ) {
         self.handle = handle
         self.worktreePath = worktreePath
+        self.title = title
         self.connected = connected
         self.lastOutputAt = lastOutputAt
     }
@@ -16,6 +24,7 @@ public struct OrcaTerminal: Equatable {
     enum CodingKeys: String, CodingKey {
         case handle
         case worktreePath
+        case title
         case connected
         case lastOutputAt
     }
@@ -26,6 +35,7 @@ extension OrcaTerminal: Decodable {
         let container = try? decoder.container(keyedBy: CodingKeys.self)
         handle = Lenient.string(container, .handle) ?? ""
         worktreePath = Lenient.string(container, .worktreePath)
+        title = Lenient.string(container, .title)
         connected = (try? container?.decodeIfPresent(Bool.self, forKey: .connected)) ?? true
         lastOutputAt = Lenient.double(container, .lastOutputAt)
     }
@@ -60,8 +70,12 @@ extension OrcaTerminalList: Decodable {
 
 public enum OrcaTerminalMatch {
     /// 핸들이 없는 세션의 cwd 로 터미널을 찾는다. 정확히 같은 경로와 그 하위 경로가 대상이고,
-    /// 여럿이면 가장 최근에 출력이 있던 것을 쓴다.
-    public static func bestHandle(for cwd: String, among terminals: [OrcaTerminal]) -> String? {
+    /// 같은 폴더에 여럿이면 세션 이름과 제목이 같은 터미널을, 그래도 없으면 가장 최근에 출력이 있던 것을 쓴다.
+    public static func bestHandle(
+        for cwd: String,
+        name: String? = nil,
+        among terminals: [OrcaTerminal]
+    ) -> String? {
         guard let target = normalize(cwd) else { return nil }
         let matched = terminals.filter { terminal in
             guard terminal.connected, !terminal.handle.isEmpty,
@@ -70,9 +84,27 @@ public enum OrcaTerminalMatch {
             }
             return path == target || target.hasPrefix(path + "/")
         }
-        return matched.max { left, right in
-            (left.lastOutputAt ?? -.greatestFiniteMagnitude) < (right.lastOutputAt ?? -.greatestFiniteMagnitude)
-        }?.handle
+        if let wanted = trimmedName(name) {
+            let named = matched.filter { terminal in
+                guard let title = terminal.title, let candidate = sessionName(fromTitle: title) else {
+                    return false
+                }
+                return candidate.caseInsensitiveCompare(wanted) == .orderedSame
+            }
+            if let handle = mostRecent(named) {
+                return handle
+            }
+        }
+        return mostRecent(matched)
+    }
+
+    /// Orca 터미널 제목 앞의 상태 기호(✳ ◐ 등)와 공백을 떼고 세션 이름만 남긴다.
+    public static func sessionName(fromTitle title: String) -> String? {
+        var value = title
+        while let first = value.first, !(first.isLetter || first.isNumber) {
+            value.removeFirst()
+        }
+        return trimmedName(value)
     }
 
     public static func normalize(_ path: String) -> String? {
@@ -83,5 +115,18 @@ public enum OrcaTerminalMatch {
             value.removeLast()
         }
         return value
+    }
+
+    private static func trimmedName(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private static func mostRecent(_ terminals: [OrcaTerminal]) -> String? {
+        terminals.max { left, right in
+            (left.lastOutputAt ?? -.greatestFiniteMagnitude) < (right.lastOutputAt ?? -.greatestFiniteMagnitude)
+        }?.handle
     }
 }
