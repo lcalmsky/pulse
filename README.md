@@ -1,7 +1,5 @@
 # Pulse
 
-<p align="center"><b>한국어</b> · <a href="README.en.md">English</a></p>
-
 Claude Code 세션의 진행 상황을 macOS 메뉴 막대와 팝오버, 알림 카드로 보여 주는 앱입니다. 세션이 답을 기다리는지, 작업 중인지, 끝났는지 한눈에 보이고, 항목을 누르면 Orca 터미널의 해당 세션으로 이동합니다.
 
 <p align="center"><img src="docs/images/popover.png" alt="세션 목록을 보여 주는 Pulse 팝오버" width="400"></p>
