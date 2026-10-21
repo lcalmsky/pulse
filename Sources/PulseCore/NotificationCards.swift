@@ -175,10 +175,8 @@ public struct CardDeck: Equatable {
 
 /// 시스템 알림을 언제 보조로 보낼지.
 public enum SystemNotificationPolicy: String, Equatable {
-    /// 카드와 함께 늘 보낸다(지금 동작).
+    /// 카드와 함께 시스템 알림도 보낸다.
     case always
-    /// 집중 모드일 때만 시스템 알림, 아닐 때는 카드만.
-    case focusOnly
     /// 카드만.
     case never
 }
@@ -187,20 +185,12 @@ public struct NotificationRoute: Equatable {
     public let cards: Bool
     public let system: Bool
 
-    /// `focused` 가 nil 이면 집중 상태를 모른다는 뜻이다.
-    public static func decide(policy: SystemNotificationPolicy, focused: Bool?) -> NotificationRoute {
+    public static func decide(policy: SystemNotificationPolicy) -> NotificationRoute {
         switch policy {
         case .always:
             return NotificationRoute(cards: true, system: true)
         case .never:
             return NotificationRoute(cards: true, system: false)
-        case .focusOnly:
-            switch focused {
-            case .some(true): return NotificationRoute(cards: false, system: true)
-            case .some(false): return NotificationRoute(cards: true, system: false)
-            // 모르면 둘 다 보내 놓치지 않는다.
-            case .none: return NotificationRoute(cards: true, system: true)
-            }
         }
     }
 }

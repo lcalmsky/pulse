@@ -11,7 +11,7 @@ struct CardPanelView: View {
     var body: some View {
         content
             .frame(width: 340)
-            .background(PopoverBackground())
+            .background(PopoverPalette.cardGlass)
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(key: CardHeightKey.self, value: proxy.size.height)

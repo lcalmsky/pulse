@@ -2457,16 +2457,10 @@ dismissLastDeck.setPaused(true, now: now)
 dismissLastDeck.dismiss("d")
 expectEqual(dismissLastDeck.paused, false, "알림 카드: 마지막 카드를 거두면 멈춤이 풀린다")
 
-let alwaysRoute = NotificationRoute.decide(policy: .always, focused: nil)
+let alwaysRoute = NotificationRoute.decide(policy: .always)
 expect(alwaysRoute.cards && alwaysRoute.system, "알림 경로: always 는 둘 다")
-let neverRoute = NotificationRoute.decide(policy: .never, focused: false)
+let neverRoute = NotificationRoute.decide(policy: .never)
 expect(neverRoute.cards && !neverRoute.system, "알림 경로: never 는 카드만")
-let focusRoute = NotificationRoute.decide(policy: .focusOnly, focused: true)
-expect(!focusRoute.cards && focusRoute.system, "알림 경로: 집중 모드면 시스템만")
-let unfocusRoute = NotificationRoute.decide(policy: .focusOnly, focused: false)
-expect(unfocusRoute.cards && !unfocusRoute.system, "알림 경로: 집중이 아니면 카드만")
-let unknownRoute = NotificationRoute.decide(policy: .focusOnly, focused: nil)
-expect(unknownRoute.cards && unknownRoute.system, "알림 경로: 모르면 둘 다")
 
 expectEqual(CardText.doneTrail(runDuration: 840, finishedAt: now, now: now), "14분 걸림", "카드 문구: 걸린 시간")
 expectEqual(CardText.doneTrail(runDuration: nil, finishedAt: now.addingTimeInterval(-660), now: now), "11분 전",

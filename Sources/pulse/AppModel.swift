@@ -49,14 +49,13 @@ final class AppModel: ObservableObject {
     private let localQueue = DispatchQueue(label: "dev.pulse.local-sessions", qos: .userInitiated)
     private lazy var notificationCenter = AttentionNotificationCenter(model: self)
 
-    static let systemNotificationPolicy: SystemNotificationPolicy = .always
+    /// 앱은 집중 모드 상태를 읽을 수 없어(INFocusStatusCenter 의 isFocused 가 켜짐에서도 false) 시스템 알림 보조 경로를 쓰지 않는다.
+    static let systemNotificationPolicy: SystemNotificationPolicy = .never
 
     private var attentionNotifier = AttentionNotifier()
     private var doneNotifier = DoneNotifier()
     private var deck = CardDeck()
     private var cardExpiry: DispatchWorkItem?
-    /// 집중 모드 판정이 끝나기 전까지 지금 동작(시스템 알림 전송)을 유지한다.
-    private var focused: Bool?
     private var popoverVisible = false
     private var hasHandledFirstUpdate = false
 
@@ -252,7 +251,7 @@ final class AppModel: ObservableObject {
         Self.logBatch("확인 필요", attention)
         Self.logBatch("완료", done)
 
-        let route = NotificationRoute.decide(policy: Self.systemNotificationPolicy, focused: focused)
+        let route = NotificationRoute.decide(policy: Self.systemNotificationPolicy)
         if route.system {
             notificationCenter.post(attention.notes, kind: .attention)
             notificationCenter.post(done.notes, kind: .done)
