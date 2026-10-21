@@ -127,6 +127,7 @@ func session(
     minutesAgo: Double = 5,
     message: String? = nil,
     replyTail: String? = nil,
+    replySummary: String? = nil,
     place: Place? = nil,
     tasks: [BackgroundTask] = [],
     nowLabel: String? = nil
@@ -138,6 +139,7 @@ func session(
         since: now.addingTimeInterval(-minutesAgo * 60),
         message: message,
         replyTail: replyTail,
+        replySummary: replySummary,
         place: place,
         backgroundTasks: tasks,
         nowLabel: nowLabel
@@ -1718,12 +1720,14 @@ expectEqual(notifier.notes(for: noteA + noteB, popoverVisible: false, panelVisib
 expectEqual(notifier.notes(for: noteAReborn, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count, 1,
             "알림: since 가 바뀌면 새 항목이다")
 
-expectEqual(AttentionNotifier.body(replyTail: "**굵은** [링크](https://example.com) 답", status: "상태"),
-            "굵은 링크 답", "알림: 본문은 평문 마지막 답")
-expectEqual(AttentionNotifier.body(replyTail: String(repeating: "가", count: 300), status: "상태").count, 200,
-            "알림: 본문은 200자")
-expectEqual(AttentionNotifier.body(replyTail: "   ", status: "상태"), "상태",
-            "알림: 평문화한 답이 비면 상태 문구")
+expectEqual(AttentionNotifier.body(summary: "요약 문장", status: "상태"),
+            "요약 문장", "알림: 본문은 요약이 먼저")
+expectEqual(AttentionNotifier.body(summary: "   ", status: "상태"), "상태",
+            "알림: 요약이 비면 상태 문구")
+expectEqual(AttentionNotifier.body(summary: nil, status: String(repeating: "가", count: 300)),
+            String(repeating: "가", count: 89) + "…", "알림: 긴 상태 문구는 90자로 자른다")
+expectEqual(AttentionNotifier.body(summary: nil, status: String(repeating: "가", count: 300)).count, 90,
+            "알림: 자른 본문은 90자")
 
 var popoverNotifier = AttentionNotifier()
 _ = popoverNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true)
@@ -1778,7 +1782,7 @@ let doneWorkItem = Grouping.group(
     now: now
 ).working
 let doneDoneItem = Grouping.group(
-    SessionsResponse(sessions: [session("done-a", "done", minutesAgo: 1, replyTail: "**마무리했습니다**")]),
+    SessionsResponse(sessions: [session("done-a", "done", minutesAgo: 1, replySummary: "마무리했습니다")]),
     now: now
 ).done
 let doneStatusItem = Grouping.group(
@@ -1824,7 +1828,7 @@ _ = doneNotes(&doneNotifier, done: [], working: doneWorkItem)
 let transitioned = doneNotes(&doneNotifier, done: doneDoneItem)
 expectEqual(transitioned.count, 1, "완료 알림: 진행 중에서 완료로 바뀌면 알린다")
 expectEqual(transitioned.first?.title, "끝났어요 · done-a", "완료 알림: 제목")
-expectEqual(transitioned.first?.body, "마무리했습니다", "완료 알림: 본문은 평문 마지막 답")
+expectEqual(transitioned.first?.body, "마무리했습니다", "완료 알림: 본문은 요약 한 줄")
 expectEqual(transitioned.first?.identifier, "done-a", "완료 알림: 식별자는 sessionId")
 expectEqual(transitioned.first?.sessionId, "done-a", "완료 알림: sessionId")
 expectEqual(doneNotes(&doneNotifier, done: doneDoneItem).count, 0, "완료 알림: 같은 키는 다시 알리지 않는다")
@@ -2242,6 +2246,241 @@ let zeroTotalItem = DisplayItem(
     now: now
 )
 expectEqual(zeroTotalItem.counts, nil, "행 표시: 전체가 0 이면 개수 없음")
+
+// MARK: - 요약 한 줄
+
+expectEqual(ReplySummary.firstSentence("첫 문장이야. 두 번째 문장이야."), "첫 문장이야.", "요약: 두 문장 중 첫 문장")
+expectEqual(ReplySummary.firstSentence("v1.2 로 올렸어. 다음"), "v1.2 로 올렸어.", "요약: 소수점은 문장 끝이 아니다")
+expectEqual(ReplySummary.firstSentence("```\nlet a = 1\n```\n코드 뒤 첫 문장이야. 둘째"), "코드 뒤 첫 문장이야.",
+            "요약: 코드 블록 뒤 첫 문장")
+expectEqual(ReplySummary.firstSentence("- 첫 항목\n- 둘째 항목"), "첫 항목", "요약: 목록만 있으면 첫 항목")
+expectEqual(ReplySummary.firstSentence("결과는 다음과 같아:\n- a\n- b"), "결과는 다음과 같아:", "요약: 목록 앞 도입 문장")
+expectEqual(ReplySummary.firstSentence("배포했어 https://x.y/z 확인해 줘."), "배포했어 확인해 줘.", "요약: 맨 URL 제거")
+expectEqual(ReplySummary.firstSentence("PR 올렸어 https://g/3. 리뷰 부탁해."), "PR 올렸어.", "요약: URL 뒤 마침표는 남긴다")
+expectEqual(ReplySummary.firstSentence("주소는 (https://a.b/c) 야. 다음"), "주소는 야.", "요약: 괄호 URL 은 빈 괄호까지 지운다")
+expectEqual(ReplySummary.firstSentence("#123 머지했어. 다음"), "#123 머지했어.", "요약: #123 은 제목이 아니다")
+expectEqual(ReplySummary.firstSentence("[PR #3](https://g/3) 을 열었어."), "PR #3 을 열었어.", "요약: 링크는 글자만")
+let longSummarySentence = ReplySummary.firstSentence(String(repeating: "가", count: 100))
+expectEqual(longSummarySentence?.count, 90, "요약: 90자")
+expect(longSummarySentence?.hasSuffix("…") == true, "요약: 90자를 넘으면 말줄임")
+expectEqual(ReplySummary.firstSentence("`a.swift` 를 고쳤어."), "a.swift 를 고쳤어.", "요약: 인라인 코드는 내용만")
+expectEqual(ReplySummary.firstSentence(""), nil, "요약: 빈 문자열")
+expectEqual(ReplySummary.firstSentence(nil), nil, "요약: nil")
+expectEqual(ReplySummary.firstSentence("## 결과\n본문이야."), "본문이야.", "요약: 제목 줄 건너뜀")
+expectEqual(ReplySummary.firstSentence("“좋아.” 그다음"), "“좋아.”", "요약: 닫는 따옴표까지")
+
+// MARK: - 알림 카드
+
+func cardItem(_ id: String, bucket: String, group: DisplayGroup, since: Date) -> DisplayItem {
+    DisplayItem(
+        session: Session(sessionId: id, bucket: bucket, title: id, since: since),
+        group: group,
+        now: now
+    )
+}
+
+let cardAttentionA = cardItem("a", bucket: "idle", group: .attention, since: now)
+let cardAttentionB = cardItem("b", bucket: "idle", group: .attention, since: now)
+let cardDoneD = cardItem("d", bucket: "done", group: .done, since: now)
+
+var orderDeck = CardDeck()
+orderDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+expectEqual(orderDeck.ordered.map(\.kind), [.attention, .done], "알림 카드: 확인 필요가 끝남보다 위")
+orderDeck.update(
+    newAttention: [cardAttentionB],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA, cardAttentionB], done: [cardDoneD]),
+    now: now.addingTimeInterval(1)
+)
+expectEqual(orderDeck.ordered.map(\.sessionId), ["b", "a", "d"], "알림 카드: 같은 종류는 늦게 온 것이 위")
+
+let cardStall = cardItem("s", bucket: "stall", group: .attention, since: now)
+let cardFinished = cardItem("s", bucket: "done", group: .done, since: now.addingTimeInterval(840))
+var replaceDeck = CardDeck()
+replaceDeck.update(
+    newAttention: [cardStall],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardStall]),
+    now: now
+)
+replaceDeck.update(
+    newAttention: [],
+    newDone: [cardFinished],
+    groups: GroupedSessions(done: [cardFinished]),
+    now: now
+)
+expectEqual(replaceDeck.cards.count, 1, "알림 카드: 막힘 → 끝남은 카드 한 장")
+expectEqual(replaceDeck.cards.first?.kind, CardKind.done, "알림 카드: 끝남으로 대체")
+expectEqual(replaceDeck.cards.first?.runDuration, 840, "알림 카드: 걸린 시간")
+
+var expiryDeck = CardDeck()
+expiryDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+expectEqual(expiryDeck.expire(now: now.addingTimeInterval(7.9)), false, "알림 카드: 8초 전에는 만료되지 않는다")
+expectEqual(expiryDeck.cards.count, 1, "알림 카드: 만료 전에는 카드가 남는다")
+expectEqual(expiryDeck.expire(now: now.addingTimeInterval(8)), true, "알림 카드: 8초 뒤 만료")
+expectEqual(expiryDeck.cards.isEmpty, true, "알림 카드: 만료된 카드는 사라진다")
+
+var pauseDeck = CardDeck()
+pauseDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+pauseDeck.setPaused(true, now: now.addingTimeInterval(3))
+expectEqual(pauseDeck.expire(now: now.addingTimeInterval(100)), false, "알림 카드: 멈춘 동안에는 만료되지 않는다")
+pauseDeck.setPaused(false, now: now.addingTimeInterval(103))
+expectEqual(pauseDeck.expire(now: now.addingTimeInterval(107.9)), false, "알림 카드: 재개 뒤 남은 시간 전")
+expectEqual(pauseDeck.expire(now: now.addingTimeInterval(108)), true, "알림 카드: 재개 뒤 남은 시간이 지나면 만료")
+
+var pausedNewDeck = CardDeck()
+pausedNewDeck.setPaused(true, now: now)
+pausedNewDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+expectEqual(pausedNewDeck.cards.first?.expiresAt, nil, "알림 카드: 멈춘 동안 들어온 끝남 카드는 만료 시각이 없다")
+expectEqual(pausedNewDeck.cards.first?.pausedRemaining, 8, "알림 카드: 멈춘 동안 들어온 끝남 카드는 8초를 그대로 가진다")
+pausedNewDeck.setPaused(false, now: now.addingTimeInterval(2))
+expectEqual(pausedNewDeck.cards.first?.expiresAt, now.addingTimeInterval(10), "알림 카드: 재개하면 남은 시간만큼 이어간다")
+
+var retireAttentionDeck = CardDeck()
+retireAttentionDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+retireAttentionDeck.update(newAttention: [], newDone: [], groups: GroupedSessions(), now: now)
+expectEqual(retireAttentionDeck.cards.isEmpty, true, "알림 카드: 답해 확인 필요에서 빠지면 거둔다")
+
+var retireDoneDeck = CardDeck()
+retireDoneDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+retireDoneDeck.update(newAttention: [], newDone: [], groups: GroupedSessions(), now: now)
+expectEqual(retireDoneDeck.cards.isEmpty, true, "알림 카드: 확인해 완료에서 빠지면 거둔다")
+
+var runDeck = CardDeck()
+let cardWorking = cardItem("w", bucket: "working", group: .working, since: now)
+runDeck.update(newAttention: [], newDone: [], groups: GroupedSessions(working: [cardWorking]), now: now)
+let cardStallLater = cardItem("w", bucket: "stall", group: .attention, since: now.addingTimeInterval(600))
+runDeck.update(newAttention: [], newDone: [], groups: GroupedSessions(attention: [cardStallLater]), now: now)
+let cardDoneLater = cardItem("w", bucket: "done", group: .done, since: now.addingTimeInterval(840))
+runDeck.update(
+    newAttention: [],
+    newDone: [cardDoneLater],
+    groups: GroupedSessions(done: [cardDoneLater]),
+    now: now
+)
+expectEqual(runDeck.cards.first?.runDuration, 840, "알림 카드: 권한 대기로 since 가 바뀌어도 첫 시작을 지킨다")
+
+expectEqual(CardDeck.headerText(attention: 0, done: 1), nil, "알림 카드: 한 장이면 머리글이 없다")
+expectEqual(CardDeck.headerText(attention: 1, done: 3), "확인 1 · 끝남 3", "알림 카드: 머리글 확인·끝남")
+expectEqual(CardDeck.headerText(attention: 0, done: 2), "끝남 2", "알림 카드: 머리글 끝남만")
+
+var fractionDeck = CardDeck()
+fractionDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+let fractionCard = fractionDeck.cards[0]
+expectEqual(CardDeck.remainingFraction(of: fractionCard, paused: fractionDeck.paused, now: now), 1, "알림 카드: 새 카드의 남은 비율")
+expectEqual(CardDeck.remainingFraction(of: fractionCard, paused: fractionDeck.paused, now: now.addingTimeInterval(4)), 0.5,
+            "알림 카드: 4초 뒤 남은 비율")
+
+var deadlineDeck = CardDeck()
+let cardDoneE = cardItem("e", bucket: "done", group: .done, since: now)
+deadlineDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+deadlineDeck.update(
+    newAttention: [],
+    newDone: [cardDoneE],
+    groups: GroupedSessions(done: [cardDoneD, cardDoneE]),
+    now: now.addingTimeInterval(3)
+)
+expectEqual(deadlineDeck.nextDeadline, now.addingTimeInterval(8), "알림 카드: 가장 이른 만료")
+deadlineDeck.setPaused(true, now: now.addingTimeInterval(4))
+expectEqual(deadlineDeck.nextDeadline, nil, "알림 카드: 멈춤 중에는 만료 예약이 없다")
+
+var unpauseDeck = CardDeck()
+unpauseDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+unpauseDeck.setPaused(true, now: now)
+unpauseDeck.dismissAll()
+expectEqual(unpauseDeck.paused, false, "알림 카드: 모두 거두면 멈춤이 풀린다")
+unpauseDeck.update(
+    newAttention: [],
+    newDone: [cardDoneE],
+    groups: GroupedSessions(done: [cardDoneE]),
+    now: now.addingTimeInterval(1)
+)
+expectEqual(unpauseDeck.cards.first?.expiresAt, now.addingTimeInterval(9),
+            "알림 카드: 멈춤이 풀린 뒤 들어온 끝남 카드는 만료 시각을 갖는다")
+expectEqual(unpauseDeck.expire(now: now.addingTimeInterval(8.9)), false, "알림 카드: 풀린 뒤 새 카드는 8초 전 만료되지 않는다")
+expectEqual(unpauseDeck.expire(now: now.addingTimeInterval(9)), true, "알림 카드: 풀린 뒤 새 카드는 8초 뒤 만료")
+expectEqual(unpauseDeck.paused, false, "알림 카드: 만료로 비어도 멈춤이 없다")
+
+var dismissLastDeck = CardDeck()
+dismissLastDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+dismissLastDeck.setPaused(true, now: now)
+dismissLastDeck.dismiss("d")
+expectEqual(dismissLastDeck.paused, false, "알림 카드: 마지막 카드를 거두면 멈춤이 풀린다")
+
+let alwaysRoute = NotificationRoute.decide(policy: .always, focused: nil)
+expect(alwaysRoute.cards && alwaysRoute.system, "알림 경로: always 는 둘 다")
+let neverRoute = NotificationRoute.decide(policy: .never, focused: false)
+expect(neverRoute.cards && !neverRoute.system, "알림 경로: never 는 카드만")
+let focusRoute = NotificationRoute.decide(policy: .focusOnly, focused: true)
+expect(!focusRoute.cards && focusRoute.system, "알림 경로: 집중 모드면 시스템만")
+let unfocusRoute = NotificationRoute.decide(policy: .focusOnly, focused: false)
+expect(unfocusRoute.cards && !unfocusRoute.system, "알림 경로: 집중이 아니면 카드만")
+let unknownRoute = NotificationRoute.decide(policy: .focusOnly, focused: nil)
+expect(unknownRoute.cards && unknownRoute.system, "알림 경로: 모르면 둘 다")
+
+expectEqual(CardText.doneTrail(runDuration: 840, finishedAt: now, now: now), "14분 걸림", "카드 문구: 걸린 시간")
+expectEqual(CardText.doneTrail(runDuration: nil, finishedAt: now.addingTimeInterval(-660), now: now), "11분 전",
+            "카드 문구: 완료 시각")
+expectEqual(CardText.doneTrail(runDuration: nil, finishedAt: nil, now: now), nil, "카드 문구: 둘 다 없음")
+expectEqual(CardText.doneBanner(runDuration: 5400), "끝났어요 · 1시간 걸림", "카드 문구: 한 장 배너")
+expectEqual(CardText.doneBanner(runDuration: nil), "끝났어요", "카드 문구: 걸린 시간 모름")
+expectEqual(CardText.doneSummary(summary: "요약", status: "끝났어요"), "요약", "카드 문구: 요약 먼저")
+expectEqual(CardText.doneSummary(summary: "  ", status: "끝났어요"), "끝났어요", "카드 문구: 요약이 비면 상태")
+expectEqual(CardText.attentionMeta(place: "pulse", since: now.addingTimeInterval(-180), now: now), "pulse · 3분째",
+            "카드 문구: 메타")
+expectEqual(CardText.attentionMeta(place: nil, since: now.addingTimeInterval(-180), now: now), "3분째",
+            "카드 문구: 메타 시각만")
+expectEqual(CardText.attentionMeta(place: nil, since: nil, now: now), nil, "카드 문구: 메타 없음")
 
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

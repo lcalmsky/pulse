@@ -49,6 +49,8 @@ public struct DisplayItem: Equatable, Identifiable {
     public let progressStale: Bool
     public let blocked: Bool
     public let replyTail: String?
+    /// 답변 원문에서 고른 첫 문장. 알림 카드의 요약 한 줄에 쓴다.
+    public let summary: String?
     public let lastSentence: String?
     public let nowLabel: String?
     public let prTag: String?
@@ -112,6 +114,7 @@ public struct DisplayItem: Equatable, Identifiable {
         self.progressStale = session.dataAt.map { now.timeIntervalSince($0) > DeadhdState.staleInterval } ?? false
         self.blocked = (session.counts?.blocked ?? 0) > 0
         self.replyTail = Grouping.clean(session.replyTail)
+        self.summary = Grouping.clean(session.replySummary)
         self.lastSentence = Grouping.clean(session.lastSentence)
         self.nowLabel = Grouping.nonEmpty(session.nowLabel)
         self.prTag = session.pr.map { $0.label ?? "#\($0.number)" }

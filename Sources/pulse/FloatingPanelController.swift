@@ -2,69 +2,119 @@ import AppKit
 import Combine
 import SwiftUI
 
+/// 목록 패널과 알림 카드 패널이 함께 쓰는 borderless 창. 내용만 바꿔 끼운다.
 final class FloatingPanelController: NSObject {
+    struct Options {
+        let defaultWidth: CGFloat
+        let minimumWidth: CGFloat
+        let fixedWidth: Bool
+        let remembersFrame: Bool
+        let cornerRadius: CGFloat
+    }
+
     private let panel: NSPanel
-    private let hosting: NSHostingView<BoardView>
-    private let model: AppModel
+    private let hosting: FirstMouseHostingView
+    private let options: Options
     private let defaults = UserDefaults.standard
     private var cancellables: Set<AnyCancellable> = []
     private var manualSize = false
     private var programmaticSize: NSSize?
 
-    private static let defaultWidth: CGFloat = 440
-    private static let minimumWidth: CGFloat = 340
+    var onHover: ((Bool) -> Void)? {
+        didSet { hosting.onHover = onHover }
+    }
 
-    init(model: AppModel) {
-        self.model = model
+    init(
+        options: Options,
+        visible: AnyPublisher<Bool, Never>,
+        resizeTriggers: AnyPublisher<Void, Never>,
+        content: (@escaping () -> Void) -> AnyView
+    ) {
+        self.options = options
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: Self.defaultWidth, height: 240),
-            styleMask: [.borderless, .nonactivatingPanel, .resizable],
+            contentRect: NSRect(x: 0, y: 0, width: options.defaultWidth, height: 240),
+            styleMask: options.fixedWidth
+                ? [.borderless, .nonactivatingPanel]
+                : [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
-        hosting = FirstMouseHostingView(rootView: BoardView(model: model))
+        hosting = FirstMouseHostingView(rootView: AnyView(EmptyView()))
         super.init()
 
-        hosting.rootView = BoardView(model: model) { [weak self] in self?.updateSize() }
+        hosting.rootView = content { [weak self] in self?.updateSize() }
         configurePanel()
         configureContent()
         restoreSize()
         restorePosition()
 
-        model.$panelVisible
+        visible
             .sink { [weak self] visible in self?.setVisible(visible) }
             .store(in: &cancellables)
-        model.$groups
-            .sink { [weak self] _ in self?.updateSize() }
-            .store(in: &cancellables)
-        model.$collapsed
-            .sink { [weak self] _ in self?.updateSize() }
-            .store(in: &cancellables)
-        model.$sessionsUnavailable
-            .sink { [weak self] _ in self?.updateSize() }
-            .store(in: &cancellables)
-        model.$errorMessage
-            .sink { [weak self] _ in self?.updateSize() }
-            .store(in: &cancellables)
-        model.$hiddenDoneCount
-            .sink { [weak self] _ in self?.updateSize() }
-            .store(in: &cancellables)
-        model.$recentAcknowledgedCount
+        resizeTriggers
             .sink { [weak self] _ in self?.updateSize() }
             .store(in: &cancellables)
 
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(rememberPosition),
-            name: NSWindow.didMoveNotification, object: panel
-        )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(rememberSize),
-            name: NSWindow.didResizeNotification, object: panel
-        )
+        if options.remembersFrame {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(rememberPosition),
+                name: NSWindow.didMoveNotification, object: panel
+            )
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(rememberSize),
+                name: NSWindow.didResizeNotification, object: panel
+            )
+        }
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    static func board(model: AppModel) -> FloatingPanelController {
+        let triggers = Publishers.MergeMany([
+            model.$groups.map { _ in () }.eraseToAnyPublisher(),
+            model.$collapsed.map { _ in () }.eraseToAnyPublisher(),
+            model.$sessionsUnavailable.map { _ in () }.eraseToAnyPublisher(),
+            model.$errorMessage.map { _ in () }.eraseToAnyPublisher(),
+            model.$hiddenDoneCount.map { _ in () }.eraseToAnyPublisher(),
+            model.$recentAcknowledgedCount.map { _ in () }.eraseToAnyPublisher(),
+        ]).eraseToAnyPublisher()
+        return FloatingPanelController(
+            options: Options(
+                defaultWidth: 440,
+                minimumWidth: 340,
+                fixedWidth: false,
+                remembersFrame: true,
+                cornerRadius: 16
+            ),
+            visible: model.$panelVisible.eraseToAnyPublisher(),
+            resizeTriggers: triggers
+        ) { updateSize in
+            AnyView(BoardView(model: model, onContentHeightChange: updateSize))
+        }
+    }
+
+    static func cards(model: AppModel) -> FloatingPanelController {
+        let triggers = Publishers.MergeMany([
+            model.$cards.map { _ in () }.eraseToAnyPublisher(),
+            model.$groups.map { _ in () }.eraseToAnyPublisher(),
+        ]).eraseToAnyPublisher()
+        let controller = FloatingPanelController(
+            options: Options(
+                defaultWidth: 340,
+                minimumWidth: 340,
+                fixedWidth: true,
+                remembersFrame: false,
+                cornerRadius: 14
+            ),
+            visible: model.$cardPanelVisible.eraseToAnyPublisher(),
+            resizeTriggers: triggers
+        ) { updateSize in
+            AnyView(CardPanelView(model: model, onContentHeightChange: updateSize))
+        }
+        controller.onHover = { model.setCardHover($0) }
+        return controller
     }
 
     private func configurePanel() {
@@ -72,7 +122,7 @@ final class FloatingPanelController: NSObject {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = options.remembersFrame
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
@@ -86,7 +136,7 @@ final class FloatingPanelController: NSObject {
         effect.blendingMode = .behindWindow
         effect.state = .active
         effect.wantsLayer = true
-        effect.layer?.cornerRadius = 16
+        effect.layer?.cornerRadius = options.cornerRadius
         effect.layer?.masksToBounds = true
         effect.layer?.backgroundColor = NSColor.clear.cgColor
 
@@ -101,6 +151,9 @@ final class FloatingPanelController: NSObject {
 
     private func setVisible(_ visible: Bool) {
         if visible {
+            if !options.remembersFrame {
+                placeTopRight()
+            }
             updateSize()
             panel.orderFrontRegardless()
         } else {
@@ -114,8 +167,9 @@ final class FloatingPanelController: NSObject {
             guard let self, !self.manualSize else { return }
             self.hosting.layoutSubtreeIfNeeded()
             let fitting = self.hosting.fittingSize
-            let minimum = Self.defaultWidth
-            let width = min(max(minimum, ceil(fitting.width)), 1200)
+            let width = self.options.fixedWidth
+                ? self.options.defaultWidth
+                : min(max(self.options.defaultWidth, ceil(fitting.width)), 1200)
             let height = min(max(44, ceil(fitting.height)), self.maximumContentHeight)
 
             var frame = self.panel.frame
@@ -134,10 +188,11 @@ final class FloatingPanelController: NSObject {
     }
 
     private func restoreSize() {
-        panel.contentMinSize = NSSize(width: Self.minimumWidth, height: 44)
+        guard options.remembersFrame else { return }
+        panel.contentMinSize = NSSize(width: options.minimumWidth, height: 44)
         guard defaults.object(forKey: "panelWidth") != nil,
               defaults.object(forKey: "panelHeight") != nil else { return }
-        let width = max(Self.minimumWidth, CGFloat(defaults.double(forKey: "panelWidth")))
+        let width = max(options.minimumWidth, CGFloat(defaults.double(forKey: "panelWidth")))
         let height = max(44, CGFloat(defaults.double(forKey: "panelHeight")))
         var frame = panel.frame
         frame.size = NSSize(width: width, height: height)
@@ -147,6 +202,10 @@ final class FloatingPanelController: NSObject {
     }
 
     private func restorePosition() {
+        guard options.remembersFrame else {
+            placeTopRight()
+            return
+        }
         if defaults.object(forKey: "panelOriginX") != nil,
            defaults.object(forKey: "panelOriginY") != nil {
             let point = NSPoint(
@@ -166,6 +225,14 @@ final class FloatingPanelController: NSObject {
         let visible = screen.visibleFrame
         panel.setFrameTopLeftPoint(
             NSPoint(x: visible.maxX - panel.frame.width - 16, y: visible.maxY - 16)
+        )
+    }
+
+    private func placeTopRight() {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let visible = screen.visibleFrame
+        panel.setFrameTopLeftPoint(
+            NSPoint(x: visible.maxX - panel.frame.width - 12, y: visible.maxY - 12)
         )
     }
 
@@ -189,6 +256,31 @@ final class FloatingPanelController: NSObject {
 }
 
 /// 비활성 패널에서 첫 클릭이 창 활성화에만 쓰이지 않고 버튼에 닿게 한다.
-private final class FirstMouseHostingView: NSHostingView<BoardView> {
+private final class FirstMouseHostingView: NSHostingView<AnyView> {
+    var onHover: ((Bool) -> Void)?
+    private var hoverArea: NSTrackingArea?
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    // accessory 앱은 대개 비활성이라 `.activeAlways` 가 있어야 마우스 이동을 받는다.
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        onHover?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHover?(false)
+    }
 }

@@ -14,7 +14,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var groups = GroupedSessions.empty
     @Published private(set) var sessionsUnavailable = true
     @Published private(set) var errorMessage: String?
+    /// 목록 패널만 뜻한다. 카드 패널이 떠 있어도 새 알림은 억제하지 않는다.
     @Published private(set) var panelVisible = false
+    @Published private(set) var cards: [NotificationCard] = []
+    @Published private(set) var cardPanelVisible = false
+    /// 뷰가 남은 시간 선 애니메이션을 멈추는 데 쓴다. `deck.paused` 와 같다.
+    @Published private(set) var cardsPaused = false
     @Published var collapsed = false
     @Published private(set) var hiddenDoneCount = 0
     @Published private(set) var recentAcknowledgedCount = 0
@@ -44,8 +49,14 @@ final class AppModel: ObservableObject {
     private let localQueue = DispatchQueue(label: "dev.pulse.local-sessions", qos: .userInitiated)
     private lazy var notificationCenter = AttentionNotificationCenter(model: self)
 
+    static let systemNotificationPolicy: SystemNotificationPolicy = .always
+
     private var attentionNotifier = AttentionNotifier()
     private var doneNotifier = DoneNotifier()
+    private var deck = CardDeck()
+    private var cardExpiry: DispatchWorkItem?
+    /// 집중 모드 판정이 끝나기 전까지 지금 동작(시스템 알림 전송)을 유지한다.
+    private var focused: Bool?
     private var popoverVisible = false
     private var hasHandledFirstUpdate = false
 
@@ -132,6 +143,10 @@ final class AppModel: ObservableObject {
 
     func setPopoverVisible(_ visible: Bool) {
         popoverVisible = visible
+        if visible {
+            deck.dismissAll()
+        }
+        publishCards()
     }
 
     func setHotKeyUnavailable(_ unavailable: Bool) {
@@ -236,8 +251,108 @@ final class AppModel: ObservableObject {
         )
         Self.logBatch("확인 필요", attention)
         Self.logBatch("완료", done)
-        notificationCenter.post(attention.notes, kind: .attention)
-        notificationCenter.post(done.notes, kind: .done)
+
+        let route = NotificationRoute.decide(policy: Self.systemNotificationPolicy, focused: focused)
+        if route.system {
+            notificationCenter.post(attention.notes, kind: .attention)
+            notificationCenter.post(done.notes, kind: .done)
+        }
+        let newAttention = route.cards ? items(for: attention.notes, in: groups.attention) : []
+        let newDone = route.cards ? items(for: done.notes, in: groups.done) : []
+        // 카드를 보내지 않는 경로에서도 거두기와 턴 시작 시각은 갱신한다.
+        deck.update(
+            newAttention: newAttention,
+            newDone: newDone,
+            groups: groups,
+            now: Date()
+        )
+        publishCards()
+        if newAttention.count + newDone.count > 0 {
+            let path: String
+            switch (route.cards, route.system) {
+            case (true, true): path = "both"
+            case (true, false): path = "cards"
+            case (false, true): path = "system"
+            case (false, false): path = "none"
+            }
+            Self.logger.notice(
+                "카드 추가 확인=\(newAttention.count) 끝남=\(newDone.count) 떠 있음=\(self.deck.cards.count) 경로=\(path, privacy: .public)"
+            )
+        }
+    }
+
+    private func items(for notes: [AttentionNote], in items: [DisplayItem]) -> [DisplayItem] {
+        let ids = Set(notes.map(\.sessionId))
+        return items.filter { ids.contains($0.sessionId) }
+    }
+
+    private func publishCards() {
+        let ordered = deck.ordered
+        if cards != ordered { cards = ordered }
+        if cardsPaused != deck.paused { cardsPaused = deck.paused }
+        let visible = !ordered.isEmpty && !popoverVisible && !panelVisible
+        if cardPanelVisible != visible { cardPanelVisible = visible }
+        scheduleCardExpiry()
+    }
+
+    private func scheduleCardExpiry() {
+        cardExpiry?.cancel()
+        guard let deadline = deck.nextDeadline else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if self.deck.expire(now: Date()) {
+                self.publishCards()
+            }
+        }
+        cardExpiry = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + max(0, deadline.timeIntervalSinceNow + 0.01),
+            execute: work
+        )
+    }
+
+    func setCardHover(_ hovering: Bool) {
+        deck.setPaused(hovering, now: Date())
+        publishCards()
+    }
+
+    func openCard(_ item: DisplayItem) {
+        open(item)
+        deck.dismiss(item.sessionId)
+        publishCards()
+    }
+
+    func answerCard(_ item: DisplayItem) {
+        openInOrca(item)
+        deck.dismiss(item.sessionId)
+        publishCards()
+    }
+
+    func snoozeCard(_ item: DisplayItem) {
+        snooze(item)
+        deck.dismiss(item.sessionId)
+        publishCards()
+    }
+
+    func acknowledgeCard(_ item: DisplayItem) {
+        acknowledge(item)
+        deck.dismiss(item.sessionId)
+        publishCards()
+    }
+
+    /// 끝남 카드의 항목을 한 번에 확인 처리하고 토스트는 한 번만 띄운다.
+    func acknowledgeAllCards() {
+        let doneItems = cards
+            .filter { $0.kind == .done }
+            .compactMap { card in groups.done.first { $0.sessionId == card.sessionId } }
+        let count = acknowledgements.acknowledge(doneItems)
+        if count > 0 {
+            persistAcknowledgements()
+            showUndoToast(count: count)
+            refresh()
+        }
+        deck.dismissAll()
+        publishCards()
     }
 
     /// 갱신마다 후보 수와 억제 사유를 남긴다. 후보가 있으면 기본 로그로도 남긴다.
@@ -422,14 +537,21 @@ final class AppModel: ObservableObject {
 
     func togglePanel() {
         panelVisible.toggle()
+        if panelVisible {
+            deck.dismissAll()
+        }
+        publishCards()
     }
 
     func showPanel() {
         panelVisible = true
+        deck.dismissAll()
+        publishCards()
     }
 
     func hidePanel() {
         panelVisible = false
+        publishCards()
     }
 
     func showError(_ text: String) {

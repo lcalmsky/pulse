@@ -46,6 +46,8 @@ public struct TranscriptSummary: Equatable {
     public let lastAssistantText: String?
     /// 잘리기 전 답변 평문에서 고른 마지막 문장. 「지금 하는 일」 한 줄에 쓴다.
     public let lastSentence: String?
+    /// 답변 원문에서 고른 첫 문장. 알림 카드의 요약 한 줄에 쓴다.
+    public let lastAssistantSummary: String?
     public let lastToolName: String?
     public let lastToolAt: Date?
     public let lastMeaningfulAt: Date?
@@ -62,6 +64,7 @@ public struct TranscriptSummary: Equatable {
         lastPrompt: String? = nil,
         lastAssistantText: String? = nil,
         lastSentence: String? = nil,
+        lastAssistantSummary: String? = nil,
         lastToolName: String? = nil,
         lastToolAt: Date? = nil,
         lastMeaningfulAt: Date? = nil,
@@ -76,6 +79,7 @@ public struct TranscriptSummary: Equatable {
         self.lastAssistantText = lastAssistantText
         // 요약을 직접 만드는 호출도 있어, 전체 문장이 없으면 남은 인용에서 고른다.
         self.lastSentence = lastSentence ?? NowLine.lastSentence(lastAssistantText)
+        self.lastAssistantSummary = lastAssistantSummary
         self.lastToolName = lastToolName
         self.lastToolAt = lastToolAt
         self.lastMeaningfulAt = lastMeaningfulAt
@@ -154,6 +158,7 @@ public enum LocalSessions {
         var lastPrompt: String?
         var lastAssistantText: String?
         var lastAssistantSentence: String?
+        var lastAssistantSummary: String?
         var lastToolName: String?
         var lastToolAt: Date?
         var lastMeaningfulAt: Date?
@@ -205,6 +210,7 @@ public enum LocalSessions {
                             if !plain.isEmpty {
                                 lastAssistantText = trimmedText(plain)
                                 lastAssistantSentence = NowLine.lastSentence(plain)
+                                lastAssistantSummary = ReplySummary.firstSentence(raw)
                             }
                         }
                     case "tool_use":
@@ -258,6 +264,7 @@ public enum LocalSessions {
             lastPrompt: lastPrompt,
             lastAssistantText: lastAssistantText,
             lastSentence: lastAssistantSentence,
+            lastAssistantSummary: lastAssistantSummary,
             lastToolName: lastToolName,
             lastToolAt: lastToolAt,
             lastMeaningfulAt: lastMeaningfulAt,
@@ -450,6 +457,7 @@ public enum LocalSessions {
             since: record.statusUpdatedAt ?? record.startedAt,
             message: message,
             replyTail: summary.lastAssistantText,
+            replySummary: summary.lastAssistantSummary,
             lastSentence: summary.lastSentence,
             place: place,
             cwd: record.cwd,
@@ -591,6 +599,7 @@ public struct EndedSessionTracker {
             since: since,
             message: session.message,
             replyTail: session.replyTail,
+            replySummary: session.replySummary,
             lastSentence: session.lastSentence,
             place: session.place,
             cwd: session.cwd,

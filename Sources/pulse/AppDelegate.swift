@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
     private var statusController: StatusItemController?
     private var panelController: FloatingPanelController?
+    private var cardPanelController: FloatingPanelController?
     private var hotKey: GlobalHotKey?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -20,7 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
 
         statusController = StatusItemController(model: model)
-        panelController = FloatingPanelController(model: model)
+        panelController = FloatingPanelController.board(model: model)
+        cardPanelController = FloatingPanelController.cards(model: model)
 
         let hotKey = GlobalHotKey { [weak self] in self?.handleHotKey() }
         self.hotKey = hotKey

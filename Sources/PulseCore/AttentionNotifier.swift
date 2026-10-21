@@ -53,7 +53,6 @@ public struct NotificationBatch: Equatable {
 /// 본 것으로 기록한 키는 지금 응답에 없으면 지워, 다시 나타난 항목은 새 항목으로 본다.
 public struct AttentionNotifier {
     public static let titlePrefix = "확인이 필요해요"
-    public static let bodyLimit = 200
 
     private var seen: Set<String>
 
@@ -108,18 +107,17 @@ public struct AttentionNotifier {
         AttentionNote(
             identifier: item.sessionId,
             title: "\(titlePrefix) · \(item.title)",
-            body: body(replyTail: item.replyTail, status: item.status),
+            body: body(summary: item.summary, status: item.status),
             sessionId: item.sessionId,
             snoozable: PopoverRowAction.resolve(item) == .snooze
         )
     }
 
-    public static func body(replyTail: String?, status: String) -> String {
-        let reply = replyTail
-            .map { PlainText.markdown($0) }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let text = reply.flatMap { $0.isEmpty ? nil : $0 } ?? status
-        return String(text.prefix(bodyLimit))
+    public static func body(summary: String?, status: String) -> String {
+        let trimmed = summary?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = trimmed.flatMap { $0.isEmpty ? nil : $0 } ?? status
+        guard text.count > ReplySummary.limit else { return text }
+        return text.prefix(ReplySummary.limit - 1).trimmingCharacters(in: .whitespaces) + "…"
     }
 }
 
@@ -196,7 +194,7 @@ public struct DoneNotifier {
         AttentionNote(
             identifier: item.sessionId,
             title: "\(titlePrefix) · \(item.title)",
-            body: AttentionNotifier.body(replyTail: item.replyTail, status: item.status),
+            body: AttentionNotifier.body(summary: item.summary, status: item.status),
             sessionId: item.sessionId,
             snoozable: false
         )

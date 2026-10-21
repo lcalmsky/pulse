@@ -145,6 +145,8 @@ public struct Session: Equatable, Identifiable {
     public let since: Date?
     public let message: String?
     public let replyTail: String?
+    /// 답변 원문에서 고른 첫 문장. 알림 카드의 요약 한 줄에 쓴다.
+    public let replySummary: String?
     /// 잘리기 전 답변에서 고른 마지막 문장. 「지금 하는 일」 한 줄에 쓴다.
     public let lastSentence: String?
     public let place: Place?
@@ -186,6 +188,7 @@ public struct Session: Equatable, Identifiable {
         since: Date? = nil,
         message: String? = nil,
         replyTail: String? = nil,
+        replySummary: String? = nil,
         lastSentence: String? = nil,
         place: Place? = nil,
         cwd: String? = nil,
@@ -216,6 +219,7 @@ public struct Session: Equatable, Identifiable {
         self.since = since
         self.message = message
         self.replyTail = replyTail
+        self.replySummary = replySummary
         self.lastSentence = lastSentence
         self.place = place
         self.cwd = cwd
@@ -282,6 +286,8 @@ extension Session: Decodable {
         since = Lenient.date(container, .since)
         message = Lenient.string(container, .message)
         replyTail = Lenient.string(container, .replyTail)
+        // HTTP 경로에는 답변 원문이 없어 요약을 만들 수 없다.
+        replySummary = nil
         lastSentence = nil
         place = Lenient.object(container, .place, as: Place.self)
         cwd = Lenient.string(container, .cwd)
