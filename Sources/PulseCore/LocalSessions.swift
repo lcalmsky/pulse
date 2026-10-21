@@ -44,6 +44,8 @@ public struct TranscriptSummary: Equatable {
     public let agentName: String?
     public let lastPrompt: String?
     public let lastAssistantText: String?
+    /// 잘리기 전 답변 평문에서 고른 마지막 문장. 「지금 하는 일」 한 줄에 쓴다.
+    public let lastSentence: String?
     public let lastToolName: String?
     public let lastToolAt: Date?
     public let lastMeaningfulAt: Date?
@@ -59,6 +61,7 @@ public struct TranscriptSummary: Equatable {
         agentName: String? = nil,
         lastPrompt: String? = nil,
         lastAssistantText: String? = nil,
+        lastSentence: String? = nil,
         lastToolName: String? = nil,
         lastToolAt: Date? = nil,
         lastMeaningfulAt: Date? = nil,
@@ -71,6 +74,8 @@ public struct TranscriptSummary: Equatable {
         self.agentName = agentName
         self.lastPrompt = lastPrompt
         self.lastAssistantText = lastAssistantText
+        // 요약을 직접 만드는 호출도 있어, 전체 문장이 없으면 남은 인용에서 고른다.
+        self.lastSentence = lastSentence ?? NowLine.lastSentence(lastAssistantText)
         self.lastToolName = lastToolName
         self.lastToolAt = lastToolAt
         self.lastMeaningfulAt = lastMeaningfulAt
@@ -148,6 +153,7 @@ public enum LocalSessions {
         var agentName: String?
         var lastPrompt: String?
         var lastAssistantText: String?
+        var lastAssistantSentence: String?
         var lastToolName: String?
         var lastToolAt: Date?
         var lastMeaningfulAt: Date?
@@ -193,9 +199,13 @@ public enum LocalSessions {
                 for block in blocks {
                     switch block["type"] as? String {
                     case "text":
-                        if let raw = block["text"] as? String,
-                           let text = trimmedText(PlainText.markdown(raw)) {
-                            lastAssistantText = text
+                        if let raw = block["text"] as? String {
+                            let plain = PlainText.markdown(raw)
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !plain.isEmpty {
+                                lastAssistantText = trimmedText(plain)
+                                lastAssistantSentence = NowLine.lastSentence(plain)
+                            }
                         }
                     case "tool_use":
                         if let name = nonEmpty(block["name"] as? String) {
@@ -247,6 +257,7 @@ public enum LocalSessions {
             agentName: agentName,
             lastPrompt: lastPrompt,
             lastAssistantText: lastAssistantText,
+            lastSentence: lastAssistantSentence,
             lastToolName: lastToolName,
             lastToolAt: lastToolAt,
             lastMeaningfulAt: lastMeaningfulAt,
@@ -439,6 +450,7 @@ public enum LocalSessions {
             since: record.statusUpdatedAt ?? record.startedAt,
             message: message,
             replyTail: summary.lastAssistantText,
+            lastSentence: summary.lastSentence,
             place: place,
             cwd: record.cwd,
             backgroundTasks: deadhd?.hasBackgroundTasks == true ? deadhd?.backgroundTasks ?? [] : [],
@@ -577,6 +589,7 @@ public struct EndedSessionTracker {
             since: since,
             message: session.message,
             replyTail: session.replyTail,
+            lastSentence: session.lastSentence,
             place: session.place,
             cwd: session.cwd,
             orcaTerminal: session.orcaTerminal,

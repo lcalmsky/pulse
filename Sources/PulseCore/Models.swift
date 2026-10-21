@@ -145,6 +145,8 @@ public struct Session: Equatable, Identifiable {
     public let since: Date?
     public let message: String?
     public let replyTail: String?
+    /// 잘리기 전 답변에서 고른 마지막 문장. 「지금 하는 일」 한 줄에 쓴다.
+    public let lastSentence: String?
     public let place: Place?
     public let cwd: String?
     public let orcaTerminal: String?
@@ -180,6 +182,7 @@ public struct Session: Equatable, Identifiable {
         since: Date? = nil,
         message: String? = nil,
         replyTail: String? = nil,
+        lastSentence: String? = nil,
         place: Place? = nil,
         cwd: String? = nil,
         orcaTerminal: String? = nil,
@@ -207,6 +210,7 @@ public struct Session: Equatable, Identifiable {
         self.since = since
         self.message = message
         self.replyTail = replyTail
+        self.lastSentence = lastSentence
         self.place = place
         self.cwd = cwd
         self.orcaTerminal = orcaTerminal
@@ -270,6 +274,7 @@ extension Session: Decodable {
         since = Lenient.date(container, .since)
         message = Lenient.string(container, .message)
         replyTail = Lenient.string(container, .replyTail)
+        lastSentence = nil
         place = Lenient.object(container, .place, as: Place.self)
         cwd = Lenient.string(container, .cwd)
         orcaTerminal = Lenient.string(container, .orcaTerminal)

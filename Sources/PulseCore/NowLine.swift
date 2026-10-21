@@ -5,12 +5,14 @@ import Foundation
 /// 이미 상태 줄에 있는 문구는 중복으로 그리지 않는다.
 public enum NowLine {
     static let stagePrefix = "▶ "
+    public static let sentenceLimit = 120
     private static let sentenceEndings: Set<Character> = [".", "!", "?", "。", "！", "？", "…"]
+    private static let listMarkers: Set<Character> = ["-", "*", "+", "•", "·", "–", "—"]
 
     public static func resolve(
         stage: String?,
         currentAction: String?,
-        reply: String?,
+        lastSentence: String?,
         statusLine: String
     ) -> String? {
         if let stage = Grouping.clean(stage), !statusLine.contains(stage) {
@@ -19,14 +21,17 @@ public enum NowLine {
         if let action = Grouping.clean(currentAction), !statusLine.contains(action) {
             return action
         }
-        if let sentence = lastSentence(reply), !statusLine.contains(sentence) {
+        if let sentence = Grouping.clean(lastSentence), !statusLine.contains(sentence) {
             return sentence
         }
         return nil
     }
 
-    static func lastSentence(_ value: String?) -> String? {
-        guard let text = Grouping.clean(value) else { return nil }
+    /// 잘리지 않은 답변 평문에서 한 줄로 보여 줄 마지막 문장을 고른다.
+    public static func lastSentence(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let text = value.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        guard !text.isEmpty else { return nil }
         var sentences: [String] = []
         var start = text.startIndex
         var index = text.startIndex
@@ -58,6 +63,32 @@ public enum NowLine {
         if !tail.isEmpty {
             sentences.append(tail)
         }
-        return sentences.last
+        return sentences.last(where: { !isFragment($0) }).map { clipped($0) }
+    }
+
+    /// 표 행·코드 펜스·목록 기호만 남은 조각은 한 줄로 그리지 않는다.
+    static func isFragment(_ sentence: String) -> Bool {
+        let trimmed = sentence.trimmingCharacters(in: .whitespaces)
+        guard let first = trimmed.first else { return true }
+        if trimmed.contains("|") || trimmed.contains("```") || trimmed.contains("~~~") {
+            return true
+        }
+        if listMarkers.contains(first) {
+            return true
+        }
+        let digits = trimmed.prefix(while: { $0.isNumber })
+        if !digits.isEmpty {
+            let rest = trimmed.dropFirst(digits.count)
+            if rest.first == "." || rest.first == ")" {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// 자를 때는 문장 앞쪽을 남기고 끝에 `…` 를 붙여 상한을 넘지 않는다.
+    static func clipped(_ sentence: String) -> String {
+        guard sentence.count > sentenceLimit else { return sentence }
+        return String(sentence.prefix(sentenceLimit - 1)) + "…"
     }
 }

@@ -1413,29 +1413,76 @@ expectEqual(stateWinsActivity?.lastTool?.name, "Bash", "활동 줄: 상태 파�
 // MARK: - 지금 하는 일 한 줄
 
 expectEqual(NowLine.resolve(stage: "테스트 작성", currentAction: "파일 편집 · A.swift",
-                            reply: "고칩니다. 테스트를 돌립니다", statusLine: "2분째"),
+                            lastSentence: "테스트를 돌립니다", statusLine: "2분째"),
             "▶ 테스트 작성", "지금 한 줄: 단계가 있으면 단계")
 expectEqual(NowLine.resolve(stage: "테스트 작성", currentAction: "파일 편집 · A.swift",
-                            reply: "고칩니다. 테스트를 돌립니다",
+                            lastSentence: "테스트를 돌립니다",
                             statusLine: "2분째 · ▶ 테스트 작성"),
             "파일 편집 · A.swift", "지금 한 줄: 상태 줄에 있는 단계는 건너뛴다")
 expectEqual(NowLine.resolve(stage: "테스트 작성", currentAction: "테스트 작성",
-                            reply: "고칩니다. 테스트를 돌립니다",
+                            lastSentence: "테스트를 돌립니다",
                             statusLine: "2분째 · 테스트 작성"),
             "테스트를 돌립니다", "지금 한 줄: 상태 줄에 있는 도구 문구도 건너뛴다")
 expectEqual(NowLine.resolve(stage: nil, currentAction: nil,
-                            reply: "첫 문장입니다. 두 번째 문장입니다", statusLine: "2분째"),
+                            lastSentence: "두 번째 문장입니다", statusLine: "2분째"),
             "두 번째 문장입니다", "지금 한 줄: 마지막 답의 마지막 문장")
 expectEqual(NowLine.resolve(stage: nil, currentAction: nil,
-                            reply: "v1.2 를 확인합니다", statusLine: "2분째"),
+                            lastSentence: "v1.2 를 확인합니다", statusLine: "2분째"),
             "v1.2 를 확인합니다", "지금 한 줄: 소수점은 문장 끝이 아니다")
 expectEqual(NowLine.resolve(stage: nil, currentAction: nil,
-                            reply: "수정을 마쳤습니다.", statusLine: "2분째"),
+                            lastSentence: "수정을 마쳤습니다.", statusLine: "2분째"),
             "수정을 마쳤습니다.", "지금 한 줄: 문장 부호로 끝나는 답")
-expectEqual(NowLine.resolve(stage: "  ", currentAction: "\n", reply: nil, statusLine: "2분째"), nil,
+expectEqual(NowLine.resolve(stage: "  ", currentAction: "\n", lastSentence: nil, statusLine: "2분째"), nil,
             "지금 한 줄: 빈 값뿐이면 그리지 않는다")
-expectEqual(NowLine.resolve(stage: nil, currentAction: nil, reply: "", statusLine: "2분째"), nil,
+expectEqual(NowLine.resolve(stage: nil, currentAction: nil, lastSentence: "", statusLine: "2분째"), nil,
             "지금 한 줄: 값이 없으면 없다")
+
+expectEqual(NowLine.lastSentence("첫 문장입니다. 두 번째 문장입니다"), "두 번째 문장입니다",
+            "마지막 문장: 문장 부호로 나눈다")
+expectEqual(NowLine.lastSentence("v1.2 를 확인합니다"), "v1.2 를 확인합니다",
+            "마지막 문장: 소수점은 문장 끝이 아니다")
+expectEqual(NowLine.lastSentence("수정을 마쳤습니다."), "수정을 마쳤습니다.",
+            "마지막 문장: 문장 부호로 끝나는 답")
+expectEqual(NowLine.lastSentence("정리했습니다. | 항목 | 값 |"), "정리했습니다.",
+            "마지막 문장: 표 행 조각은 건너뛴다")
+expectEqual(NowLine.lastSentence("정리했습니다. -"), "정리했습니다.",
+            "마지막 문장: 목록 기호 조각은 건너뛴다")
+expectEqual(NowLine.lastSentence("정리했습니다. 1."), "정리했습니다.",
+            "마지막 문장: 번호 목록 조각은 건너뛴다")
+expectEqual(NowLine.lastSentence("정리했습니다. ```swift"), "정리했습니다.",
+            "마지막 문장: 코드 펜스 조각은 건너뛴다")
+let cappedSentence = NowLine.lastSentence(String(repeating: "가", count: 200))
+expectEqual(cappedSentence?.count, NowLine.sentenceLimit, "마지막 문장: 길이 상한")
+expectEqual(cappedSentence?.hasPrefix(String(repeating: "가", count: NowLine.sentenceLimit - 1)), true,
+            "마지막 문장: 자를 때는 앞쪽을 남긴다")
+expectEqual(cappedSentence?.hasSuffix("…"), true, "마지막 문장: 자를 때는 끝에 줄임표")
+
+let overLimitText = String(repeating: "가", count: 200) + ". 마지막 문장입니다."
+let overLimitJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"\(overLimitText)"}]}}
+"""
+let overLimitSummary = LocalSessions.summarizeTranscriptTail(
+    Data(overLimitJSON.utf8),
+    droppingPartialFirstLine: false
+)
+expectEqual(overLimitSummary.lastAssistantText?.count, 160, "요약: 인용은 160자로 자른다")
+expectEqual(overLimitSummary.lastSentence, "마지막 문장입니다.",
+            "요약: 마지막 문장은 자르기 전 원문에서 고른다")
+let overLimitItem = Grouping.group(
+    SessionsResponse(sessions: [localSession(status: "busy", summary: overLimitSummary)]),
+    now: now
+).working.first
+expectEqual(overLimitItem?.nowLine, "마지막 문장입니다.",
+            "지금 한 줄: 잘린 인용 조각이 아니라 온전한 마지막 문장")
+
+let tableJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"정리했습니다.\\n\\n| 항목 | 값 |\\n|---|---|"}]}}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(tableJSON.utf8), droppingPartialFirstLine: false).lastSentence,
+    "정리했습니다.",
+    "요약: 표 조각 대신 앞 문장"
+)
 
 let nowLineSummary = TranscriptSummary(
     lastAssistantText: "행을 고쳤습니다. 이제 스크린샷을 남깁니다",
