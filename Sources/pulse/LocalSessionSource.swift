@@ -11,13 +11,21 @@ enum LocalSessionReadError: Error {
 final class LocalSessionSource {
     private static let transcriptTailBytes = 256 * 1024
 
+    private static let stateFileLimit = 1024 * 1024
+
     private let root: URL
+    private let stateDirectory: URL
     private let fileManager = FileManager.default
     private var transcriptPaths: [String: URL] = [:]
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
         let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
         root = URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath)
+        stateDirectory = URL(
+            fileURLWithPath: NSString(
+                string: DeadhdState.stateDirectory(environment: environment)
+            ).expandingTildeInPath
+        )
     }
 
     func read(now: Date) throws -> [Session] {
@@ -40,10 +48,29 @@ final class LocalSessionSource {
 
             let summary = transcriptSummary(for: record)
             sessions.append(LocalSessions.makeSession(
-                record: record, summary: summary, now: now, home: NSHomeDirectory()
+                record: record,
+                summary: summary,
+                now: now,
+                home: NSHomeDirectory(),
+                deadhd: deadhdState(for: record)
             ))
         }
         return sessions
+    }
+
+    private func deadhdState(for record: LocalSessionRecord) -> DeadhdState? {
+        guard DeadhdState.isValidSessionId(record.sessionId) else { return nil }
+        let url = stateDirectory.appendingPathComponent(record.sessionId + ".json")
+        guard let data = try? Data(contentsOf: url), data.count <= Self.stateFileLimit else {
+            return nil
+        }
+        guard var state = DeadhdState.parse(data, expectedSessionId: record.sessionId) else {
+            return nil
+        }
+        if let page = state.pagePath, !fileManager.fileExists(atPath: page) {
+            state.pagePath = nil
+        }
+        return state
     }
 
     private func isProcessAlive(_ pid: Int) -> Bool {

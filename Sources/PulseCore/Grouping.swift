@@ -39,15 +39,22 @@ public struct DisplayItem: Equatable, Identifiable {
     public let placeText: String?
     public let key: String?
     public let progress: ChecklistProgress?
+    /// 30분 넘게 갱신되지 않은 체크리스트. 진행률을 흐리게 그린다.
+    public let progressStale: Bool
+    public let blocked: Bool
     public let replyTail: String?
     public let nowLabel: String?
     public let prTag: String?
     public let prURL: String?
+    public let extraPRs: [PullRequestLink]
+    public let jiraKey: String?
+    public let jiraHref: String?
+    public let activityLine: String?
     public let group: DisplayGroup
     public let isStall: Bool
     public let orcaTerminal: String?
     public let cwd: String?
-    public let href: String?
+    public let pagePath: String?
     public let acknowledgeKey: String
     public let sortDate: Date?
 
@@ -58,7 +65,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public var rowID: String { "\(group.rawValue)+\(sessionId)" }
 
     public var clickAction: SessionClickAction {
-        SessionClick.resolve(href: href, orcaTerminal: orcaTerminal, cwd: cwd)
+        SessionClick.resolve(page: pagePath, orcaTerminal: orcaTerminal, cwd: cwd)
     }
 
     public var isActionable: Bool { clickAction != .none }
@@ -82,15 +89,21 @@ public struct DisplayItem: Equatable, Identifiable {
         } else {
             self.progress = nil
         }
+        self.progressStale = session.dataAt.map { now.timeIntervalSince($0) > DeadhdState.staleInterval } ?? false
+        self.blocked = (session.counts?.blocked ?? 0) > 0
         self.replyTail = Grouping.clean(session.replyTail)
         self.nowLabel = Grouping.nonEmpty(session.nowLabel)
-        self.prTag = session.pr.map { "#\($0.number)" }
+        self.prTag = session.pr.map { $0.label ?? "#\($0.number)" }
         self.prURL = Grouping.nonEmpty(session.pr?.url)
+        self.extraPRs = session.extraPRs.filter { Grouping.nonEmpty($0.url) != nil }
+        self.jiraKey = Grouping.nonEmpty(session.jiraKey)
+        self.jiraHref = Grouping.nonEmpty(session.jiraHref)
+        self.activityLine = session.activity?.line(now: now)
         self.group = group
         self.isStall = session.bucket == "stall"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)
         self.cwd = Grouping.nonEmpty(session.cwd)
-        self.href = Grouping.nonEmpty(session.href)
+        self.pagePath = Grouping.nonEmpty(session.pagePath)
         self.acknowledgeKey = Self.acknowledgeKey(sessionId: session.sessionId, since: session.since)
         self.sortDate = session.since ?? session.updatedAt
     }
@@ -234,37 +247,45 @@ public enum Grouping {
     }
 
     static func statusText(session: Session, group: DisplayGroup, now: Date) -> String {
+        let hasChecklist = session.counts != nil && (session.total ?? 0) > 0
+        let stage = clean(session.nowLabel).map { hasChecklist ? "▶ \($0)" : $0 }
+        let eta = etaText(session, now: now)
+
         switch group {
         case .attention:
+            let base: String
             switch session.bucket {
             case "wait":
-                return clean(session.message) ?? "권한을 허락해 주세요"
+                base = clean(session.message) ?? "권한을 허락해 주세요"
             case "idle":
-                return "답을 기다리고 있어요"
+                base = "답을 기다리고 있어요"
             case "stall":
                 let duration = TimePhrase.duration(from: session.elapsedReference, to: now)
                 if let task = session.backgroundTasks.first,
                    let name = clean(task.taskDescription) ?? clean(task.type),
                    let duration {
-                    return "백그라운드 작업 \(duration)째 · \(name)"
+                    base = "백그라운드 작업 \(duration)째 · \(name)"
+                } else if let duration {
+                    base = "작업 \(duration)째 · 멈췄는지 확인해 보세요"
+                } else {
+                    base = "멈췄는지 확인해 보세요"
                 }
-                if let duration {
-                    return "작업 \(duration)째 · 멈췄는지 확인해 보세요"
-                }
-                return "멈췄는지 확인해 보세요"
             default:
-                return "확인이 필요해요"
+                base = "확인이 필요해요"
             }
+            return appended(base, stage, eta)
         case .working:
             let label = clean(session.nowLabel)
+            let shown = hasChecklist ? label.map { "▶ \($0)" } : label
+            let base: String
             if session.bucket == "untracked" {
-                return label ?? "진행 중이에요"
+                base = shown ?? "진행 중이에요"
+            } else if let duration = TimePhrase.duration(from: session.elapsedReference, to: now) {
+                base = shown.map { "\(duration)째 · \($0)" } ?? "\(duration)째"
+            } else {
+                base = shown ?? "진행 중이에요"
             }
-            if let duration = TimePhrase.duration(from: session.elapsedReference, to: now) {
-                if let label { return "\(duration)째 · \(label)" }
-                return "\(duration)째"
-            }
-            return label ?? "진행 중이에요"
+            return appended(base, nil, eta)
         case .done:
             if session.bucket == "ended" {
                 let elapsed = TimePhrase.elapsed(from: session.elapsedReference, to: now)
@@ -272,8 +293,19 @@ public enum Grouping {
                 if let elapsed { return "\(elapsed) 전 끝남" }
                 return "끝났어요"
             }
-            return "끝났어요"
+            return appended("끝났어요", stage, eta)
         }
+    }
+
+    private static func appended(_ base: String, _ stage: String?, _ eta: String?) -> String {
+        [base, stage, eta].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private static func etaText(_ session: Session, now: Date) -> String? {
+        guard let eta = session.eta else { return nil }
+        let minutes = Int(ceil(eta.timeIntervalSince(now) / 60))
+        guard minutes > 0 else { return nil }
+        return "약 \(minutes)분 남음"
     }
 
     static func detailText(session: Session, group: DisplayGroup) -> String? {

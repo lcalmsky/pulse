@@ -59,8 +59,8 @@ final class DetailWindowController: NSObject, DetailPresenting, WKScriptMessageH
         webView.navigationDelegate = self
     }
 
-    func showDetail(for item: DisplayItem) {
-        guard let href = item.href, let url = URL(string: href) else { return }
+    func showDetail(for item: DisplayItem, url: String) {
+        guard let address = URL(string: url) else { return }
         currentItem = item
         titleLabel.stringValue = item.title
         titleLabel.toolTip = item.title
@@ -69,9 +69,9 @@ final class DetailWindowController: NSObject, DetailPresenting, WKScriptMessageH
 
         let window = window ?? makeWindow()
         self.window = window
-        if loadedHref != href {
-            loadedHref = href
-            webView.load(URLRequest(url: url))
+        if loadedHref != url {
+            loadedHref = url
+            webView.load(URLRequest(url: address))
         } else if webView.url != nil {
             applyStoredMode()
         }
@@ -182,7 +182,7 @@ final class DetailWindowController: NSObject, DetailPresenting, WKScriptMessageH
     }
 
     @objc private func openInBrowser() {
-        guard let href = currentItem?.href, let url = URL(string: href) else { return }
+        guard let href = loadedHref, let url = URL(string: href) else { return }
         NSWorkspace.shared.open(url)
     }
 

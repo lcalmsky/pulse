@@ -5,7 +5,7 @@ import OSLog
 import PulseCore
 
 protocol DetailPresenting: AnyObject {
-    func showDetail(for item: DisplayItem)
+    func showDetail(for item: DisplayItem, url: String)
 }
 
 final class AppModel: ObservableObject {
@@ -32,7 +32,6 @@ final class AppModel: ObservableObject {
     private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "notify")
 
     private let defaults = UserDefaults.standard
-    private let port: String
     private let failureGrace: TimeInterval = 15
     private let pollInterval: TimeInterval = 3
     private let localSource = LocalSessionSource()
@@ -45,15 +44,12 @@ final class AppModel: ObservableObject {
     private var hasHandledFirstUpdate = false
 
     private var response: SessionsResponse?
-    private var localSessions: [Session]?
-    private var remoteSessions: [Session]?
     private var endedTracker = EndedSessionTracker()
     private var timer: Timer?
     private var snoozes: [String: Date] = [:]
     private var acknowledgements: DoneAcknowledgements
     private var errorGeneration = 0
     private var localReading = false
-    private var remoteFetching = false
 
     init() {
         let settings = AppSettings(
@@ -67,7 +63,6 @@ final class AppModel: ObservableObject {
         attentionNotifications = settings.attentionNotifications
         doneNotifications = settings.doneNotifications
 
-        port = ProcessInfo.processInfo.environment["DEADHD_PORT"] ?? "47320"
         acknowledgements = DoneAcknowledgements(
             keys: Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
         )
@@ -153,13 +148,8 @@ final class AppModel: ObservableObject {
 
     // MARK: - 폴링
 
-    private var deadhdSessionsURL: URL? {
-        URL(string: "http://127.0.0.1:\(port)/sessions.json")
-    }
-
     func poll() {
         readLocal()
-        fetchRemote()
     }
 
     private func readLocal() {
@@ -182,54 +172,18 @@ final class AppModel: ObservableObject {
         }
         let ended = endedTracker.reconcile(active: active, at: Date())
         let local = active + ended
-        localSessions = local
         lastSuccess = Date()
         sessionsUnavailable = false
 
-        // 로컬 출처를 읽은 응답을 기준으로 정리한다. deadhd 응답은 보강일 뿐이다.
         let before = acknowledgements
         acknowledgements.prune(keeping: SessionsResponse(sessions: local))
         if acknowledgements != before {
             persistAcknowledgements()
         }
-        applyOverlay()
+        response = SessionsResponse(sessions: local)
+        refresh()
         deliverAttentionNotes(isFirstUpdate: !hasHandledFirstUpdate)
         hasHandledFirstUpdate = true
-    }
-
-    /// deadhd 응답이 오면 같은 sessionId 의 보강 값만 덧입힌다. 실패해도 화면은 그대로 둔다.
-    private func applyOverlay() {
-        guard let localSessions else { return }
-        response = SessionsResponse(
-            sessions: SessionOverlay.apply(local: localSessions, remote: remoteSessions ?? [])
-        )
-        refresh()
-    }
-
-    private func fetchRemote() {
-        guard !remoteFetching, let url = deadhdSessionsURL else { return }
-        remoteFetching = true
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 2
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.remoteFetching = false
-                guard error == nil,
-                      let http = response as? HTTPURLResponse,
-                      (200..<300).contains(http.statusCode),
-                      let data,
-                      let decoded = try? JSONDecoder().decode(SessionsResponse.self, from: data)
-                else {
-                    self.remoteSessions = nil
-                    self.applyOverlay()
-                    return
-                }
-                self.remoteSessions = decoded.sessions
-                self.applyOverlay()
-            }
-        }.resume()
     }
 
     private func markFailure() {
@@ -289,12 +243,8 @@ final class AppModel: ObservableObject {
 
     func open(_ item: DisplayItem) {
         switch item.clickAction {
-        case .detail(let href):
-            if let presenter = detailPresenter {
-                presenter.showDetail(for: item)
-            } else if let url = URL(string: href) {
-                NSWorkspace.shared.open(url)
-            }
+        case .detail(let path):
+            openPage(item, path: path)
         case .orca(let handle):
             switchTerminal(handle)
         case .cwd(let cwd):
@@ -304,9 +254,34 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func openPullRequest(_ urlString: String) {
+    func openPage(_ item: DisplayItem) {
+        guard let path = item.pagePath else { return }
+        openPage(item, path: path)
+    }
+
+    /// deadhd 의 serve.py 주소 규칙을 먼저 시도하고, 실패하면 file:// 로 연다.
+    /// 서버 확인이 파일 IO 라서 화면을 붙잡지 않도록 백그라운드에서 돈다.
+    private func openPage(_ item: DisplayItem, path: String) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let url = DeadhdPage.url(for: path)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let presenter = self.detailPresenter {
+                    presenter.showDetail(for: item, url: url.absoluteString)
+                } else {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    func openLink(_ urlString: String) {
         guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    func openPullRequest(_ urlString: String) {
+        openLink(urlString)
     }
 
     func openInOrca(_ item: DisplayItem) {

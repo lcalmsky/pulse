@@ -23,4 +23,14 @@ public enum TimePhrase {
         guard let elapsed = elapsed(from: date, to: now) else { return nil }
         return elapsed == "방금" ? elapsed : "\(elapsed) 전"
     }
+
+    /// 활동 줄에 쓰는 「12초 전」. 1분 안쪽도 초 단위로 보여 준다.
+    public static func ago(from date: Date?, to now: Date) -> String? {
+        guard let date else { return nil }
+        let seconds = max(0, Int(now.timeIntervalSince(date)))
+        if seconds < 60 { return "\(seconds)초 전" }
+        if seconds < 3600 { return "\(seconds / 60)분 전" }
+        if seconds < 86_400 { return "\(seconds / 3600)시간 전" }
+        return "\(seconds / 86_400)일 전"
+    }
 }

@@ -16,6 +16,7 @@ struct SessionRowView: View {
     private var acknowledgeAction: PopoverRowAction { PopoverRowAction.resolve(item) }
     private var showsActions: Bool { highlighted && item.isActionable }
     private var showsOrca: Bool { item.orcaTerminal != nil || item.cwd != nil }
+    private var showsPage: Bool { item.pagePath != nil }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -27,6 +28,14 @@ struct SessionRowView: View {
                         EmptyView()
                     } else {
                         subtitle
+                    }
+                    if !compact, let activity = item.activityLine {
+                        Text(activity)
+                            .font(.system(size: 10.5))
+                            .foregroundColor(PopoverPalette.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.top, 1)
                     }
                     if !compact, group == .attention, let reply = item.replyTail {
                         quote(reply)
@@ -48,6 +57,14 @@ struct SessionRowView: View {
                 time
                 if showsActions {
                     HStack(spacing: 2) {
+                        if showsPage {
+                            RowActionButton(
+                                symbol: "doc.text",
+                                help: "진행 페이지 (↩)"
+                            ) {
+                                model.openPage(item)
+                            }
+                        }
                         if showsOrca {
                             RowActionButton(
                                 symbol: "arrow.up.right.square",
@@ -136,7 +153,7 @@ struct SessionRowView: View {
     private var subtitleText: Text {
         var text = Text(item.status)
             .font(.system(size: 11.5, weight: .semibold))
-            .foregroundColor(PopoverPalette.color(for: group))
+            .foregroundColor(item.blocked ? PopoverPalette.attention : PopoverPalette.color(for: group))
         if let place = item.placeText {
             text = text + Text(" · \(place)")
                 .font(.system(size: 11.5))
@@ -175,23 +192,44 @@ struct SessionRowView: View {
         let tags = item.keyTag.map { [$0] } ?? []
         let pullRequest = item.prURL != nil ? item.prTag : nil
         let stripes = group == .working && item.progress == nil
-        if item.progress != nil || stripes || !tags.isEmpty || pullRequest != nil {
+        if item.progress != nil || stripes || !tags.isEmpty || item.jiraKey != nil
+            || pullRequest != nil || !item.extraPRs.isEmpty {
             HStack(spacing: 5) {
                 if let progress = item.progress {
-                    ProgressBar(fraction: progress.fraction)
-                    Text(progress.text)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundColor(PopoverPalette.secondary)
+                    ProgressBar(
+                        fraction: progress.fraction,
+                        tint: item.blocked ? PopoverPalette.attention : nil
+                    )
+                    .opacity(item.progressStale ? 0.45 : 1)
+                    TagView(
+                        text: progress.text,
+                        color: item.blocked ? PopoverPalette.attention : PopoverPalette.secondary
+                    )
+                    .opacity(item.progressStale ? 0.45 : 1)
                 } else if stripes {
                     StripedProgressBar()
                 }
                 ForEach(tags, id: \.self) { tag in
                     TagView(text: tag)
                 }
+                if let jiraKey = item.jiraKey {
+                    if let href = item.jiraHref {
+                        TagButton(text: jiraKey, help: "\(jiraKey) 열기") {
+                            model.openLink(href)
+                        }
+                    } else {
+                        TagView(text: jiraKey)
+                    }
+                }
                 if let pullRequest, let url = item.prURL {
-                    PullRequestTagButton(text: pullRequest) {
+                    TagButton(text: pullRequest, help: "PR \(pullRequest) 열기") {
                         model.openPullRequest(url)
+                    }
+                }
+                ForEach(item.extraPRs, id: \.url) { link in
+                    let label = link.label ?? "#\(link.number)"
+                    TagButton(text: label, help: "PR \(label) 열기") {
+                        model.openPullRequest(link.url)
                     }
                 }
             }
@@ -300,6 +338,7 @@ private struct StripedProgressBar: View {
 
 private struct ProgressBar: View {
     let fraction: Double
+    var tint: Color?
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -308,7 +347,7 @@ private struct ProgressBar: View {
             Capsule()
                 .fill(
                     LinearGradient(
-                        colors: [PopoverPalette.working, PopoverPalette.purple],
+                        colors: tint.map { [$0, $0] } ?? [PopoverPalette.working, PopoverPalette.purple],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -321,11 +360,12 @@ private struct ProgressBar: View {
 
 private struct TagView: View {
     let text: String
+    var color: Color = PopoverPalette.secondary
 
     var body: some View {
         Text(text)
             .font(.system(size: 10.5, design: .monospaced))
-            .foregroundColor(PopoverPalette.secondary)
+            .foregroundColor(color)
             .lineLimit(1)
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
@@ -340,8 +380,9 @@ private struct TagView: View {
     }
 }
 
-private struct PullRequestTagButton: View {
+private struct TagButton: View {
     let text: String
+    let help: String
     let action: () -> Void
 
     @State private var hovering = false
@@ -366,7 +407,7 @@ private struct PullRequestTagButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help("PR \(text) 열기")
+        .help(help)
     }
 }
 

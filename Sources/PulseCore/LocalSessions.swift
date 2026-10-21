@@ -49,6 +49,10 @@ public struct TranscriptSummary: Equatable {
     public let lastMeaningfulAt: Date?
     public let pendingToolLabel: String?
     public let pullRequest: PullRequestLink?
+    /// 트랜스크립트 끝에서 센 압축 경계 레코드 수.
+    public let compactions: Int?
+    /// 아직 완료 알림을 받지 못한 `run_in_background` 도구 호출 수.
+    public let backgroundTasks: Int?
 
     public init(
         customTitle: String? = nil,
@@ -59,7 +63,9 @@ public struct TranscriptSummary: Equatable {
         lastToolAt: Date? = nil,
         lastMeaningfulAt: Date? = nil,
         pendingToolLabel: String? = nil,
-        pullRequest: PullRequestLink? = nil
+        pullRequest: PullRequestLink? = nil,
+        compactions: Int? = nil,
+        backgroundTasks: Int? = nil
     ) {
         self.customTitle = customTitle
         self.agentName = agentName
@@ -70,6 +76,8 @@ public struct TranscriptSummary: Equatable {
         self.lastMeaningfulAt = lastMeaningfulAt
         self.pendingToolLabel = pendingToolLabel
         self.pullRequest = pullRequest
+        self.compactions = compactions
+        self.backgroundTasks = backgroundTasks
     }
 }
 
@@ -146,6 +154,9 @@ public enum LocalSessions {
         var pendingToolUses: [(id: String?, name: String, input: [String: Any])] = []
         var resolvedToolUseIds: Set<String> = []
         var pullRequest: PullRequestLink?
+        var compactions = 0
+        var backgroundToolUseIds: Set<String> = []
+        var completedBackgroundToolUseIds: Set<String> = []
 
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: false)
         let firstIndex = droppingPartialFirstLine && !lines.isEmpty ? 1 : 0
@@ -156,6 +167,10 @@ public enum LocalSessions {
             else { continue }
 
             switch type {
+            case "system":
+                if object["subtype"] as? String == "compact_boundary" {
+                    compactions += 1
+                }
             case "custom-title":
                 if let value = nonEmpty(object["customTitle"] as? String) {
                     customTitle = value
@@ -186,11 +201,12 @@ public enum LocalSessions {
                         if let name = nonEmpty(block["name"] as? String) {
                             lastToolName = name
                             lastToolAt = timestamp
-                            pendingToolUses.append((
-                                id: nonEmpty(block["id"] as? String),
-                                name: name,
-                                input: block["input"] as? [String: Any] ?? [:]
-                            ))
+                            let input = block["input"] as? [String: Any] ?? [:]
+                            let id = nonEmpty(block["id"] as? String)
+                            pendingToolUses.append((id: id, name: name, input: input))
+                            if input["run_in_background"] as? Bool == true, let id {
+                                backgroundToolUseIds.insert(id)
+                            }
                         }
                     default:
                         break
@@ -207,6 +223,9 @@ public enum LocalSessions {
                         resolvedToolUseIds.insert(id)
                     }
                 }
+                completedBackgroundToolUseIds.formUnion(
+                    taskNotificationToolUseIds(in: message?["content"])
+                )
             case "pr-link":
                 if let url = nonEmpty(object["prUrl"] as? String),
                    let number = prNumber(object["prNumber"]), number > 0 {
@@ -232,8 +251,36 @@ public enum LocalSessions {
             lastToolAt: lastToolAt,
             lastMeaningfulAt: lastMeaningfulAt,
             pendingToolLabel: pendingLabel,
-            pullRequest: pullRequest
+            pullRequest: pullRequest,
+            compactions: compactions,
+            backgroundTasks: backgroundToolUseIds.subtracting(completedBackgroundToolUseIds).count
         )
+    }
+
+    /// 백그라운드 작업 완료는 `<task-notification>` 안의 `<tool-use-id>` 로 돌아온다.
+    /// 다른 안내 문구에도 같은 태그 이름이 쓰이므로 알림 블록만 본다.
+    public static func taskNotificationToolUseIds(in content: Any?) -> Set<String> {
+        var texts: [String] = []
+        if let text = content as? String {
+            texts = [text]
+        } else if let blocks = content as? [[String: Any]] {
+            texts = blocks.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }
+        }
+
+        var ids: Set<String> = []
+        for text in texts where text.contains("<task-notification>") {
+            var remainder = text[...]
+            while let start = remainder.range(of: "<tool-use-id>"),
+                  let end = remainder.range(of: "</tool-use-id>", range: start.upperBound..<remainder.endIndex) {
+                let id = remainder[start.upperBound..<end.lowerBound]
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !id.isEmpty {
+                    ids.insert(id)
+                }
+                remainder = remainder[end.upperBound...]
+            }
+        }
+        return ids
     }
 
     // MARK: - 현재 동작
@@ -325,8 +372,11 @@ public enum LocalSessions {
         record: LocalSessionRecord,
         summary: TranscriptSummary,
         now: Date,
-        home: String? = nil
+        home: String? = nil,
+        deadhd: DeadhdState? = nil
     ) -> Session {
+        // 꺼진 세션의 요약은 체크리스트로 쓰지 않는다. 활동 정보는 그대로 쓴다.
+        let checklist = deadhd?.hasChecklist == true ? deadhd : nil
         var bucket: String
         var status: String?
         var message: String?
@@ -358,6 +408,7 @@ public enum LocalSessions {
         }
 
         let title = firstNonEmpty(
+            checklist?.title,
             summary.customTitle,
             summary.agentName,
             record.name,
@@ -373,7 +424,11 @@ public enum LocalSessions {
                 ? nil
                 : Place(label: location, branch: nil, path: record.cwd)
         }
-        let nowLabel = bucket == "working" ? summary.pendingToolLabel : nil
+        let nowLabel = checklist != nil
+            ? checklist?.nowLabel
+            : (bucket == "working" ? summary.pendingToolLabel : nil)
+        // deadhd 요약과 트랜스크립트가 같은 PR 을 가리키면 한 번만 그린다.
+        let pullRequests = mergedPullRequests(checklist?.pr, summary.pullRequest)
 
         return Session(
             sessionId: record.sessionId,
@@ -386,10 +441,20 @@ public enum LocalSessions {
             replyTail: summary.lastAssistantText,
             place: place,
             cwd: record.cwd,
+            backgroundTasks: deadhd?.hasBackgroundTasks == true ? deadhd?.backgroundTasks ?? [] : [],
             lastTool: lastTool,
             updatedAt: updatedAt,
             nowLabel: nowLabel,
-            pr: summary.pullRequest
+            pagePath: checklist?.pagePath,
+            counts: checklist?.counts,
+            total: checklist?.total,
+            pr: pullRequests.first,
+            extraPRs: Array(pullRequests.dropFirst()),
+            jiraKey: checklist?.key,
+            jiraHref: checklist?.keyHref,
+            eta: checklist?.eta,
+            dataAt: checklist?.dataAt,
+            activity: SessionActivity.make(state: deadhd, summary: summary)
         )
     }
 
@@ -455,6 +520,11 @@ public enum LocalSessions {
         String(value.lowercased().filter { $0 != "-" && $0 != "_" })
     }
 
+    static func mergedPullRequests(_ values: PullRequestLink?...) -> [PullRequestLink] {
+        var seen: Set<String> = []
+        return values.compactMap { $0 }.filter { seen.insert($0.url).inserted }
+    }
+
     static func firstNonEmpty(_ values: String?...) -> String? {
         for value in values {
             if let value = nonEmpty(value) {
@@ -513,45 +583,16 @@ public struct EndedSessionTracker {
             lastTool: session.lastTool,
             updatedAt: date,
             nowLabel: session.nowLabel,
-            href: session.href,
+            pagePath: session.pagePath,
             counts: session.counts,
             total: session.total,
-            pr: session.pr
+            pr: session.pr,
+            extraPRs: session.extraPRs,
+            jiraKey: session.jiraKey,
+            jiraHref: session.jiraHref,
+            eta: session.eta,
+            dataAt: session.dataAt,
+            activity: session.activity
         )
-    }
-}
-
-/// deadhd 서버가 살아 있을 때만 로컬 세션에 덧입히는 값.
-public enum SessionOverlay {
-    public static func apply(local: [Session], remote: [Session]) -> [Session] {
-        guard !remote.isEmpty else { return local }
-        let byId = Dictionary(remote.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
-        return local.map { session in
-            guard let remote = byId[session.sessionId] else { return session }
-            let overlayPlace = remote.place.flatMap { place in
-                place.label?.isEmpty == false || place.branch?.isEmpty == false ? place : nil
-            }
-            return Session(
-                sessionId: session.sessionId,
-                bucket: session.bucket,
-                title: session.title,
-                key: session.key,
-                status: session.status,
-                since: session.since,
-                message: session.message,
-                replyTail: session.replyTail,
-                place: overlayPlace ?? session.place,
-                cwd: session.cwd,
-                orcaTerminal: remote.orcaTerminal,
-                backgroundTasks: remote.backgroundTasks,
-                lastTool: session.lastTool,
-                updatedAt: session.updatedAt,
-                nowLabel: remote.nowLabel ?? session.nowLabel,
-                href: remote.href,
-                counts: remote.counts,
-                total: session.total,
-                pr: session.pr
-            )
-        }
     }
 }

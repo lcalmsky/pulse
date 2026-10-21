@@ -152,10 +152,18 @@ public struct Session: Equatable, Identifiable {
     public let lastTool: LastTool?
     public let updatedAt: Date?
     public let nowLabel: String?
-    public let href: String?
+    /// deadhd 진행 페이지 HTML 의 절대 경로. 체크리스트가 있는 세션에만 있다.
+    public let pagePath: String?
     public let counts: SessionCounts?
     public let total: Int?
     public let pr: PullRequestLink?
+    /// 대표 PR 과 주소가 다른 나머지 PR 태그.
+    public let extraPRs: [PullRequestLink]
+    public let jiraKey: String?
+    public let jiraHref: String?
+    public let eta: Date?
+    public let dataAt: Date?
+    public let activity: SessionActivity?
 
     public var id: String { sessionId }
 
@@ -177,10 +185,16 @@ public struct Session: Equatable, Identifiable {
         lastTool: LastTool? = nil,
         updatedAt: Date? = nil,
         nowLabel: String? = nil,
-        href: String? = nil,
+        pagePath: String? = nil,
         counts: SessionCounts? = nil,
         total: Int? = nil,
-        pr: PullRequestLink? = nil
+        pr: PullRequestLink? = nil,
+        extraPRs: [PullRequestLink] = [],
+        jiraKey: String? = nil,
+        jiraHref: String? = nil,
+        eta: Date? = nil,
+        dataAt: Date? = nil,
+        activity: SessionActivity? = nil
     ) {
         self.sessionId = sessionId
         self.bucket = bucket
@@ -197,10 +211,16 @@ public struct Session: Equatable, Identifiable {
         self.lastTool = lastTool
         self.updatedAt = updatedAt
         self.nowLabel = nowLabel
-        self.href = href
+        self.pagePath = pagePath
         self.counts = counts
         self.total = total
         self.pr = pr
+        self.extraPRs = extraPRs
+        self.jiraKey = jiraKey
+        self.jiraHref = jiraHref
+        self.eta = eta
+        self.dataAt = dataAt
+        self.activity = activity
     }
 
     enum CodingKeys: String, CodingKey {
@@ -219,7 +239,6 @@ public struct Session: Equatable, Identifiable {
         case lastTool
         case updatedAt
         case nowLabel
-        case href
         case counts
         case total
         case summary
@@ -254,11 +273,17 @@ extension Session: Decodable {
         lastTool = Lenient.object(container, .lastTool, as: LastTool.self)
         updatedAt = Lenient.date(container, .updatedAt)
         nowLabel = Lenient.string(container, .nowLabel) ?? Lenient.string(summary, .nowLabel)
-        href = Lenient.string(container, .href)
         counts = Lenient.object(container, .counts, as: SessionCounts.self)
             ?? Lenient.object(summary, .counts, as: SessionCounts.self)
         total = Lenient.int(container, .total) ?? Lenient.int(summary, .total)
+        pagePath = nil
         pr = nil
+        extraPRs = []
+        jiraKey = nil
+        jiraHref = nil
+        eta = nil
+        dataAt = nil
+        activity = nil
     }
 }
 
@@ -315,10 +340,13 @@ extension BackgroundTask: Decodable {
 public struct PullRequestLink: Equatable {
     public let number: Int
     public let url: String
+    /// deadhd 요약이 준 표시 문구(`#16331`). 없으면 번호로 만든다.
+    public let label: String?
 
-    public init(number: Int, url: String) {
+    public init(number: Int, url: String, label: String? = nil) {
         self.number = number
         self.url = url
+        self.label = label
     }
 }
 

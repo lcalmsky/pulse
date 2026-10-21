@@ -374,31 +374,31 @@ expectEqual(fewDone.doneOverflowText, nil, "완료 잘라내기: 5개 이하면 
 
 // MARK: - 클릭 규칙
 
-expectEqual(SessionClick.resolve(href: nil, orcaTerminal: nil), SessionClickAction.none,
+expectEqual(SessionClick.resolve(page: nil, orcaTerminal: nil), SessionClickAction.none,
             "클릭 규칙: 둘 다 없으면 비활성")
-expectEqual(SessionClick.resolve(href: "  ", orcaTerminal: " "), SessionClickAction.none,
+expectEqual(SessionClick.resolve(page: "  ", orcaTerminal: " "), SessionClickAction.none,
             "클릭 규칙: 공백뿐이면 없는 것으로 본다")
-expectEqual(SessionClick.resolve(href: nil, orcaTerminal: "term-1"), .orca("term-1"),
+expectEqual(SessionClick.resolve(page: nil, orcaTerminal: "term-1"), .orca("term-1"),
             "클릭 규칙: 페이지가 없으면 Orca")
 expectEqual(
-    SessionClick.resolve(href: "http://127.0.0.1:47320/deadhd-x.html", orcaTerminal: "term-1"),
-    .detail("http://127.0.0.1:47320/deadhd-x.html"),
+    SessionClick.resolve(page: "/tmp/deadhd-x.html", orcaTerminal: "term-1"),
+    .detail("/tmp/deadhd-x.html"),
     "클릭 규칙: 페이지가 있으면 Orca 보다 페이지"
 )
-expectEqual(SessionClick.resolve(href: "", orcaTerminal: " term-1 "), .orca("term-1"),
+expectEqual(SessionClick.resolve(page: "", orcaTerminal: " term-1 "), .orca("term-1"),
             "클릭 규칙: 앞뒤 공백을 지운다")
-expectEqual(SessionClick.resolve(href: nil, orcaTerminal: nil, cwd: "/a/b"), .cwd("/a/b"),
+expectEqual(SessionClick.resolve(page: nil, orcaTerminal: nil, cwd: "/a/b"), .cwd("/a/b"),
             "클릭 규칙: 핸들이 없으면 cwd 로 찾는다")
-expectEqual(SessionClick.resolve(href: nil, orcaTerminal: "term-1", cwd: "/a/b"), .orca("term-1"),
+expectEqual(SessionClick.resolve(page: nil, orcaTerminal: "term-1", cwd: "/a/b"), .orca("term-1"),
             "클릭 규칙: cwd 보다 핸들")
-expectEqual(SessionClick.resolve(href: "http://a", orcaTerminal: nil, cwd: "/a/b"), .detail("http://a"),
+expectEqual(SessionClick.resolve(page: "/tmp/a.html", orcaTerminal: nil, cwd: "/a/b"), .detail("/tmp/a.html"),
             "클릭 규칙: cwd 보다 페이지")
-expectEqual(SessionClick.resolve(href: nil, orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
+expectEqual(SessionClick.resolve(page: nil, orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
             "클릭 규칙: 공백뿐인 cwd 는 없는 것으로 본다")
 
 let clickGrouped = Grouping.group(
     SessionsResponse(sessions: [
-        Session(sessionId: "page", bucket: "working", orcaTerminal: "t", href: "http://a"),
+        Session(sessionId: "page", bucket: "working", orcaTerminal: "t", pagePath: "/tmp/a.html"),
         Session(sessionId: "orca", bucket: "working", orcaTerminal: "t"),
         Session(sessionId: "cwd", bucket: "working", cwd: "/a/b"),
         Session(sessionId: "none", bucket: "working"),
@@ -408,7 +408,7 @@ let clickGrouped = Grouping.group(
 let clickItems: [String: DisplayItem] = Dictionary(
     uniqueKeysWithValues: clickGrouped.working.map { ($0.sessionId, $0) }
 )
-expectEqual(clickItems["page"]?.clickAction, .detail("http://a"), "클릭 규칙: 항목이 상세 창으로 간다")
+expectEqual(clickItems["page"]?.clickAction, .detail("/tmp/a.html"), "클릭 규칙: 항목이 상세 창으로 간다")
 expectEqual(clickItems["orca"]?.clickAction, .orca("t"), "클릭 규칙: 항목이 Orca 로 간다")
 expectEqual(clickItems["page"]?.isActionable, true, "클릭 규칙: 페이지 항목은 누를 수 있다")
 expectEqual(clickItems["cwd"]?.clickAction, .cwd("/a/b"), "클릭 규칙: cwd 만 있어도 Orca 로 간다")
@@ -881,7 +881,8 @@ func localSession(
     summary: TranscriptSummary = TranscriptSummary(),
     name: String? = "이름",
     statusUpdatedAt: Date? = nil,
-    startedAt: Date? = nil
+    startedAt: Date? = nil,
+    deadhd: DeadhdState? = nil
 ) -> Session {
     LocalSessions.makeSession(
         record: localRecord(
@@ -892,7 +893,8 @@ func localSession(
             startedAt: startedAt
         ),
         summary: summary,
-        now: now
+        now: now,
+        deadhd: deadhd
     )
 }
 
@@ -1087,7 +1089,7 @@ expectEqual(rich.lastTool?.name, "Read", "필드: lastTool 이름")
 expectEqual(rich.lastTool?.at, utcDate(2026, 10, 20, 9, 3), "필드: lastTool 시각")
 expectEqual(rich.lastTool?.durationMs, nil, "필드: lastTool durationMs 는 없다")
 expectEqual(rich.backgroundTasks, [], "필드: backgroundTasks 는 비어 있다")
-expectEqual(rich.href, nil, "필드: href 는 없다")
+expectEqual(rich.pagePath, nil, "필드: pagePath 는 없다")
 expectEqual(rich.orcaTerminal, nil, "필드: orcaTerminal 은 없다")
 
 // MARK: - 중복 태그
@@ -1189,59 +1191,247 @@ expectEqual(reappeared.reconcile(active: [liveSession], at: t1.addingTimeInterva
 var neverSeen = EndedSessionTracker()
 expectEqual(neverSeen.reconcile(active: [], at: t0).count, 0, "종료 추적: 처음부터 없던 세션은 남기지 않는다")
 
-// MARK: - deadhd 보강
+// MARK: - deadhd 상태 파일
 
-let localOnly = Session(
-    sessionId: "a",
-    bucket: "working",
-    title: "로컬 제목",
-    key: "local",
-    status: "working",
-    since: now.addingTimeInterval(-60),
-    cwd: "/a/b"
-)
-let remoteBooster = Session(
-    sessionId: "a",
-    bucket: "done",
-    title: "원격 제목",
-    place: Place(label: "shop", branch: "main"),
-    orcaTerminal: "term-1",
-    backgroundTasks: [BackgroundTask(type: "shell", taskDescription: "npm test")],
-    nowLabel: "검증 단계",
-    href: "http://127.0.0.1:47320/deadhd-a.html",
-    counts: SessionCounts(done: 2),
-    total: 5
-)
-let remoteOnlySession = Session(sessionId: "b", bucket: "done", href: "http://other")
-let overlaid = SessionOverlay.apply(local: [localOnly], remote: [remoteBooster, remoteOnlySession])
-expectEqual(overlaid.count, 1, "보강: 로컬에 없는 deadhd 세션은 추가하지 않는다")
-expectEqual(overlaid.first?.href, "http://127.0.0.1:47320/deadhd-a.html", "보강: href 를 덧입힌다")
-expectEqual(overlaid.first?.orcaTerminal, "term-1", "보강: orcaTerminal 을 덧입힌다")
-expectEqual(overlaid.first?.nowLabel, "검증 단계", "보강: nowLabel 을 덧입힌다")
-expectEqual(overlaid.first?.place?.branch, "main", "보강: place 를 덧입힌다")
-expectEqual(overlaid.first?.counts?.done, 2, "보강: counts 를 덧입힌다")
-expectEqual(overlaid.first?.backgroundTasks.first?.taskDescription, "npm test", "보강: backgroundTasks 를 덧입힌다")
-expectEqual(overlaid.first?.bucket, "working", "보강: bucket 은 로컬 값을 지킨다")
-expectEqual(overlaid.first?.title, "로컬 제목", "보강: title 은 로컬 값을 지킨다")
-expectEqual(overlaid.first?.cwd, "/a/b", "보강: cwd 는 로컬 값을 지킨다")
-expectEqual(SessionOverlay.apply(local: [localOnly], remote: []), [localOnly], "보강: deadhd 응답이 없으면 로컬 그대로")
+func deadhdState(_ json: String, expected: String? = "local") -> DeadhdState? {
+    DeadhdState.parse(Data(json.utf8), expectedSessionId: expected)
+}
 
-let localLocated = Session(
-    sessionId: "p",
-    bucket: "working",
-    place: Place(label: "deadhd-bar", branch: nil, path: "/Users/alex/git-repo/deadhd-bar"),
-    nowLabel: "테스트 실행",
-    pr: PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428")
+let deadhdJSON = """
+{
+  "sessionId": "local",
+  "out": "/tmp/deadhd-x.html",
+  "cwd": "/Users/a/proj",
+  "lastTool": {"name": "Bash", "at": "2026-10-20T11:59:48+00:00", "durationMs": 12},
+  "backgroundTasks": [{"type": "shell", "description": "npm test"}, {"type": "shell", "description": "watch"}],
+  "compactions": {"count": 1, "lastAt": "2026-10-20T10:00:00+00:00"},
+  "summary": {
+    "title": "deadhd 제목",
+    "key": "APP-1",
+    "keyHref": "https://tracker.example.com/browse/APP-1",
+    "counts": {"done": 5, "now": 1, "side": 0, "left": 3, "blocked": 1},
+    "total": 9,
+    "states": ["done", "done", "done", "done", "done", "now", "left", "left", "left"],
+    "nowLabel": "흔들림·행 어긋남",
+    "pr": {"text": "#16331", "href": "https://github.com/example-org/shop-api/pull/16331"},
+    "eta": "2026-10-20T12:10:00+00:00",
+    "etaCalibrated": "2026-10-20T12:03:00+00:00",
+    "dataAt": "2026-10-20T11:58:00+00:00",
+    "allDone": false
+  }
+}
+"""
+let parsedState = deadhdState(deadhdJSON)
+expectEqual(parsedState?.title, "deadhd 제목", "상태 파일: 제목")
+expectEqual(parsedState?.counts, SessionCounts(done: 5, left: 3, now: 1, blocked: 1), "상태 파일: counts")
+expectEqual(parsedState?.total, 9, "상태 파일: total")
+expectEqual(parsedState?.nowLabel, "흔들림·행 어긋남", "상태 파일: 지금 단계")
+expectEqual(parsedState?.key, "APP-1", "상태 파일: 지라 키")
+expectEqual(parsedState?.keyHref, "https://tracker.example.com/browse/APP-1", "상태 파일: 지라 링크")
+expectEqual(parsedState?.pr, PullRequestLink(number: 16331,
+                                             url: "https://github.com/example-org/shop-api/pull/16331",
+                                             label: "#16331"), "상태 파일: PR")
+expectEqual(parsedState?.eta, utcDate(2026, 10, 20, 12, 3), "상태 파일: 보정된 예상 시각을 먼저 쓴다")
+expectEqual(parsedState?.dataAt, utcDate(2026, 10, 20, 11, 58), "상태 파일: 데이터 시각")
+expectEqual(parsedState?.pagePath, "/tmp/deadhd-x.html", "상태 파일: 진행 페이지 경로")
+expectEqual(parsedState?.hasChecklist, true, "상태 파일: 체크리스트가 있다")
+expectEqual(parsedState?.hasCompactions, true, "상태 파일: 압축 필드가 있다")
+expectEqual(parsedState?.compactions?.count, 1, "상태 파일: 압축 횟수")
+expectEqual(parsedState?.backgroundTasks.count, 2, "상태 파일: 백그라운드 작업")
+expectEqual(parsedState?.lastTool?.name, "Bash", "상태 파일: 마지막 도구")
+expectEqual(parsedState?.progressIsStale(at: now), false, "상태 파일: 30분 안쪽이면 흐리지 않는다")
+expectEqual(parsedState?.progressIsStale(at: utcDate(2026, 10, 20, 12, 31)), true,
+            "상태 파일: 30분을 넘으면 흐린다")
+expectEqual(parsedState?.progressIsStale(at: utcDate(2026, 10, 20, 12, 28)), false,
+            "상태 파일: 30분 경계는 아직 흐리지 않는다")
+
+let offJSON = deadhdJSON.replacingOccurrences(
+    of: "\"sessionId\": \"local\",",
+    with: "\"sessionId\": \"local\", \"offAt\": \"2026-10-20T11:00:00.100+00:00\","
 )
-let remoteEmpty = Session(sessionId: "p", bucket: "working")
-let keptLocal = SessionOverlay.apply(local: [localLocated], remote: [remoteEmpty])
-expectEqual(keptLocal.first?.place?.label, "deadhd-bar", "보강: deadhd 에 위치가 없으면 로컬 위치")
-expectEqual(keptLocal.first?.nowLabel, "테스트 실행", "보강: deadhd 에 현재 동작이 없으면 로컬 값")
-expectEqual(keptLocal.first?.pr, PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428"),
-            "보강: PR 태그는 로컬 값을 지킨다")
-expectEqual(SessionOverlay.apply(local: [localLocated], remote: [Session(sessionId: "p", bucket: "working",
-                                                                     place: Place())]).first?.place?.label,
-            "deadhd-bar", "보강: 빈 deadhd 위치는 로컬 값을 덮지 않는다")
+let offState = deadhdState(offJSON)
+expectEqual(offState?.isOff, true, "상태 파일: 꺼진 세션")
+expectEqual(offState?.hasChecklist, false, "상태 파일: 꺼진 세션은 체크리스트를 쓰지 않는다")
+expectEqual(offState?.title, "deadhd 제목", "상태 파일: 꺼져도 요약 원문은 읽는다")
+
+let lenientStateJSON = """
+{
+  "sessionId": "local",
+  "out": "relative/deadhd.html",
+  "backgroundTasks": {"type": "shell"},
+  "compactions": {"count": "many"},
+  "lastTool": {"name": 42},
+  "summary": {
+    "title": 7,
+    "counts": "none",
+    "total": "9",
+    "key": [],
+    "nowLabel": null,
+    "pr": {"text": 1, "href": "ftp://example.com/1"},
+    "eta": "not-a-date",
+    "dataAt": 5
+  }
+}
+"""
+let lenientState = deadhdState(lenientStateJSON)
+expectEqual(lenientState?.summaryAvailable, true, "상태 파일: 어긋난 필드가 있어도 파일은 읽는다")
+expectEqual(lenientState?.hasChecklist, false, "상태 파일: counts 가 어긋나면 체크리스트가 없다")
+expectEqual(lenientState?.title, nil, "상태 파일: 숫자 제목은 버린다")
+expectEqual(lenientState?.counts, nil, "상태 파일: 문자열 counts 는 버린다")
+expectEqual(lenientState?.total, nil, "상태 파일: 문자열 total 은 버린다")
+expectEqual(lenientState?.key, nil, "상태 파일: 배열 키는 버린다")
+expectEqual(lenientState?.pr, nil, "상태 파일: http 가 아닌 PR 링크는 버린다")
+expectEqual(lenientState?.eta, nil, "상태 파일: 못 읽는 시각은 버린다")
+expectEqual(lenientState?.dataAt, nil, "상태 파일: 숫자 시각은 버린다")
+expectEqual(lenientState?.pagePath, nil, "상태 파일: 상대 경로는 진행 페이지로 쓰지 않는다")
+expectEqual(lenientState?.hasBackgroundTasks, false, "상태 파일: 배열이 아닌 작업 목록은 버린다")
+expectEqual(lenientState?.backgroundTasks, [], "상태 파일: 버린 작업 목록은 빈 배열")
+expectEqual(lenientState?.compactions?.count, 0, "상태 파일: 어긋난 압축 횟수는 0")
+expectEqual(lenientState?.lastTool, nil, "상태 파일: 이름이 숫자인 도구는 버린다")
+
+let absentState = deadhdState("{\"sessionId\":\"local\"}")
+expectEqual(absentState?.summaryAvailable, false, "상태 파일: summary 가 없으면 체크리스트가 없다")
+expectEqual(absentState?.hasChecklist, false, "상태 파일: summary 가 없으면 진행률도 없다")
+expectEqual(deadhdState("{\"sessionId\":\"other\"}"), nil, "상태 파일: 다른 세션 파일은 읽지 않는다")
+expectEqual(deadhdState("{\"sessionId\":\"../local\"}"), nil, "상태 파일: 경로가 섞인 id 는 버린다")
+expectEqual(deadhdState("not json"), nil, "상태 파일: JSON 이 아니면 버린다")
+expectEqual(DeadhdState.isValidSessionId("1121d7e7-9881-4c8c-8605-b1ffb8ea14fa"), true,
+            "상태 파일: 세션 id 모양")
+expectEqual(DeadhdState.isValidSessionId(".."), false, "상태 파일: 상위 경로 id 는 거부")
+expectEqual(DeadhdState.stateDirectory(environment: [:]), "/tmp/deadhd-state",
+            "상태 파일: 기본 디렉터리")
+expectEqual(DeadhdState.stateDirectory(environment: ["DEADHD_STATE_DIR": "/x/y"]), "/x/y",
+            "상태 파일: DEADHD_STATE_DIR 로 바꾼다")
+
+// MARK: - deadhd 요약을 세션에 합치기
+
+let deadhdSummary = TranscriptSummary(
+    customTitle: "세션 제목",
+    lastPrompt: "프롬프트",
+    pendingToolLabel: "테스트 실행",
+    pullRequest: PullRequestLink(number: 16331, url: "https://github.com/example-org/shop-api/pull/16331")
+)
+let mergedSession = localSession(status: "busy", summary: deadhdSummary, deadhd: parsedState)
+expectEqual(mergedSession.title, "deadhd 제목", "합치기: 요약 제목이 세션 제목을 이긴다")
+expectEqual(mergedSession.key, "이름", "합치기: 세션 이름은 태그로 남는다")
+expectEqual(mergedSession.counts, SessionCounts(done: 5, left: 3, now: 1, blocked: 1), "합치기: counts")
+expectEqual(mergedSession.total, 9, "합치기: total")
+expectEqual(mergedSession.nowLabel, "흔들림·행 어긋남", "합치기: 지금 단계")
+expectEqual(mergedSession.pagePath, "/tmp/deadhd-x.html", "합치기: 진행 페이지 경로")
+expectEqual(mergedSession.jiraKey, "APP-1", "합치기: 지라 키")
+expectEqual(mergedSession.jiraHref, "https://tracker.example.com/browse/APP-1", "합치기: 지라 링크")
+expectEqual(mergedSession.pr?.label, "#16331", "합치기: 요약 PR 문구를 쓴다")
+expectEqual(mergedSession.extraPRs.count, 0, "합치기: 같은 PR 은 한 번만 그린다")
+
+let differentPRSummary = TranscriptSummary(
+    pullRequest: PullRequestLink(number: 16428, url: "https://github.com/example-org/shop-api/pull/16428")
+)
+let twoPRSession = localSession(status: "busy", summary: differentPRSummary, deadhd: parsedState)
+expectEqual(twoPRSession.pr?.number, 16331, "PR 합치기: deadhd PR 이 대표")
+expectEqual(twoPRSession.extraPRs.map(\.number), [16428], "PR 합치기: 다른 PR 은 따로 남긴다")
+let offPRSession = localSession(status: "busy", summary: differentPRSummary, deadhd: offState)
+expectEqual(offPRSession.pr?.number, 16428, "PR 합치기: 꺼진 세션은 트랜스크립트 PR")
+expectEqual(offPRSession.extraPRs.count, 0, "PR 합치기: 꺼진 세션은 deadhd PR 을 쓰지 않는다")
+expectEqual(mergedSession.eta, utcDate(2026, 10, 20, 12, 3), "합치기: 예상 시각")
+expectEqual(mergedSession.dataAt, utcDate(2026, 10, 20, 11, 58), "합치기: 데이터 시각")
+expectEqual(mergedSession.backgroundTasks.count, 2, "합치기: 백그라운드 작업 목록")
+
+let mergedGrouped = Grouping.group(SessionsResponse(sessions: [mergedSession]), now: now)
+let mergedItem = mergedGrouped.working.first
+expectEqual(mergedItem?.progress?.text, "5/9", "합치기: 진행 막대 수치")
+expectEqual(mergedItem?.status, "2분째 · ▶ 흔들림·행 어긋남 · 약 3분 남음",
+            "합치기: 상태 줄에 지금 단계와 남은 시간")
+expectEqual(mergedItem?.blocked, true, "합치기: 막힌 항목이 있으면 확인 필요 색")
+expectEqual(mergedItem?.progressStale, false, "합치기: 최근 데이터는 흐리지 않는다")
+expectEqual(mergedItem?.prTag, "#16331", "합치기: PR 태그")
+expectEqual(mergedItem?.jiraKey, "APP-1", "합치기: 지라 태그")
+expectEqual(mergedItem?.clickAction, .detail("/tmp/deadhd-x.html"), "합치기: 기본 동작은 상세 창")
+expectEqual(mergedItem?.activityLine, "압축 1 · 백그라운드 2 · Bash 12초 전", "합치기: 활동 줄")
+
+let staleSession = localSession(status: "busy", summary: deadhdSummary,
+                                statusUpdatedAt: now.addingTimeInterval(-40 * 60), deadhd: parsedState)
+let staleItem = Grouping.group(SessionsResponse(sessions: [staleSession]),
+                               now: utcDate(2026, 10, 20, 12, 29)).working.first
+expectEqual(staleItem?.progressStale, true, "합치기: 30분 넘은 진행률은 흐리게 그린다")
+
+let idleStateSession = localSession(status: "idle", summary: deadhdSummary, deadhd: parsedState)
+let idleStateItem = Grouping.group(SessionsResponse(sessions: [idleStateSession]), now: now).done.first
+expectEqual(idleStateItem?.status, "끝났어요 · ▶ 흔들림·행 어긋남 · 약 3분 남음",
+            "합치기: 완료로 바뀐 세션도 지금 단계를 보여 준다")
+expectEqual(idleStateItem?.progress?.text, "5/9", "합치기: 완료 세션에도 진행률을 그린다")
+
+let offSession = localSession(status: "busy", summary: deadhdSummary, deadhd: offState)
+expectEqual(offSession.title, "세션 제목", "꺼짐: 요약 제목을 쓰지 않는다")
+expectEqual(offSession.counts, nil, "꺼짐: 진행률을 쓰지 않는다")
+expectEqual(offSession.total, nil, "꺼짐: 전체 수를 쓰지 않는다")
+expectEqual(offSession.pagePath, nil, "꺼짐: 진행 페이지를 달지 않는다")
+expectEqual(offSession.jiraKey, nil, "꺼짐: 지라 태그를 달지 않는다")
+expectEqual(offSession.nowLabel, "테스트 실행", "꺼짐: 트랜스크립트의 현재 동작을 쓴다")
+expectEqual(offSession.activity?.compactions, 1, "꺼짐: 활동 정보는 그대로 쓴다")
+
+let noPageState = deadhdState("""
+{"sessionId":"local","out":"/tmp/deadhd-x.html","summary":{"title":"페이지 없는 요약"}}
+""")
+let noPageSession = localSession(status: "busy", summary: deadhdSummary, deadhd: noPageState)
+expectEqual(noPageState?.pagePath, "/tmp/deadhd-x.html", "상태 파일: out 경로를 읽는다")
+expectEqual(noPageSession.pagePath, nil, "상태 파일: 체크리스트가 없으면 진행 페이지를 달지 않는다")
+expectEqual(noPageSession.title, "세션 제목", "상태 파일: 체크리스트가 없으면 요약 제목을 쓰지 않는다")
+expectEqual(noPageSession.counts, nil, "상태 파일: counts 가 없으면 체크리스트가 아니다")
+
+// MARK: - 활동 줄
+
+expectEqual(SessionActivity(compactions: 1, backgroundTasks: 2,
+                            lastTool: LastTool(name: "Bash", at: utcDate(2026, 10, 20, 11, 59, 48)))
+        .line(now: now),
+    "압축 1 · 백그라운드 2 · Bash 12초 전", "활동 줄: 세 값을 가운뎃점으로 잇는다")
+expectEqual(SessionActivity(compactions: 0, backgroundTasks: 0).line(now: now), nil,
+            "활동 줄: 0 은 그리지 않는다")
+expectEqual(SessionActivity(compactions: 2, backgroundTasks: 0, lastTool: LastTool(name: "Read", at: nil))
+        .line(now: now), "압축 2 · Read", "활동 줄: 시각이 없으면 도구 이름만")
+expectEqual(SessionActivity().line(now: now), nil, "활동 줄: 값이 없으면 없다")
+
+let stateWithoutActivity = deadhdState("""
+{"sessionId":"local","summary":{"title":"활동 없음","counts":{"done":1},"total":3}}
+""")
+let fallbackActivity = SessionActivity.make(
+    state: stateWithoutActivity,
+    summary: TranscriptSummary(lastToolName: "Grep", lastToolAt: utcDate(2026, 10, 20, 11, 57),
+                               compactions: 2, backgroundTasks: 1)
+)
+expectEqual(fallbackActivity?.compactions, 2, "활동 줄: 상태 파일에 없으면 트랜스크립트 압축 횟수")
+expectEqual(fallbackActivity?.backgroundTasks, 1, "활동 줄: 상태 파일에 없으면 트랜스크립트 작업 수")
+expectEqual(fallbackActivity?.lastTool?.name, "Grep", "활동 줄: 상태 파일에 없으면 트랜스크립트 도구")
+let stateWinsActivity = SessionActivity.make(
+    state: parsedState,
+    summary: TranscriptSummary(lastToolName: "Grep", lastToolAt: utcDate(2026, 10, 20, 11, 57),
+                               compactions: 7, backgroundTasks: 9)
+)
+expectEqual(stateWinsActivity?.compactions, 1, "활동 줄: 상태 파일 압축 횟수가 먼저")
+expectEqual(stateWinsActivity?.backgroundTasks, 2, "활동 줄: 상태 파일 작업 수가 먼저")
+expectEqual(stateWinsActivity?.lastTool?.name, "Bash", "활동 줄: 상태 파일 도구가 먼저")
+
+// MARK: - 트랜스크립트의 압축·백그라운드
+
+let compactJSON = """
+{"type":"system","subtype":"compact_boundary","timestamp":"2026-10-20T11:00:00Z"}
+{"type":"system","subtype":"turn_duration"}
+{"type":"assistant","timestamp":"2026-10-20T11:10:00Z","message":{"content":[{"type":"tool_use","id":"bg-1","name":"Bash","input":{"run_in_background":true,"description":"watch"}},{"type":"tool_use","id":"fg-1","name":"Read","input":{}}]}}
+{"type":"api-request-blob","message":{"content":[{"type":"tool_use","id":"bg-1","name":"Bash","input":{"run_in_background":true}}]}}
+"""
+let compactSummary = LocalSessions.summarizeTranscriptTail(
+    Data(compactJSON.utf8), droppingPartialFirstLine: false
+)
+expectEqual(compactSummary.compactions, 1, "트랜스크립트: 압축 경계 레코드를 센다")
+expectEqual(compactSummary.backgroundTasks, 1, "트랜스크립트: 끝나지 않은 백그라운드 작업")
+expectEqual(compactSummary.lastToolName, "Read", "트랜스크립트: 마지막 도구")
+
+let notifiedJSON = compactJSON + "\n" + """
+{"type":"user","message":{"content":"<task-notification>\\n<task-id>bg-1</task-id>\\n<tool-use-id>bg-1</tool-use-id>\\n<status>completed</status>\\n</task-notification>"}}
+"""
+let notifiedSummary = LocalSessions.summarizeTranscriptTail(
+    Data(notifiedJSON.utf8), droppingPartialFirstLine: false
+)
+expectEqual(notifiedSummary.backgroundTasks, 0, "트랜스크립트: 완료 알림을 받은 작업은 뺀다")
 
 // MARK: - 팝오버 링과 숫자
 
