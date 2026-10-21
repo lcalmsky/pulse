@@ -2,34 +2,44 @@ import Foundation
 
 /// ISO8601 문자열을 관대하게 읽는다. 초 단위·밀리초 단위·시간대 포함 표기를 모두 받는다.
 public enum TimestampParser {
-    private static let patterns = [
-        "yyyy-MM-dd'T'HH:mm:ssXXXXX",
+    // 매 호출 포매터를 만들지 않도록 패턴마다 한 번만 만든다. 자주 오는 밀리초 표기를 먼저 본다.
+    private static let formatters: [DateFormatter] = [
         "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXXXX",
         "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXXXX",
         "yyyy-MM-dd'T'HH:mm:ss",
         "yyyy-MM-dd'T'HH:mm:ss.SSS",
-    ]
+    ].map { pattern in
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = pattern
+        return formatter
+    }
+
+    private static let fractionalISO = makeISO(options: [.withInternetDateTime, .withFractionalSeconds])
+
+    private static let plainISO = makeISO(options: [.withInternetDateTime])
+
+    private static func makeISO(options: ISO8601DateFormatter.Options) -> ISO8601DateFormatter {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = options
+        return formatter
+    }
 
     public static func parse(_ raw: String?) -> Date? {
         guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
             return nil
         }
-        for pattern in patterns {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            formatter.dateFormat = pattern
+        for formatter in formatters {
             if let date = formatter.date(from: raw) {
                 return date
             }
         }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = iso.date(from: raw) {
+        if let date = fractionalISO.date(from: raw) {
             return date
         }
-        iso.formatOptions = [.withInternetDateTime]
-        return iso.date(from: raw)
+        return plainISO.date(from: raw)
     }
 }
 

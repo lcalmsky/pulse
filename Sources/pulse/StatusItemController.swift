@@ -11,6 +11,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var keyMonitor: Any?
     private var lastClose = Date.distantPast
     private var appearanceObservation: NSKeyValueObservation?
+    private var drawnState: (counts: GroupedSessions.Counts, unavailable: Bool, appearance: NSAppearance.Name)?
 
     private lazy var popover: NSPopover = {
         let popover = NSPopover()
@@ -37,10 +38,19 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         updateStatusItem()
         updatePopoverAppearance()
 
+        // @Published 는 값이 바뀌기 직전에 발행하므로 sink 안에서 model 을 읽으면 이전 값이다.
+        // 다음 런루프로 미뤄 dataChanged 가 항상 바뀐 값을 읽게 한다.
         model.$groups
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
         model.$sessionsUnavailable
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.dataChanged() }
+            .store(in: &cancellables)
+        // groups 는 값이 같으면 발행하지 않으므로, 매 틱 발행되는 lastSuccess 로 외형 변화를 확인한다.
+        model.$lastSuccess
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
         model.$theme
@@ -62,6 +72,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     private func dataChanged() {
+        guard let button = statusItem.button else {
+            updateStatusItem()
+            return
+        }
+        let state = (counts: model.groups.counts,
+                     unavailable: model.sessionsUnavailable,
+                     appearance: button.effectiveAppearance.name)
+        // 아이콘은 버튼 외형으로 그리므로 외형 이름도 키에 넣어 라이트·다크 전환을 다음 틱에 반영한다.
+        if let drawnState, drawnState == state { return }
         updateStatusItem()
     }
 
@@ -72,6 +91,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             counts: model.groups.counts,
             unavailable: model.sessionsUnavailable
         )
+        drawnState = (counts: model.groups.counts,
+                      unavailable: model.sessionsUnavailable,
+                      appearance: button.effectiveAppearance.name)
     }
 
     private func updateIcon() {

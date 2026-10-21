@@ -61,7 +61,8 @@ public enum ReplySummary {
 
     private static func isSkipped(_ line: String) -> Bool {
         if line.hasPrefix("|") { return true }
-        if line.range(of: #"^#{1,6}(\s|$)"#, options: .regularExpression) != nil { return true }
+        if RegexCache.regex(#"^#{1,6}(\s|$)"#)?
+            .firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil { return true }
         guard let first = line.first, "-*_".contains(first) else { return false }
         return line.count >= 3 && line.allSatisfy { $0 == first }
     }
@@ -70,8 +71,11 @@ public enum ReplySummary {
         for marker in ["- ", "* ", "+ "] where line.hasPrefix(marker) {
             return line.dropFirst(marker.count).trimmingCharacters(in: .whitespaces)
         }
-        guard let match = line.range(of: #"^\d+[.)]\s"#, options: .regularExpression) else { return nil }
-        return line[match.upperBound...].trimmingCharacters(in: .whitespaces)
+        guard let regex = RegexCache.regex(#"^\d+[.)]\s"#),
+              let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
+              let range = Range(match.range, in: line)
+        else { return nil }
+        return line[range.upperBound...].trimmingCharacters(in: .whitespaces)
     }
 
     private static func stripQuote(_ line: String) -> String {
@@ -133,7 +137,7 @@ public enum ReplySummary {
     }
 
     private static func replace(_ pattern: String, in text: String, template: String) -> String {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        guard let regex = RegexCache.regex(pattern) else { return text }
         let range = NSRange(text.startIndex..., in: text)
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: template)
     }

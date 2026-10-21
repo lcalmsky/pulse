@@ -189,7 +189,8 @@ final class FloatingPanelController: NSObject {
     private func updateSize() {
         guard !manualSize else { return }
         DispatchQueue.main.async { [weak self] in
-            guard let self, !self.manualSize else { return }
+            // setVisible(true) 는 updateSize() 직후 같은 동기 구간에서 orderFrontRegardless() 를 부르므로, 여기서는 이미 보인다.
+            guard let self, !self.manualSize, self.panel.isVisible else { return }
             self.hosting.layoutSubtreeIfNeeded()
             let fitting = self.hosting.fittingSize
             let width = self.options.fixedWidth

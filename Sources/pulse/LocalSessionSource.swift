@@ -17,6 +17,8 @@ final class LocalSessionSource {
     private let stateDirectory: URL
     private let fileManager = FileManager.default
     private var transcriptPaths: [String: URL] = [:]
+    private var summaries = TranscriptSummaryCache()
+    private var transcriptMisses: [String: TranscriptMiss] = [:]
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
         let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
@@ -46,7 +48,7 @@ final class LocalSessionSource {
                   isProcessAlive(record.pid)
             else { continue }
 
-            let summary = transcriptSummary(for: record)
+            let summary = transcriptSummary(for: record, now: now)
             sessions.append(LocalSessions.makeSession(
                 record: record,
                 summary: summary,
@@ -55,6 +57,10 @@ final class LocalSessionSource {
                 deadhd: deadhdState(for: record)
             ))
         }
+        let sessionIds = Set(sessions.map(\.sessionId))
+        summaries.retain(only: sessionIds)
+        transcriptPaths = transcriptPaths.filter { sessionIds.contains($0.key) }
+        transcriptMisses = transcriptMisses.filter { sessionIds.contains($0.key) }
         return sessions
     }
 
@@ -87,19 +93,38 @@ final class LocalSessionSource {
         return errno == EPERM
     }
 
-    private func transcriptSummary(for record: LocalSessionRecord) -> TranscriptSummary {
-        guard let url = transcriptURL(for: record),
-              let tail = readTail(url)
-        else {
+    private func transcriptSummary(for record: LocalSessionRecord, now: Date) -> TranscriptSummary {
+        guard let url = transcriptURL(for: record, now: now) else {
             return TranscriptSummary()
         }
-        return LocalSessions.summarizeTranscriptTail(
+        let key = transcriptFileKey(url)
+        if let key, let cached = summaries.summary(for: record.sessionId, key: key) {
+            return cached
+        }
+        guard let tail = readTail(url) else {
+            return TranscriptSummary()
+        }
+        let summary = LocalSessions.summarizeTranscriptTail(
             tail.data,
             droppingPartialFirstLine: tail.truncated
         )
+        if let key {
+            summaries.store(summary, key: key, for: record.sessionId)
+        }
+        return summary
     }
 
-    private func transcriptURL(for record: LocalSessionRecord) -> URL? {
+    private func transcriptFileKey(_ url: URL) -> TranscriptFileKey? {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let size = (attributes[.size] as? NSNumber)?.uint64Value,
+              let modifiedAt = attributes[.modificationDate] as? Date
+        else {
+            return nil
+        }
+        return TranscriptFileKey(size: size, modifiedAt: modifiedAt)
+    }
+
+    private func transcriptURL(for record: LocalSessionRecord, now: Date) -> URL? {
         if let cached = transcriptPaths[record.sessionId],
            fileManager.fileExists(atPath: cached.path) {
             return cached
@@ -112,8 +137,16 @@ final class LocalSessionSource {
             let direct = projects.appendingPathComponent(slug).appendingPathComponent(fileName)
             if fileManager.fileExists(atPath: direct.path) {
                 transcriptPaths[record.sessionId] = direct
+                transcriptMisses[record.sessionId] = nil
                 return direct
             }
+        }
+
+        let projectsModifiedAt = (try? fileManager.attributesOfItem(atPath: projects.path))?[.modificationDate]
+            as? Date
+        if let miss = transcriptMisses[record.sessionId],
+           !miss.needsRescan(now: now, projectsModifiedAt: projectsModifiedAt) {
+            return nil
         }
 
         let directories = (try? fileManager.contentsOfDirectory(atPath: projects.path)) ?? []
@@ -121,9 +154,14 @@ final class LocalSessionSource {
             let candidate = projects.appendingPathComponent(directory).appendingPathComponent(fileName)
             if fileManager.fileExists(atPath: candidate.path) {
                 transcriptPaths[record.sessionId] = candidate
+                transcriptMisses[record.sessionId] = nil
                 return candidate
             }
         }
+        transcriptMisses[record.sessionId] = TranscriptMiss(
+            checkedAt: now,
+            projectsModifiedAt: projectsModifiedAt
+        )
         return nil
     }
 

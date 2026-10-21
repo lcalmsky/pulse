@@ -53,7 +53,9 @@ public struct DeadhdState: Equatable {
 
     public static func isValidSessionId(_ value: String?) -> Bool {
         guard let value, value != ".", value != ".." else { return false }
-        return value.range(of: sessionIdPattern, options: .regularExpression) != nil
+        // NSRegularExpression 의 `$` 는 끝 개행 앞에서도 맞지만 옛 range(of:options:) 검사는 "abc\n" 을 거부했다. 같은 결과를 내려고 전체 범위 일치를 본다.
+        let range = NSRange(value.startIndex..., in: value)
+        return RegexCache.regex(sessionIdPattern)?.firstMatch(in: value, range: range)?.range == range
     }
 
     public static func stateDirectory(environment: [String: String]) -> String {

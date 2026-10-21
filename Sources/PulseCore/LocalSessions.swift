@@ -170,6 +170,7 @@ public enum LocalSessions {
         var compactions = 0
         var backgroundToolUseIds: Set<String> = []
         var completedBackgroundToolUseIds: Set<String> = []
+        var assistantTexts: [String] = []
 
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: false)
         let firstIndex = droppingPartialFirstLine && !lines.isEmpty ? 1 : 0
@@ -207,13 +208,7 @@ public enum LocalSessions {
                     switch block["type"] as? String {
                     case "text":
                         if let raw = block["text"] as? String {
-                            let plain = PlainText.markdown(raw)
-                                .trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !plain.isEmpty {
-                                lastAssistantText = trimmedText(plain)
-                                lastAssistantSentence = NowLine.lastSentence(plain)
-                                lastAssistantSummary = ReplySummary.firstSentence(raw)
-                            }
+                            assistantTexts.append(raw)
                         }
                     case "tool_use":
                         if let name = nonEmpty(block["name"] as? String) {
@@ -253,6 +248,17 @@ public enum LocalSessions {
             default:
                 break
             }
+        }
+
+        // 평문화 결과가 빈 블록(코드 펜스뿐 등)은 답변으로 치지 않고 그 앞 블록을 쓴다.
+        for raw in assistantTexts.reversed() {
+            let plain = PlainText.markdown(raw)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !plain.isEmpty else { continue }
+            lastAssistantText = trimmedText(plain)
+            lastAssistantSentence = NowLine.lastSentence(plain)
+            lastAssistantSummary = ReplySummary.firstSentence(raw)
+            break
         }
 
         let pending = pendingToolUses.last { entry in

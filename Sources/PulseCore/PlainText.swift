@@ -48,7 +48,7 @@ public enum PlainText {
     }
 
     private static func replace(_ pattern: String, in text: String, template: String) -> String {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        guard let regex = RegexCache.regex(pattern) else { return text }
         let range = NSRange(text.startIndex..., in: text)
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: template)
     }

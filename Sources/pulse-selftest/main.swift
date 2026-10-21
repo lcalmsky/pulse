@@ -110,6 +110,61 @@ expectEqual(millisZulu, utcDate(2026, 10, 20, 9, 30).addingTimeInterval(0.5), "I
 expectEqual(TimestampParser.parse("not a date"), nil, "ISO8601: 잘못된 문자열")
 expectEqual(TimestampParser.parse(nil), nil, "ISO8601: nil")
 
+func legacyTimestampParse(_ raw: String?) -> Date? {
+    guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+        return nil
+    }
+    for pattern in [
+        "yyyy-MM-dd'T'HH:mm:ssXXXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXXXX",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",
+    ] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = pattern
+        if let date = formatter.date(from: raw) {
+            return date
+        }
+    }
+    let iso = ISO8601DateFormatter()
+    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = iso.date(from: raw) {
+        return date
+    }
+    iso.formatOptions = [.withInternetDateTime]
+    return iso.date(from: raw)
+}
+
+let timestampSamples: [String?] = [
+    "2026-10-21T09:48:02.233Z",
+    "2026-10-21T09:48:02Z",
+    "2026-10-21T18:48:02.233+09:00",
+    "2026-10-21T18:48:02+09:00",
+    "2026-10-21T09:48:02.123456Z",
+    "2026-10-21T09:48:02",
+    "2026-10-21T09:48:02.233",
+    " 2026-10-21T09:48:02.233Z\n",
+    "2026-10-21",
+    "not a date",
+    "",
+    nil,
+]
+for sample in timestampSamples {
+    expectEqual(
+        TimestampParser.parse(sample),
+        legacyTimestampParse(sample),
+        "타임스탬프 옛 구현과 동일: \(sample ?? "nil")"
+    )
+}
+expectEqual(
+    TimestampParser.parse("2026-10-21T09:48:02.233Z"),
+    TimestampParser.parse("2026-10-21T09:48:02.233Z"),
+    "재사용 포매터 두 번째 호출도 같은 값"
+)
+
 // MARK: - 시간 문구
 
 let now = utcDate(2026, 10, 20, 12, 0, 0)
@@ -688,6 +743,125 @@ expectEqual(
     LocalSessions.summarizeTranscriptTail(brokenTail, droppingPartialFirstLine: false).customTitle,
     "온전한 제목",
     "요약: 깨진 줄은 건너뛴다"
+)
+
+// MARK: - 마지막 답변 블록
+
+let emptyLastBlockJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"첫 답변입니다. 두 번째 문장."}]},"timestamp":"2026-10-20T09:07:00.000Z"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"```"}]},"timestamp":"2026-10-20T09:08:00.000Z"}
+"""
+let emptyLastBlock = LocalSessions.summarizeTranscriptTail(
+    Data(emptyLastBlockJSON.utf8),
+    droppingPartialFirstLine: false
+)
+let firstAnswerRaw = "첫 답변입니다. 두 번째 문장."
+let firstAnswerPlain = PlainText.markdown(firstAnswerRaw)
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+expectEqual(
+    emptyLastBlock.lastAssistantText,
+    String(firstAnswerPlain.prefix(LocalSessions.replyTailLimit)),
+    "마지막 답변: 평문이 빈 마지막 블록은 건너뛴다"
+)
+expectEqual(
+    emptyLastBlock.lastSentence,
+    NowLine.lastSentence(firstAnswerPlain),
+    "마지막 답변: 문장도 앞 블록에서 고른다"
+)
+expectEqual(
+    emptyLastBlock.lastAssistantSummary,
+    ReplySummary.firstSentence(firstAnswerRaw),
+    "마지막 답변: 카드 요약도 앞 블록에서 고른다"
+)
+
+let threeTextBlocksJSON = """
+{"type":"assistant","message":{"content":[{"type":"text","text":"하나."},{"type":"text","text":"둘."},{"type":"text","text":"셋."}]},"timestamp":"2026-10-20T09:09:00.000Z"}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(threeTextBlocksJSON.utf8), droppingPartialFirstLine: false)
+        .lastAssistantText,
+    "셋.",
+    "마지막 답변: 같은 줄의 마지막 text 블록"
+)
+
+expectEqual(DeadhdState.isValidSessionId("abc-123"), true, "세션 ID: 영문·숫자·하이픈")
+expectEqual(DeadhdState.isValidSessionId("a/b"), false, "세션 ID: 슬래시는 거부")
+expectEqual(DeadhdState.isValidSessionId("."), false, "세션 ID: 점 하나는 거부")
+expectEqual(DeadhdState.isValidSessionId(""), false, "세션 ID: 빈 문자열은 거부")
+expectEqual(
+    DeadhdState.isValidSessionId("abc\n"),
+    "abc\n".range(of: "^[A-Za-z0-9._-]{1,128}$", options: .regularExpression) != nil,
+    "세션 ID: 끝 개행은 옛 구현과 동일"
+)
+
+// MARK: - 트랜스크립트 요약 캐시
+
+let cacheKey = TranscriptFileKey(size: 10, modifiedAt: utcDate(2026, 10, 20, 9, 0))
+var summaryCache = TranscriptSummaryCache()
+summaryCache.store(TranscriptSummary(customTitle: "a"), key: cacheKey, for: "s1")
+expectEqual(
+    summaryCache.summary(for: "s1", key: cacheKey),
+    TranscriptSummary(customTitle: "a"),
+    "요약 캐시: 같은 키면 저장한 요약"
+)
+expectEqual(
+    summaryCache.summary(for: "s1", key: TranscriptFileKey(size: 11, modifiedAt: cacheKey.modifiedAt)),
+    nil,
+    "요약 캐시: 크기가 다르면 다시 읽는다"
+)
+expectEqual(
+    summaryCache.summary(
+        for: "s1",
+        key: TranscriptFileKey(size: 10, modifiedAt: cacheKey.modifiedAt.addingTimeInterval(0.001))
+    ),
+    nil,
+    "요약 캐시: 1밀리초만 달라도 다시 읽는다"
+)
+expectEqual(summaryCache.summary(for: "s2", key: cacheKey), nil, "요약 캐시: 저장하지 않은 세션")
+summaryCache.store(TranscriptSummary(customTitle: "b"), key: cacheKey, for: "s2")
+summaryCache.retain(only: ["s2"])
+expectEqual(summaryCache.summary(for: "s1", key: cacheKey), nil, "요약 캐시: 정리 뒤 빠진 세션")
+expectEqual(
+    summaryCache.summary(for: "s2", key: cacheKey),
+    TranscriptSummary(customTitle: "b"),
+    "요약 캐시: 정리 뒤 남은 세션"
+)
+summaryCache.store(TranscriptSummary(customTitle: "c"), key: cacheKey, for: "s2")
+expectEqual(
+    summaryCache.summary(for: "s2", key: cacheKey),
+    TranscriptSummary(customTitle: "c"),
+    "요약 캐시: 같은 키로 다시 저장하면 새 값"
+)
+
+// MARK: - 트랜스크립트 재탐색
+
+let missAt = utcDate(2026, 10, 20, 9, 0)
+let miss = TranscriptMiss(checkedAt: missAt, projectsModifiedAt: missAt)
+expectEqual(
+    miss.needsRescan(now: missAt.addingTimeInterval(29), projectsModifiedAt: missAt),
+    false,
+    "트랜스크립트 재탐색: 29초 뒤 같은 수정 시각이면 건너뛴다"
+)
+expectEqual(
+    miss.needsRescan(now: missAt.addingTimeInterval(30), projectsModifiedAt: missAt),
+    true,
+    "트랜스크립트 재탐색: 30초 뒤면 다시 훑는다"
+)
+expectEqual(
+    miss.needsRescan(now: missAt.addingTimeInterval(5), projectsModifiedAt: missAt.addingTimeInterval(1)),
+    true,
+    "트랜스크립트 재탐색: 수정 시각이 바뀌면 다시 훑는다"
+)
+let missWithoutProjects = TranscriptMiss(checkedAt: missAt, projectsModifiedAt: nil)
+expectEqual(
+    missWithoutProjects.needsRescan(now: missAt.addingTimeInterval(5), projectsModifiedAt: nil),
+    false,
+    "트랜스크립트 재탐색: 기록과 현재 모두 없으면 건너뛴다"
+)
+expectEqual(
+    missWithoutProjects.needsRescan(now: missAt.addingTimeInterval(5), projectsModifiedAt: missAt),
+    true,
+    "트랜스크립트 재탐색: 현재 수정 시각이 생기면 다시 훑는다"
 )
 
 // MARK: - 현재 동작

@@ -281,7 +281,9 @@ final class AppModel: ObservableObject {
         let ended = endedTracker.reconcile(active: active, at: Date())
         let local = active + ended
         lastSuccess = Date()
-        sessionsUnavailable = false
+        if sessionsUnavailable {
+            sessionsUnavailable = false
+        }
 
         let before = acknowledgements
         acknowledgements.prune(keeping: SessionsResponse(sessions: local))
@@ -300,24 +302,35 @@ final class AppModel: ObservableObject {
             refresh()
             return
         }
-        sessionsUnavailable = true
+        if !sessionsUnavailable {
+            sessionsUnavailable = true
+        }
         refresh()
     }
 
     func refresh(now: Date = Date()) {
         snoozes = snoozes.filter { $0.value > now }
-        groups = Grouping.group(
+        let newGroups = Grouping.group(
             response,
             now: now,
             acknowledgedDone: acknowledgements.keys,
             snoozedUntil: snoozes
         )
-        hiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
+        if newGroups != groups {
+            groups = newGroups
+        }
+        let newHiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
+        if newHiddenDoneCount != hiddenDoneCount {
+            hiddenDoneCount = newHiddenDoneCount
+        }
         pruneStepState()
         // 완료 알림도 확인(숨김)하거나 진행 중으로 돌아가면 이 집합에서 빠져 알림 센터에서 거둬진다.
-        notificationCenter.syncDelivered(
-            keeping: Set((groups.attention + groups.done).map(\.sessionId))
-        )
+        // 정책이 never 면 새로 보내는 알림이 없다. 이전 버전이 남긴 알림은 첫 갱신에서 한 번 거둔다.
+        if Self.systemNotificationPolicy != .never || !hasHandledFirstUpdate {
+            notificationCenter.syncDelivered(
+                keeping: Set((groups.attention + groups.done).map(\.sessionId))
+            )
+        }
     }
 
     private func deliverAttentionNotes(isFirstUpdate: Bool) {
@@ -454,11 +467,11 @@ final class AppModel: ObservableObject {
         publishCards()
     }
 
-    /// 갱신마다 후보 수와 억제 사유를 남긴다. 후보가 있으면 기본 로그로도 남긴다.
+    /// 후보가 있는 갱신에만 후보 수와 억제 사유를 info 와 기본 로그로 남긴다.
     private static func logBatch(_ label: String, _ batch: NotificationBatch) {
+        guard batch.candidates > 0 else { return }
         let line = "\(label) 후보=\(batch.candidates) 전송=\(batch.notes.count) 억제=\(batch.suppression?.rawValue ?? "없음")"
         logger.info("\(line, privacy: .public)")
-        guard batch.candidates > 0 else { return }
         logger.notice("\(line, privacy: .public)")
     }
 
@@ -541,9 +554,18 @@ final class AppModel: ObservableObject {
     /// 목록에서 사라진 세션의 펼침·캐시를 버리고, 펼쳐진 세션은 파일이 바뀌었는지 본다.
     private func pruneStepState() {
         let ids = Set(groups.allItems.map(\.sessionId))
-        expandedSteps.formIntersection(ids)
-        fullSteps.formIntersection(ids)
-        checklists = checklists.filter { ids.contains($0.key) }
+        let keptExpandedSteps = expandedSteps.intersection(ids)
+        if keptExpandedSteps != expandedSteps {
+            expandedSteps = keptExpandedSteps
+        }
+        let keptFullSteps = fullSteps.intersection(ids)
+        if keptFullSteps != fullSteps {
+            fullSteps = keptFullSteps
+        }
+        let keptChecklists = checklists.filter { ids.contains($0.key) }
+        if keptChecklists != checklists {
+            checklists = keptChecklists
+        }
         for item in groups.allItems where expandedSteps.contains(item.sessionId) {
             loadChecklist(item)
         }
