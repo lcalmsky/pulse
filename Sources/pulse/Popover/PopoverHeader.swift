@@ -1,69 +1,80 @@
 import PulseCore
 import SwiftUI
 
+/// 팝오버와 플로팅 패널이 함께 쓰는 머리글. 제목 줄 아래에 그룹별 뱃지를 둔다.
 struct PopoverHeader: View {
     @ObservedObject var model: AppModel
-    @ObservedObject var state: PopoverState
+    let onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            if model.density == .rich, !model.sessionsUnavailable {
-                SegmentRingView(
-                    ratios: SegmentRatio.make(
-                        attention: counts.attention,
-                        working: counts.working,
-                        done: counts.done
-                    ),
-                    total: model.groups.totalCount
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                Text("Claude 세션")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(PopoverPalette.text)
                     .lineLimit(1)
-                Text(subtitle)
-                    .font(.system(size: 11.5))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .lineLimit(1)
+                Spacer(minLength: 4)
+                PopoverIconButton(
+                    symbol: model.collapsed ? "chevron.down" : "chevron.up",
+                    help: model.collapsed ? "펼치기" : "접기",
+                    symbolSize: 12
+                ) {
+                    model.collapsed.toggle()
+                }
+                PopoverIconButton(symbol: "xmark", help: "닫기", symbolSize: 12, action: onClose)
             }
+            .padding(.top, 12)
+            .padding(.leading, 14)
+            .padding(.trailing, 10)
+            .padding(.bottom, 4)
 
-            Spacer(minLength: 0)
-
-            HStack(spacing: 2) {
-                PopoverIconButton(
-                    symbol: "sidebar.right",
-                    help: model.panelVisible ? "플로팅 창 숨기기" : "플로팅 창 보기"
-                ) {
-                    model.togglePanel()
+            if model.sessionsUnavailable {
+                Color.clear.frame(height: 8)
+            } else {
+                HStack(spacing: 6) {
+                    badge(.attention)
+                    badge(.working)
+                    badge(.done)
                 }
-                PopoverIconButton(
-                    symbol: "gearshape",
-                    help: "보기 설정 (⌘,)",
-                    selected: state.settingsOpen
-                ) {
-                    state.settingsOpen.toggle()
-                }
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 14)
-        .padding(.bottom, 10)
     }
 
-    private var counts: GroupedSessions.Counts {
-        model.groups.counts
+    private func badge(_ group: DisplayGroup) -> some View {
+        let count = model.groups.items(for: group).count
+        let tone = HeaderBadge.tone(for: group, count: count)
+        let accent = color(for: tone)
+        return HStack(spacing: 5) {
+            Circle()
+                .fill(accent)
+                .frame(width: 6, height: 6)
+            Text(HeaderBadge.label(for: group, count: count))
+                .font(.system(size: 11, weight: group == .attention ? .semibold : .medium))
+                .foregroundColor(tone == .muted ? PopoverPalette.secondary : PopoverPalette.text)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(background(for: tone)))
     }
 
-    private var title: String {
-        if model.sessionsUnavailable { return "세션을 읽지 못했어요" }
-        return counts.attention > 0 ? "확인할 세션 \(counts.attention)개" : "모두 순조로워요"
+    private func color(for tone: BadgeTone) -> Color {
+        switch tone {
+        case .attention: return PopoverPalette.attention
+        case .working: return PopoverPalette.working
+        case .done: return PopoverPalette.done
+        case .muted: return PopoverPalette.tertiary
+        }
     }
 
-    private var subtitle: String {
-        if model.sessionsUnavailable { return "지금 재시도로 다시 읽어 볼게요" }
-        let updated = TimePhrase.relative(from: model.lastSuccess, to: Date()).map { "\($0) 갱신" } ?? "갱신 전"
-        return "진행 중 \(counts.working) · 완료 \(counts.done) · \(updated)"
+    private func background(for tone: BadgeTone) -> Color {
+        switch tone {
+        case .attention: return PopoverPalette.attention.opacity(0.16)
+        case .working: return PopoverPalette.working.opacity(0.16)
+        case .done: return PopoverPalette.done.opacity(0.16)
+        case .muted: return PopoverPalette.glassHi
+        }
     }
 }

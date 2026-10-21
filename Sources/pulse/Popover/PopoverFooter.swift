@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PopoverFooter: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var state: PopoverState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,31 +12,31 @@ struct PopoverFooter: View {
                 .fill(PopoverPalette.stroke)
                 .frame(height: 1)
             HStack(spacing: 2) {
-                PopoverTextButton(
-                    symbol: "checkmark.circle",
-                    title: "완료 전부 확인",
-                    help: "완료 항목을 모두 확인 처리해요",
-                    enabled: !model.groups.done.isEmpty
-                ) {
-                    model.acknowledgeAllDone()
-                }
-                PopoverTextButton(
-                    symbol: "eye",
-                    title: "다시 보기",
-                    help: "확인한 완료 \(model.hiddenDoneCount)개를 다시 보여요",
-                    enabled: model.hiddenDoneCount > 0
-                ) {
-                    model.restoreAcknowledgedDone()
-                }
+                Text(updatedText)
+                    .font(.system(size: 11))
+                    .foregroundColor(PopoverPalette.secondary)
+                    .lineLimit(1)
 
                 Spacer(minLength: 4)
 
-                HStack(spacing: 3) {
-                    KeyHint("↑↓")
-                    KeyHint("⌥")
-                }
-                .padding(.trailing, 4)
+                Text("⌃⌥P")
+                    .font(.system(size: 11))
+                    .foregroundColor(PopoverPalette.secondary)
+                    .padding(.trailing, 4)
 
+                PopoverIconButton(
+                    symbol: "sidebar.right",
+                    help: model.panelVisible ? "플로팅 창 숨기기" : "플로팅 창 보기"
+                ) {
+                    model.togglePanel()
+                }
+                PopoverIconButton(
+                    symbol: "gearshape",
+                    help: "보기 설정 (⌘,)",
+                    selected: state.settingsOpen
+                ) {
+                    state.settingsOpen.toggle()
+                }
                 PopoverIconButton(symbol: "power", help: "종료") {
                     NSApp.terminate(nil)
                 }
@@ -43,5 +44,9 @@ struct PopoverFooter: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
         }
+    }
+
+    private var updatedText: String {
+        TimePhrase.relative(from: model.lastSuccess, to: Date()).map { "\($0) 갱신" } ?? "갱신 전"
     }
 }

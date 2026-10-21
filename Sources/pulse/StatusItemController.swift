@@ -19,7 +19,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        let hosting = NSHostingController(rootView: PopoverView(model: model, state: state))
+        let hosting = NSHostingController(rootView: PopoverView(model: model, state: state, onClose: { [weak self] in
+            self?.popover.performClose(nil)
+        }))
         hosting.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hosting
         return popover

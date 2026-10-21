@@ -4,6 +4,7 @@ import SwiftUI
 struct PopoverView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: PopoverState
+    var onClose: () -> Void = {}
 
     var body: some View {
         if let detail = model.detail {
@@ -11,19 +12,18 @@ struct PopoverView: View {
                 .frame(width: 560, height: 620)
         } else {
             VStack(spacing: 0) {
-                PopoverHeader(model: model, state: state)
+                PopoverHeader(model: model, onClose: onClose)
                 banners
 
-                if !model.sessionsUnavailable, model.groups.totalCount == 0 {
-                    PopoverEmptyState()
-                } else if model.groups.totalCount > 0 {
-                    if model.density == .rich {
-                        FilterChips(model: model, state: state)
+                if !model.collapsed {
+                    if !model.sessionsUnavailable, model.groups.totalCount == 0 {
+                        PopoverEmptyState()
+                    } else if model.groups.totalCount > 0 {
+                        list
                     }
-                    list
                 }
 
-                PopoverFooter(model: model)
+                PopoverFooter(model: model, state: state)
             }
             .frame(width: model.density == .compact ? 340 : 400)
             .background(PopoverBackground())
@@ -56,7 +56,7 @@ struct PopoverView: View {
         ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(sections, id: \.group.rawValue) { section in
+                    ForEach(Array(sections.enumerated()), id: \.element.group.rawValue) { index, section in
                         Section {
                             ForEach(section.items, id: \.rowID) { item in
                                 SessionRowView(
@@ -66,7 +66,8 @@ struct PopoverView: View {
                                     selected: isSelected(item),
                                     optionDown: state.optionDown
                                 )
-                                .padding(.horizontal, 6)
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, section.group == .attention ? 12 : 0)
                                 .id(item.rowID)
                             }
                             if section.group == .done,
@@ -79,7 +80,11 @@ struct PopoverView: View {
                                     .padding(.bottom, 6)
                             }
                         } header: {
-                            sectionHeader(section)
+                            SessionSectionLabel(
+                                group: section.group,
+                                model: model,
+                                topPadding: index == 0 ? 0 : 14
+                            )
                         }
                     }
                 }
@@ -91,33 +96,6 @@ struct PopoverView: View {
                 scrollToSelection(proxy)
             }
         }
-    }
-
-    private func sectionHeader(_ section: SessionSection) -> some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(PopoverPalette.color(for: section.group))
-                .frame(width: 6, height: 6)
-            Text("\(SessionFilter.title(for: section.group)) \(model.groups.items(for: section.group).count)")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.44)
-                .foregroundColor(PopoverPalette.tertiary)
-            Rectangle()
-                .fill(PopoverPalette.stroke)
-                .frame(height: 1)
-            if section.group == .done {
-                Button("모두 확인") {
-                    model.acknowledgeAllDone()
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(PopoverPalette.working.opacity(0.9))
-                .contentShape(Rectangle())
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
     }
 
     private func isSelected(_ item: DisplayItem) -> Bool {

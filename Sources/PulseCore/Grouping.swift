@@ -39,6 +39,10 @@ public struct DisplayItem: Equatable, Identifiable {
     public let placeText: String?
     public let key: String?
     public let progress: ChecklistProgress?
+    public let counts: SessionCounts?
+    public let etaText: String?
+    public let backgroundTaskCount: Int?
+    public let lastToolName: String?
     /// 30분 넘게 갱신되지 않은 체크리스트. 진행률을 흐리게 그린다.
     public let progressStale: Bool
     public let blocked: Bool
@@ -94,9 +98,14 @@ public struct DisplayItem: Equatable, Identifiable {
         self.key = Grouping.nonEmpty(session.key)
         if let counts = session.counts, let total = session.total, total > 0 {
             self.progress = ChecklistProgress(done: max(0, counts.done), total: total)
+            self.counts = counts
         } else {
             self.progress = nil
+            self.counts = nil
         }
+        self.etaText = Grouping.etaText(session, now: now)
+        self.backgroundTaskCount = session.activity?.backgroundTasks
+        self.lastToolName = Grouping.nonEmpty(session.activity?.lastTool?.name)
         self.progressStale = session.dataAt.map { now.timeIntervalSince($0) > DeadhdState.staleInterval } ?? false
         self.blocked = (session.counts?.blocked ?? 0) > 0
         self.replyTail = Grouping.clean(session.replyTail)
@@ -317,7 +326,7 @@ public enum Grouping {
         [base, stage, eta].compactMap { $0 }.joined(separator: " · ")
     }
 
-    private static func etaText(_ session: Session, now: Date) -> String? {
+    static func etaText(_ session: Session, now: Date) -> String? {
         guard let eta = session.eta else { return nil }
         let minutes = Int(ceil(eta.timeIntervalSince(now) / 60))
         guard minutes > 0 else { return nil }

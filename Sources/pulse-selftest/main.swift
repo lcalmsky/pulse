@@ -1997,5 +1997,83 @@ expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: true), .hideP
 expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true), .closePopover,
             "단축키: 패널이 이미 떠 있으면 팝오버만 닫는다")
 
+// MARK: - 머리글 뱃지
+
+expectEqual(HeaderBadge.tone(for: .attention, count: 0), .muted, "머리글 뱃지: 빈 확인 필요는 흐리게")
+expectEqual(HeaderBadge.tone(for: .attention, count: 2), .attention, "머리글 뱃지: 확인 필요")
+expectEqual(HeaderBadge.tone(for: .working, count: 0), .working, "머리글 뱃지: 빈 진행 중도 그룹 색")
+expectEqual(HeaderBadge.label(for: .attention, count: 1), "확인 1", "머리글 뱃지: 확인 라벨")
+expectEqual(HeaderBadge.label(for: .working, count: 4), "진행 4", "머리글 뱃지: 진행 라벨")
+expectEqual(HeaderBadge.label(for: .done, count: 3), "완료 3", "머리글 뱃지: 완료 라벨")
+
+// MARK: - 스텝퍼
+
+let stepperCounts = SessionCounts(done: 4, left: 4, now: 1)
+expectEqual(
+    Stepper.segments(counts: stepperCounts, total: 9),
+    [.done, .done, .done, .done, .current, .left, .left, .left, .left],
+    "스텝퍼: 완료 4 · 현재 1 · 남음 4"
+)
+expectEqual(
+    Stepper.segments(counts: SessionCounts(done: 1, left: 1, now: 1, blocked: 1), total: 4),
+    [.done, .current, .blocked, .left],
+    "스텝퍼: 막힘 포함"
+)
+expectEqual(Stepper.segments(counts: nil, total: 9), [], "스텝퍼: 개수 없음")
+expectEqual(Stepper.segments(counts: stepperCounts, total: 0), [], "스텝퍼: 전체 0")
+expectEqual(
+    Stepper.segments(counts: SessionCounts(done: 5, now: 3), total: 4),
+    [.done, .done, .done, .done],
+    "스텝퍼: 합이 전체를 넘으면 앞에서 자른다"
+)
+expectEqual(
+    Stepper.segments(counts: SessionCounts(done: -2, left: 4, now: 3, blocked: -1), total: 4),
+    [.current, .current, .current, .left],
+    "스텝퍼: 음수는 0 으로 본다"
+)
+expectEqual(Stepper.position(counts: stepperCounts, total: 9), "5/9", "스텝퍼 위치: 완료 4 + 현재 1")
+expectEqual(Stepper.position(counts: SessionCounts(done: 4, now: 0), total: 9), "4/9", "스텝퍼 위치: 현재 없음")
+expectEqual(Stepper.position(counts: SessionCounts(done: 9, now: 2), total: 9), "9/9", "스텝퍼 위치: 전체에서 자른다")
+expectEqual(Stepper.position(counts: nil, total: 9), nil, "스텝퍼 위치: 스텝퍼가 비면 nil")
+
+// MARK: - 행 문구
+
+expectEqual(RowText.waiting(since: nil, now: now), nil, "행 문구: 기준 없음")
+expectEqual(RowText.waiting(since: now.addingTimeInterval(-60), now: now), "1분째 기다림", "행 문구: 기다린 시간")
+expectEqual(RowText.question(detail: "질문", replyTail: "답", status: "상태"), "질문", "행 문구: 질문이 먼저")
+expectEqual(RowText.question(detail: nil, replyTail: "답", status: "상태"), "답", "행 문구: 질문이 없으면 답")
+expectEqual(RowText.question(detail: nil, replyTail: nil, status: "상태"), "상태", "행 문구: 둘 다 없으면 상태")
+expectEqual(RowText.activity(lastSentence: "문장", nowLine: "지금 줄"), "문장", "행 문구: 마지막 문장이 먼저")
+expectEqual(RowText.activity(lastSentence: nil, nowLine: "▶ 검증"), nil, "행 문구: 단계 이름은 다시 쓰지 않는다")
+expectEqual(RowText.activity(lastSentence: nil, nowLine: "도구 실행"), "도구 실행", "행 문구: 지금 줄")
+expectEqual(RowText.trail(backgroundTasks: 2, lastTool: "Bash"), "bg 2 · Bash", "행 문구: 꼬리 둘 다")
+expectEqual(RowText.trail(backgroundTasks: 2, lastTool: nil), "bg 2", "행 문구: 꼬리 bg 만")
+expectEqual(RowText.trail(backgroundTasks: 0, lastTool: "Bash"), "Bash", "행 문구: bg 0 은 빼고")
+expectEqual(RowText.trail(backgroundTasks: nil, lastTool: nil), nil, "행 문구: 꼬리 없음")
+
+// MARK: - 행 표시 값
+
+let richSession = Session(
+    sessionId: "rich",
+    bucket: "working",
+    title: "rich",
+    since: now.addingTimeInterval(-120),
+    counts: SessionCounts(done: 4, left: 4, now: 1),
+    total: 9,
+    eta: now.addingTimeInterval(102 * 60),
+    activity: SessionActivity(backgroundTasks: 2, lastTool: LastTool(name: "Bash"))
+)
+let richItem = DisplayItem(session: richSession, group: .working, now: now)
+expectEqual(richItem.counts, SessionCounts(done: 4, left: 4, now: 1), "행 표시: 체크리스트 개수")
+expectEqual(richItem.etaText, "약 102분 남음", "행 표시: 남은 시간")
+expectEqual(richItem.backgroundTaskCount, 2, "행 표시: 백그라운드 개수")
+expectEqual(richItem.lastToolName, "Bash", "행 표시: 마지막 도구")
+let zeroTotalItem = DisplayItem(
+    session: Session(sessionId: "zero", bucket: "working", counts: SessionCounts(done: 1), total: 0),
+    group: .working,
+    now: now
+)
+expectEqual(zeroTotalItem.counts, nil, "행 표시: 전체가 0 이면 개수 없음")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

@@ -46,7 +46,7 @@ struct BoardView: View {
 
     private var board: some View {
         VStack(alignment: .leading, spacing: 10) {
-            header
+            PopoverHeader(model: model, onClose: { model.hidePanel() })
 
             if model.recentAcknowledgedCount > 0 {
                 HStack(spacing: 5) {
@@ -57,6 +57,7 @@ struct BoardView: View {
                         .font(.system(size: 11))
                         .buttonStyle(.borderless)
                 }
+                .padding(.horizontal, 14)
             }
 
             if let error = model.errorMessage {
@@ -64,19 +65,20 @@ struct BoardView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.red)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14)
             }
 
             if model.sessionsUnavailable {
                 Text("Claude 세션을 읽지 못했어요")
                     .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
+                    .padding(.horizontal, 14)
             }
 
             if !model.collapsed {
                 content
             }
         }
-        .padding(12)
         .frame(minWidth: 340, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
         .background(
             GeometryReader { proxy in
@@ -90,126 +92,50 @@ struct BoardView: View {
         }
     }
 
-    private var header: some View {
-        let counts = model.groups.counts
-        return HStack(spacing: 6) {
-            Text("Claude 세션")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(PopoverPalette.text)
-            Spacer(minLength: 4)
-            CountBadge(count: counts.attention, color: PopoverPalette.attention)
-            CountBadge(count: counts.working, color: PopoverPalette.working)
-            CountBadge(count: counts.done, color: PopoverPalette.done)
-            Button(action: { model.collapsed.toggle() }) {
-                Image(systemName: model.collapsed ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(model.collapsed ? "펼치기" : "접기")
-            Button(action: { model.hidePanel() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("플로팅 창 닫기")
-        }
-    }
-
     private var content: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             if model.groups.totalCount == 0 {
                 Text(model.sessionsUnavailable ? "Claude 세션을 읽지 못했어요" : "지금은 조용해요")
                     .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 6)
             }
-            ForEach(DisplayGroup.allCases, id: \.self) { group in
-                section(group)
+            ForEach(Array(sections.enumerated()), id: \.element.group) { index, section in
+                SessionSectionLabel(
+                    group: section.group,
+                    model: model,
+                    topPadding: index == 0 ? 0 : 14
+                )
+                ForEach(section.items, id: \.rowID) { item in
+                    SessionRowView(
+                        item: item,
+                        group: section.group,
+                        model: model,
+                        selected: false,
+                        optionDown: false
+                    )
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, section.group == .attention ? 12 : 0)
+                }
+                if section.group == .done, let overflow = model.groups.doneOverflowText {
+                    Text(overflow)
+                        .font(.system(size: 11))
+                        .foregroundColor(PopoverPalette.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 2)
+                        .padding(.bottom, 6)
+                }
             }
         }
         .padding(.bottom, 6)
     }
 
-    @ViewBuilder
-    private func section(_ group: DisplayGroup) -> some View {
-        let items = model.groups.visibleItems(for: group)
-        let showRestore = group == .done && model.hiddenDoneCount > 0
-        if !items.isEmpty || showRestore {
-            sectionHeader(group, count: model.groups.items(for: group).count, showRestore: showRestore)
-            ForEach(items, id: \.rowID) { item in
-                VStack(alignment: .leading, spacing: 0) {
-                    SessionRowView(item: item, group: group, model: model, selected: false, optionDown: false)
-                    if item.isStall, group == .attention {
-                        stallAction(item)
-                    }
-                }
-                .padding(.horizontal, 6)
-            }
-            if group == .done, let overflow = model.groups.doneOverflowText {
-                Text(overflow)
-                    .font(.system(size: 11))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 2)
-                    .padding(.bottom, 6)
-            }
+    private var sections: [SessionSection] {
+        DisplayGroup.allCases.compactMap { group in
+            let items = model.groups.visibleItems(for: group)
+            return items.isEmpty ? nil : SessionSection(group: group, items: items)
         }
-    }
-
-    private func sectionHeader(_ group: DisplayGroup, count: Int, showRestore: Bool) -> some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(PopoverPalette.color(for: group))
-                .frame(width: 6, height: 6)
-            Text("\(SessionFilter.title(for: group)) \(count)")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.44)
-                .foregroundColor(PopoverPalette.tertiary)
-            Rectangle()
-                .fill(PopoverPalette.stroke)
-                .frame(height: 1)
-            if group == .done {
-                Button("모두 확인") {
-                    model.acknowledgeAllDone()
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(PopoverPalette.working.opacity(0.9))
-                .contentShape(Rectangle())
-                if showRestore {
-                    Button("다시 보기") {
-                        model.restoreAcknowledgedDone()
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .contentShape(Rectangle())
-                    .help("확인한 완료 \(model.hiddenDoneCount)개를 다시 보여요")
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
-
-    private func stallAction(_ item: DisplayItem) -> some View {
-        HStack {
-            Spacer(minLength: 0)
-            Button("더 기다리기") { model.snooze(item) }
-                .font(.system(size: 10))
-                .buttonStyle(.borderless)
-                .foregroundColor(PopoverPalette.attention)
-        }
-        .padding(.trailing, 8)
-        .padding(.bottom, 4)
     }
 }
 
@@ -218,20 +144,5 @@ private struct BoardHeightKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
-    }
-}
-
-private struct CountBadge: View {
-    let count: Int
-    let color: Color
-
-    var body: some View {
-        Text("\(count)")
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundColor(color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.15))
-            .clipShape(Capsule())
     }
 }

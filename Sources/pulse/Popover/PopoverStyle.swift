@@ -65,6 +65,11 @@ enum PopoverPalette {
         light: rgb(0x1f, 0xa8, 0x4a)
     )
 
+    static let link = dynamic(
+        dark: rgb(0x9b, 0xb7, 0xff),
+        light: rgb(0x2f, 0x62, 0xd9)
+    )
+
     static let purple = dynamic(
         dark: rgb(0xbf, 0x5a, 0xf2),
         light: rgb(0x9b, 0x3f, 0xd1)
@@ -134,21 +139,33 @@ struct PopoverIconButton: View {
     let help: String
     var enabled = true
     var selected = false
+    var symbolSize: CGFloat = 15
+    /// 쉬는 상태의 배경. nil 이면 투명하다.
+    var restingFill: Color? = nil
+    /// 쉬는 상태의 글리프 색. nil 이면 보조 색을 쓴다.
+    var restingGlyph: Color? = nil
     let action: () -> Void
 
     @State private var hovering = false
 
+    private var active: Bool { hovering && enabled || selected }
+
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 15))
+                .font(.system(size: symbolSize))
                 .frame(width: 26, height: 26)
-                .foregroundColor(hovering && enabled || selected ? PopoverPalette.text : PopoverPalette.secondary)
+                .foregroundColor(restingGlyph ?? (active ? PopoverPalette.text : PopoverPalette.secondary))
                 .background(
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(hovering && enabled || selected ? PopoverPalette.rowHover : Color.clear)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(restingFill ?? Color.clear)
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(active ? (restingFill == nil ? PopoverPalette.rowHover : PopoverPalette.strokeHi) : Color.clear)
+                    }
                 )
                 .contentShape(Rectangle())
+                .opacity(enabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
