@@ -81,7 +81,7 @@ final class FloatingPanelController: NSObject {
 
     private func configureContent() {
         let effect = NSVisualEffectView()
-        effect.material = .hudWindow
+        effect.material = .popover
         effect.blendingMode = .behindWindow
         effect.state = .active
         effect.wantsLayer = true

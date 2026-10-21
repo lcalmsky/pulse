@@ -12,6 +12,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var spinPhase: Double = 0
     private var keyMonitor: Any?
     private var lastClose = Date.distantPast
+    private var appearanceObservation: NSKeyValueObservation?
 
     private lazy var popover: NSPopover = {
         let popover = NSPopover()
@@ -35,6 +36,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         updateSpin()
         updateStatusItem()
+        updatePopoverAppearance()
 
         model.$groups
             .sink { [weak self] _ in self?.dataChanged() }
@@ -43,13 +45,22 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
         model.$theme
-            .sink { [weak self] _ in self?.updateStatusItem() }
+            .sink { [weak self] _ in
+                self?.updateStatusItem()
+                self?.updatePopoverAppearance()
+            }
             .store(in: &cancellables)
+        // NSPopover 는 상태 버튼의 외형을 물려받으므로 NSApp.appearance 만으로는 테마를 따르지 않는다.
+        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            guard let self, self.model.theme == .system else { return }
+            self.updatePopoverAppearance()
+        }
     }
 
     deinit {
         spinTimer?.invalidate()
         removeKeyMonitor()
+        appearanceObservation?.invalidate()
     }
 
     private func dataChanged() {
@@ -74,6 +85,18 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             unavailable: model.sessionsUnavailable,
             appearance: button.effectiveAppearance
         )
+    }
+
+    private func updatePopoverAppearance() {
+        switch model.theme {
+        case .light:
+            popover.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            popover.appearance = NSAppearance(named: .darkAqua)
+        case .system:
+            let name = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) ?? .aqua
+            popover.appearance = NSAppearance(named: name)
+        }
     }
 
     private func updateSpin() {
