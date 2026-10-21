@@ -104,6 +104,13 @@ struct SettingsSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 2)
                 .padding(.top, 8)
+                .padding(.bottom, 4)
+
+            Text("화면이 잠긴 사이의 알림은 돌아오면 한 장으로 묶어요")
+                .font(.system(size: 11))
+                .foregroundColor(PopoverPalette.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 2)
                 .padding(.bottom, 12)
 
             VStack(alignment: .leading, spacing: 5) {

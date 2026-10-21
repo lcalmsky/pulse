@@ -2507,6 +2507,382 @@ dismissKindDeck.dismiss(kind: .done)
 expectEqual(dismissKindDeck.cards.isEmpty, true, "알림 카드: 남은 종류까지 거두면 빈다")
 expectEqual(dismissKindDeck.paused, false, "알림 카드: 종류로 마저 거두면 멈춤이 풀린다")
 
+var soundDeck = CardDeck()
+let insertedNormal = soundDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+expectEqual(insertedNormal, 1, "알림 카드: 자리에 있을 때 넣은 막힘 수를 돌려준다")
+
+// MARK: - 자리 비움
+
+var awayDeck = CardDeck()
+awayDeck.beginAway(now: now)
+expectEqual(awayDeck.isAway, true, "자리 비움: 시작하면 자리 비움 상태")
+expectEqual(awayDeck.awaySince, now, "자리 비움: 시작 시각")
+let awayAttentionItem = cardItem("x", bucket: "idle", group: .attention, since: now)
+let awayDoneItem = cardItem("y", bucket: "done", group: .done, since: now)
+let insertedWhileAway = awayDeck.update(
+    newAttention: [awayAttentionItem],
+    newDone: [awayDoneItem],
+    groups: GroupedSessions(attention: [awayAttentionItem], done: [awayDoneItem]),
+    now: now
+)
+expectEqual(insertedWhileAway, 0, "자리 비움: update 반환값은 0")
+expectEqual(awayDeck.cards.isEmpty, true, "자리 비움: 모은 사건은 개별 카드로 뜨지 않는다")
+
+var awayEmptyDeck = CardDeck()
+awayEmptyDeck.beginAway(now: now)
+expectEqual(awayEmptyDeck.endAway(now: now.addingTimeInterval(60)), AwayReturn.none, "자리 비움: 0건 복귀는 none")
+expectEqual(awayEmptyDeck.cards.isEmpty, true, "자리 비움: 0건 복귀는 카드 변화 없음")
+
+var awaySingleAttentionDeck = CardDeck()
+awaySingleAttentionDeck.beginAway(now: now)
+awaySingleAttentionDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+let returnAt = now.addingTimeInterval(60)
+expectEqual(awaySingleAttentionDeck.endAway(now: returnAt), AwayReturn.single(.attention),
+            "자리 비움: 1건 막힘 복귀는 개별 카드")
+expectEqual(awaySingleAttentionDeck.cards.map(\.kind), [.attention], "자리 비움: 1건 막힘은 카드 한 장")
+expectEqual(awaySingleAttentionDeck.cards.first?.arrivedAt, returnAt, "자리 비움: 복귀 시각으로 들어온다")
+
+var awaySingleDoneDeck = CardDeck()
+awaySingleDoneDeck.beginAway(now: now)
+awaySingleDoneDeck.update(
+    newAttention: [],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: now
+)
+expectEqual(awaySingleDoneDeck.endAway(now: returnAt), AwayReturn.single(.done),
+            "자리 비움: 1건 끝남 복귀는 개별 카드")
+expectEqual(awaySingleDoneDeck.cards.first?.expiresAt, returnAt.addingTimeInterval(8),
+            "자리 비움: 1건 끝남은 복귀 시각부터 8초")
+
+var awaySummaryDeck = CardDeck()
+awaySummaryDeck.beginAway(now: now)
+awaySummaryDeck.update(
+    newAttention: [cardAttentionA, cardAttentionB],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA, cardAttentionB], done: [cardDoneD]),
+    now: now
+)
+expectEqual(awaySummaryDeck.endAway(now: returnAt), AwayReturn.summary(attention: 2, done: 1),
+            "자리 비움: 2건 이상 복귀는 요약")
+expectEqual(awaySummaryDeck.cards.count, 1, "자리 비움: 요약 카드 한 장")
+expectEqual(awaySummaryDeck.cards.first?.kind, CardKind.away, "자리 비움: 요약 카드 종류")
+expectEqual(awaySummaryDeck.cards.first?.sessionId, CardDeck.awayCardId, "자리 비움: 요약 카드 식별자")
+expectEqual(awaySummaryDeck.cards.first?.awayAttention, 2, "자리 비움: 요약의 막힘 수")
+expectEqual(awaySummaryDeck.cards.first?.awayDone, 1, "자리 비움: 요약의 끝남 수")
+
+var awayTransitionDeck = CardDeck()
+awayTransitionDeck.beginAway(now: now)
+awayTransitionDeck.update(
+    newAttention: [cardAttentionA, cardAttentionB],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA, cardAttentionB]),
+    now: now
+)
+let transitionDone = cardItem("a", bucket: "done", group: .done, since: now.addingTimeInterval(5))
+awayTransitionDeck.update(
+    newAttention: [],
+    newDone: [transitionDone],
+    groups: GroupedSessions(attention: [cardAttentionB], done: [transitionDone]),
+    now: now.addingTimeInterval(5)
+)
+expectEqual(awayTransitionDeck.endAway(now: now.addingTimeInterval(6)),
+            AwayReturn.summary(attention: 1, done: 1), "자리 비움: 막혔다 끝난 세션은 끝남 하나로 센다")
+
+var awayBackDeck = CardDeck()
+awayBackDeck.beginAway(now: now)
+awayBackDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+awayBackDeck.update(
+    newAttention: [],
+    newDone: [],
+    groups: GroupedSessions(working: [cardWorking]),
+    now: now.addingTimeInterval(5)
+)
+expectEqual(awayBackDeck.endAway(now: now.addingTimeInterval(6)), AwayReturn.none,
+            "자리 비움: 진행 중으로 돌아간 세션은 세지 않는다")
+
+var awayStickyDeck = CardDeck()
+awayStickyDeck.beginAway(now: now)
+awayStickyDeck.update(
+    newAttention: [cardAttentionA, cardAttentionB],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA, cardAttentionB], done: [cardDoneD]),
+    now: now
+)
+awayStickyDeck.endAway(now: returnAt)
+expectEqual(awayStickyDeck.nextDeadline, nil, "자리 비움: 막힘이 든 요약은 만료 예약이 없다")
+expectEqual(awayStickyDeck.expire(now: returnAt.addingTimeInterval(10_000)), false,
+            "자리 비움: 막힘이 든 요약은 오래 지나도 안 사라진다")
+expectEqual(awayStickyDeck.cards.count, 1, "자리 비움: 막힘이 든 요약은 남는다")
+
+let awayDoneOne = cardItem("p", bucket: "done", group: .done, since: now)
+let awayDoneTwo = cardItem("q", bucket: "done", group: .done, since: now)
+var awayDoneOnlyDeck = CardDeck()
+awayDoneOnlyDeck.beginAway(now: now)
+awayDoneOnlyDeck.update(
+    newAttention: [],
+    newDone: [awayDoneOne, awayDoneTwo],
+    groups: GroupedSessions(done: [awayDoneOne, awayDoneTwo]),
+    now: now
+)
+expectEqual(awayDoneOnlyDeck.endAway(now: returnAt), AwayReturn.summary(attention: 0, done: 2),
+            "자리 비움: 끝남만 모으면 끝남 요약")
+expectEqual(awayDoneOnlyDeck.nextDeadline, returnAt.addingTimeInterval(8),
+            "자리 비움: 끝남만 든 요약은 8초 수명")
+awayDoneOnlyDeck.setPaused(true, now: returnAt.addingTimeInterval(2))
+expectEqual(awayDoneOnlyDeck.expire(now: returnAt.addingTimeInterval(100)), false,
+            "자리 비움: 멈춘 동안 끝남 요약은 안 사라진다")
+awayDoneOnlyDeck.setPaused(false, now: returnAt.addingTimeInterval(101))
+expectEqual(awayDoneOnlyDeck.expire(now: returnAt.addingTimeInterval(106.9)), false,
+            "자리 비움: 재개 뒤 남은 시간 전")
+expectEqual(awayDoneOnlyDeck.expire(now: returnAt.addingTimeInterval(107)), true,
+            "자리 비움: 끝남만 든 요약은 남은 시간이 지나면 사라진다")
+
+var awayPausedDeck = CardDeck()
+awayPausedDeck.beginAway(now: now)
+awayPausedDeck.update(
+    newAttention: [],
+    newDone: [awayDoneOne, awayDoneTwo],
+    groups: GroupedSessions(done: [awayDoneOne, awayDoneTwo]),
+    now: now
+)
+awayPausedDeck.setPaused(true, now: returnAt)
+awayPausedDeck.endAway(now: returnAt)
+expectEqual(awayPausedDeck.cards.first?.expiresAt, nil, "자리 비움: 멈춘 덱에 복귀한 끝남 요약은 만료 시각이 없다")
+expectEqual(awayPausedDeck.cards.first?.pausedRemaining, 8, "자리 비움: 멈춘 덱에 복귀한 끝남 요약은 8초를 그대로 가진다")
+
+var awayOrderDeck = CardDeck()
+awayOrderDeck.beginAway(now: now)
+awayOrderDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+awayOrderDeck.endAway(now: returnAt)
+let orderAttention = cardItem("n", bucket: "idle", group: .attention, since: returnAt)
+let orderDone = cardItem("m", bucket: "done", group: .done, since: returnAt)
+awayOrderDeck.update(
+    newAttention: [orderAttention],
+    newDone: [orderDone],
+    groups: GroupedSessions(attention: [cardAttentionA, orderAttention], done: [cardDoneD, orderDone]),
+    now: returnAt.addingTimeInterval(1)
+)
+expectEqual(awayOrderDeck.ordered.map(\.kind), [.away, .attention, .done], "자리 비움: 요약 카드가 맨 위")
+awayOrderDeck.dismissAll()
+expectEqual(awayOrderDeck.cards.isEmpty, true, "자리 비움: 모두 거두면 요약도 사라진다")
+
+var awayDismissKindDeck = CardDeck()
+awayDismissKindDeck.beginAway(now: now)
+awayDismissKindDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+awayDismissKindDeck.dismiss(kind: .attention)
+expectEqual(awayDismissKindDeck.endAway(now: returnAt), AwayReturn.none,
+            "자리 비움: 끈 종류는 복귀 요약에 안 들어간다")
+
+var awayTwiceDeck = CardDeck()
+awayTwiceDeck.beginAway(now: now)
+awayTwiceDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+awayTwiceDeck.beginAway(now: now.addingTimeInterval(30))
+expectEqual(awayTwiceDeck.awaySince, now, "자리 비움: 두 번째 시작은 처음 시각을 지킨다")
+expectEqual(awayTwiceDeck.endAway(now: returnAt), AwayReturn.single(.attention),
+            "자리 비움: 두 번째 시작은 모은 것을 지킨다")
+
+var awayNotDeck = CardDeck()
+expectEqual(awayNotDeck.endAway(now: now), AwayReturn.none, "자리 비움: 자리에 있을 때 복귀는 none")
+
+var awayExistingDeck = CardDeck()
+awayExistingDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA]),
+    now: now
+)
+awayExistingDeck.beginAway(now: now)
+expectEqual(awayExistingDeck.cards.count, 1, "자리 비움: 이미 떠 있던 카드는 시작해도 남는다")
+
+var awayPruneDeck = CardDeck()
+awayPruneDeck.beginAway(now: now)
+awayPruneDeck.update(
+    newAttention: [cardAttentionA, cardAttentionB],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA, cardAttentionB], done: [cardDoneD]),
+    now: now
+)
+awayPruneDeck.endAway(now: returnAt)
+awayPruneDeck.update(
+    newAttention: [],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionB], done: [cardDoneD]),
+    now: returnAt.addingTimeInterval(1)
+)
+expectEqual(awayPruneDeck.cards.first?.awayAttention, 1, "자리 비움: 목록에서 빠진 막힘 멤버는 요약에서 빠진다")
+expectEqual(awayPruneDeck.cards.count, 1, "자리 비움: 막힘이 남은 요약은 남는다")
+expectEqual(awayPruneDeck.nextDeadline, nil, "자리 비움: 막힘이 남은 요약은 만료 예약이 없다")
+
+var awayPruneDoneDeck = CardDeck()
+awayPruneDoneDeck.beginAway(now: now)
+awayPruneDoneDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+awayPruneDoneDeck.endAway(now: returnAt)
+awayPruneDoneDeck.update(
+    newAttention: [],
+    newDone: [],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: returnAt.addingTimeInterval(1)
+)
+expectEqual(awayPruneDoneDeck.cards.first?.awayAttention, 0, "자리 비움: 막힘 멤버가 다 빠지면 막힘 수 0")
+expectEqual(awayPruneDoneDeck.nextDeadline, returnAt.addingTimeInterval(9),
+            "자리 비움: 막힘을 다 잃은 요약은 그 갱신 시각부터 8초 수명")
+expectEqual(awayPruneDoneDeck.expire(now: returnAt.addingTimeInterval(8.9)), false,
+            "자리 비움: 끝남만 남은 요약은 수명 전")
+expectEqual(awayPruneDoneDeck.expire(now: returnAt.addingTimeInterval(9)), true,
+            "자리 비움: 끝남만 남은 요약은 수명 뒤 사라진다")
+
+var awayPrunePausedDeck = CardDeck()
+awayPrunePausedDeck.beginAway(now: now)
+awayPrunePausedDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+awayPrunePausedDeck.endAway(now: returnAt)
+awayPrunePausedDeck.setPaused(true, now: returnAt)
+awayPrunePausedDeck.update(
+    newAttention: [],
+    newDone: [],
+    groups: GroupedSessions(done: [cardDoneD]),
+    now: returnAt.addingTimeInterval(1)
+)
+expectEqual(awayPrunePausedDeck.nextDeadline, nil, "자리 비움: 멈춘 채 막힘을 다 잃은 요약은 만료 예약이 없다")
+let pausedPruneCard = awayPrunePausedDeck.cards[0]
+expectEqual(CardDeck.remainingFraction(of: pausedPruneCard, paused: awayPrunePausedDeck.paused,
+                                      now: returnAt.addingTimeInterval(1)), 1,
+            "자리 비움: 멈춘 채 막힘을 다 잃은 요약은 8초를 그대로 가진다")
+
+var awayPruneAllDeck = CardDeck()
+awayPruneAllDeck.beginAway(now: now)
+awayPruneAllDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+awayPruneAllDeck.endAway(now: returnAt)
+awayPruneAllDeck.update(
+    newAttention: [],
+    newDone: [],
+    groups: GroupedSessions(),
+    now: returnAt.addingTimeInterval(1)
+)
+expectEqual(awayPruneAllDeck.cards.isEmpty, true, "자리 비움: 멤버가 다 빠지면 요약 카드가 거둬진다")
+
+var awayAgainDeck = CardDeck()
+awayAgainDeck.beginAway(now: now)
+awayAgainDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+awayAgainDeck.endAway(now: returnAt)
+awayAgainDeck.beginAway(now: returnAt.addingTimeInterval(10))
+let awayAgainDone = cardItem("e", bucket: "done", group: .done, since: returnAt)
+awayAgainDeck.update(
+    newAttention: [],
+    newDone: [awayAgainDone],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD, awayAgainDone]),
+    now: returnAt.addingTimeInterval(10)
+)
+expectEqual(awayAgainDeck.endAway(now: returnAt.addingTimeInterval(20)),
+            AwayReturn.summary(attention: 1, done: 2), "자리 비움: 떠 있는 요약에 다시 모은 사건을 합친다")
+expectEqual(awayAgainDeck.cards.count, 1, "자리 비움: 다시 비웠다 와도 요약 한 장")
+expectEqual(awayAgainDeck.cards.first?.awayAttention, 1, "자리 비움: 다시 비웠다 와도 남은 막힘은 그대로")
+expectEqual(awayAgainDeck.cards.first?.awayDone, 2, "자리 비움: 다시 비웠다 오면 끝남이 요약에 더해진다")
+
+var awayDismissSummaryDeck = CardDeck()
+awayDismissSummaryDeck.beginAway(now: now)
+awayDismissSummaryDeck.update(
+    newAttention: [cardAttentionA],
+    newDone: [cardDoneD],
+    groups: GroupedSessions(attention: [cardAttentionA], done: [cardDoneD]),
+    now: now
+)
+awayDismissSummaryDeck.endAway(now: returnAt)
+awayDismissSummaryDeck.dismiss(kind: .attention, now: returnAt.addingTimeInterval(5))
+expectEqual(awayDismissSummaryDeck.cards.first?.awayAttention, 0, "자리 비움: 종류로 끄면 요약의 막힘 멤버가 빠진다")
+expectEqual(awayDismissSummaryDeck.cards.first?.awayDone, 1, "자리 비움: 종류로 끄면 끝남 멤버는 남는다")
+expectEqual(awayDismissSummaryDeck.nextDeadline, returnAt.addingTimeInterval(13),
+            "자리 비움: 막힘을 끈 요약은 그 시각부터 8초 수명")
+
+var awayDismissMembersDeck = CardDeck()
+awayDismissMembersDeck.beginAway(now: now)
+awayDismissMembersDeck.update(
+    newAttention: [cardAttentionA, cardAttentionB],
+    newDone: [],
+    groups: GroupedSessions(attention: [cardAttentionA, cardAttentionB]),
+    now: now
+)
+awayDismissMembersDeck.endAway(now: returnAt)
+awayDismissMembersDeck.dismiss(kind: .attention, now: returnAt)
+expectEqual(awayDismissMembersDeck.cards.isEmpty, true,
+            "자리 비움: 막힘만 든 요약에서 막힘을 끄면 카드가 거둬진다")
+
+expectEqual(ScreenLockTransition.decide(locked: true, isAway: false), ScreenLockTransition.begin,
+            "자리 비움: 잠김 + 자리에 있음 → begin")
+expectEqual(ScreenLockTransition.decide(locked: false, isAway: true), ScreenLockTransition.end,
+            "자리 비움: 안 잠김 + 자리 비움 → end")
+expectEqual(ScreenLockTransition.decide(locked: true, isAway: true), ScreenLockTransition.none,
+            "자리 비움: 잠김 + 자리 비움 → none")
+expectEqual(ScreenLockTransition.decide(locked: false, isAway: false), ScreenLockTransition.none,
+            "자리 비움: 안 잠김 + 자리에 있음 → none")
+expectEqual(ScreenLockTransition.decide(locked: nil, isAway: false), ScreenLockTransition.none,
+            "자리 비움: 읽기 실패 + 자리에 있음 → none")
+expectEqual(ScreenLockTransition.decide(locked: nil, isAway: true), ScreenLockTransition.none,
+            "자리 비움: 읽기 실패 + 자리 비움 → none")
+
+expectEqual(CardText.awayTitle, "자리 비운 사이", "자리 비움: 제목")
+expectEqual(CardText.awayHeadline(attention: 2, done: 0), "세션 2개가 기다려요", "자리 비움: 막힘만 있으면 기다린다")
+expectEqual(CardText.awayHeadline(attention: 2, done: 3), "세션 2개가 기다려요", "자리 비움: 둘 다 있으면 막힘을 센다")
+expectEqual(CardText.awayHeadline(attention: 0, done: 3), "세션 3개가 끝났어요", "자리 비움: 끝남만 있으면 끝났다")
+expectEqual(CardText.awayDetail(attention: 2, done: 0), "누르면 목록이 열려요", "자리 비움: 막힘만 있으면 안내만")
+expectEqual(CardText.awayDetail(attention: 2, done: 3), "3개 끝났어요 · 누르면 목록이 열려요",
+            "자리 비움: 둘 다 있으면 끝남 수를 잇는다")
+expectEqual(CardText.awayDetail(attention: 0, done: 3), "누르면 목록이 열려요", "자리 비움: 끝남만 있으면 안내만")
+expectEqual(CardText.awayMeta(attention: 2, done: 3), "자리 비운 사이 · 3개 끝났어요 · 누르면 목록이 열려요",
+            "자리 비움: 2행, 막힘과 끝남이 함께 있으면 끝남 수를 잇는다")
+expectEqual(CardText.awayMeta(attention: 2, done: 0), "자리 비운 사이 · 누르면 목록이 열려요",
+            "자리 비움: 2행, 막힘만 있으면 안내만")
+
 let alwaysRoute = NotificationRoute.decide(policy: .always)
 expect(alwaysRoute.cards && alwaysRoute.system, "알림 경로: always 는 둘 다")
 let neverRoute = NotificationRoute.decide(policy: .never)

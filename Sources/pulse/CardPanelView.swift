@@ -26,15 +26,23 @@ struct CardPanelView: View {
 
     @ViewBuilder
     private var content: some View {
+        let away = model.cards.filter { $0.kind == .away }
         let shown = model.cards.compactMap { card -> ShownCard? in
-            guard let item = liveItem(for: card) else { return nil }
+            guard card.kind != .away, let item = liveItem(for: card) else { return nil }
             return ShownCard(card: card, item: item)
         }
-        if shown.count == 1, let entry = shown.first {
+        if away.isEmpty, shown.count == 1, let entry = shown.first {
             SingleCard(card: entry.card, item: entry.item, model: model)
-        } else if !shown.isEmpty {
+        } else if away.count == 1, shown.isEmpty, let card = away.first {
+            AwayCard(card: card, model: model, stacked: false)
+        } else if !away.isEmpty || !shown.isEmpty {
             VStack(spacing: 0) {
                 header
+                ForEach(away) { card in
+                    AwayCard(card: card, model: model, stacked: true)
+                        .padding(.horizontal, 6)
+                        .padding(.bottom, 4)
+                }
                 ForEach(shown) { entry in
                     switch entry.card.kind {
                     case .attention:
@@ -44,6 +52,8 @@ struct CardPanelView: View {
                     case .done:
                         DoneCardRow(card: entry.card, item: entry.item, model: model)
                             .padding(.horizontal, 6)
+                    case .away:
+                        EmptyView()
                     }
                 }
             }
@@ -105,6 +115,7 @@ private struct SingleCard: View {
         switch card.kind {
         case .attention: attention
         case .done: done
+        case .away: EmptyView()
         }
     }
 
@@ -324,6 +335,100 @@ private struct DoneCardRow: View {
         .onTapGesture {
             guard item.isActionable else { return }
             model.openCard(item)
+        }
+    }
+}
+
+/// 목록 항목이 없어 다른 카드 뷰와 달리 `liveItem` 없이 그리는 자리 비움 요약 카드.
+private struct AwayCard: View {
+    let card: NotificationCard
+    @ObservedObject var model: AppModel
+    let stacked: Bool
+
+    @State private var hovering = false
+
+    var body: some View {
+        if stacked {
+            stackedBody
+        } else {
+            singleBody
+        }
+    }
+
+    private var singleBody: some View {
+        HStack(spacing: 10) {
+            if card.expires {
+                RemainingRing(card: card, paused: model.cardsPaused)
+            } else {
+                PulseMark(size: 24, badge: true, circular: true)
+                    .frame(width: 32, height: 32)
+            }
+            text(metaSize: 11, spacing: 1)
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .padding(.leading, 10)
+        .padding(.trailing, 10)
+        .contentShape(Rectangle())
+        .onTapGesture { model.openAwaySummary() }
+    }
+
+    private var stackedBody: some View {
+        Group {
+            if card.expires {
+                HStack(spacing: 10) {
+                    RemainingRing(card: card, paused: model.cardsPaused, size: 22)
+                    text(metaSize: 12, spacing: 1)
+                    Spacer(minLength: 0)
+                }
+                .frame(height: 48)
+                .padding(.leading, 12)
+                .padding(.trailing, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(hovering ? PopoverPalette.rowHover : Color.clear)
+                )
+            } else {
+                HStack(alignment: .top, spacing: 10) {
+                    Circle()
+                        .fill(PopoverPalette.attention)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 5)
+                    text(metaSize: 12, spacing: 3)
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 9)
+                .padding(.bottom, 9)
+                .padding(.leading, 12)
+                .padding(.trailing, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(PopoverPalette.attention.opacity(0.12))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(PopoverPalette.attention.opacity(0.30), lineWidth: 1)
+                )
+            }
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .onTapGesture { model.openAwaySummary() }
+    }
+
+    private func text(metaSize: CGFloat, spacing: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: spacing) {
+            Text(CardText.awayHeadline(attention: card.awayAttention, done: card.awayDone))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(PopoverPalette.text)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Text(CardText.awayMeta(attention: card.awayAttention, done: card.awayDone))
+                .font(.system(size: metaSize))
+                .foregroundColor(PopoverPalette.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 }

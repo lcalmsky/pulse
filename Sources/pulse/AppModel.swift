@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CoreGraphics
 import Foundation
 import OSLog
 import PulseCore
@@ -60,6 +61,7 @@ final class AppModel: ObservableObject {
     private var cardSound: NSSound?
     private var deck = CardDeck()
     private var cardExpiry: DispatchWorkItem?
+    private var screenLockObservers: [NSObjectProtocol] = []
     private var popoverVisible = false
     private var hasHandledFirstUpdate = false
 
@@ -173,6 +175,7 @@ final class AppModel: ObservableObject {
         if Self.systemNotificationPolicy == .always && (attentionAlert.showsCard || doneAlert.showsCard) {
             notificationCenter.requestAuthorizationIfNeeded()
         }
+        observeScreenLock()
         poll()
         let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
@@ -180,6 +183,75 @@ final class AppModel: ObservableObject {
         timer.tolerance = 0.5
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+    }
+
+    // MARK: - 자리 비움
+
+    private func observeScreenLock() {
+        let center = DistributedNotificationCenter.default()
+        screenLockObservers.append(center.addObserver(
+            forName: Notification.Name("com.apple.screenIsLocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.beginAway(path: "signal")
+        })
+        screenLockObservers.append(center.addObserver(
+            forName: Notification.Name("com.apple.screenIsUnlocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.endAway(path: "signal")
+        })
+    }
+
+    private func beginAway(path: String) {
+        guard !deck.isAway else { return }
+        deck.beginAway(now: Date())
+        Self.logger.notice("자리 비움 시작 경로=\(path, privacy: .public)")
+        publishCards()
+    }
+
+    private func endAway(path: String) {
+        guard deck.isAway else { return }
+        let result = deck.endAway(now: Date())
+        let counts: (attention: Int, done: Int)
+        let label: String
+        switch result {
+        case .none:
+            counts = (0, 0)
+            label = "none"
+        case let .single(kind):
+            counts = kind == .attention ? (1, 0) : (0, 1)
+            label = "single"
+        case let .summary(attention, done):
+            counts = (attention, done)
+            label = "summary"
+        }
+        Self.logger.notice(
+            "자리 비움 끝 경로=\(path, privacy: .public) 결과=\(label, privacy: .public) 확인=\(counts.attention) 끝남=\(counts.done)"
+        )
+        publishCards()
+    }
+
+    /// 잠김 알림을 놓치거나 잠긴 채 시작하면 덱이 자리 비움에 머물러 모든 카드를 삼킨다. 그래서 폴링마다 실제 잠김 값과 맞춘다.
+    private func syncAwayWithScreenLock() {
+        switch ScreenLockTransition.decide(locked: screenIsLocked(), isAway: deck.isAway) {
+        case .begin: beginAway(path: "poll")
+        case .end: endAway(path: "poll")
+        case .none: break
+        }
+    }
+
+    /// 키가 없으면 잠기지 않은 것이고, 사전을 못 읽으면 nil 이다.
+    private func screenIsLocked() -> Bool? {
+        guard let dictionary = CGSessionCopyCurrentDictionary() as? [String: Any] else { return nil }
+        guard let value = dictionary["CGSSessionScreenIsLocked"] else { return false }
+        return (value as? NSNumber)?.boolValue ?? false
+    }
+
+    func openAwaySummary() {
+        showPanel()
     }
 
     // MARK: - 폴링
@@ -218,6 +290,7 @@ final class AppModel: ObservableObject {
         }
         response = SessionsResponse(sessions: local)
         refresh()
+        syncAwayWithScreenLock()
         deliverAttentionNotes(isFirstUpdate: !hasHandledFirstUpdate)
         hasHandledFirstUpdate = true
     }
@@ -275,14 +348,14 @@ final class AppModel: ObservableObject {
         let newAttention = route.cards ? items(for: attention.notes, in: groups.attention) : []
         let newDone = route.cards ? items(for: done.notes, in: groups.done) : []
         // 카드를 보내지 않는 경로에서도 거두기와 턴 시작 시각은 갱신한다.
-        deck.update(
+        let inserted = deck.update(
             newAttention: newAttention,
             newDone: newDone,
             groups: groups,
             now: Date()
         )
         publishCards()
-        if route.cards, !newAttention.isEmpty, let soundName = attentionAlert.soundName {
+        if route.cards, inserted > 0, let soundName = attentionAlert.soundName {
             playCardSound(named: soundName)
         }
         if newAttention.count + newDone.count > 0 {
