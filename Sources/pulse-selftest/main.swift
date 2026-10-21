@@ -1415,5 +1415,16 @@ _ = pruneNotifier.notes(for: [], popoverVisible: false, enabled: true, isFirstUp
 expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
             "알림: 응답에서 빠진 키는 지워 다시 새 항목이 된다")
 
+// MARK: - 전역 단축키
+
+expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: false), .openPopover,
+            "단축키: 팝오버가 닫혀 있으면 팝오버를 연다")
+expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: false), .closePopoverAndShowPanel,
+            "단축키: 팝오버가 열려 있으면 닫고 플로팅 패널을 띄운다")
+expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: true), .hidePanel,
+            "단축키: 플로팅 패널만 떠 있으면 패널을 닫는다")
+expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true), .closePopover,
+            "단축키: 패널이 이미 떠 있으면 팝오버만 닫는다")
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

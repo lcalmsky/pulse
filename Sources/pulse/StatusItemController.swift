@@ -142,6 +142,20 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         installKeyMonitor()
     }
 
+    var isPopoverShown: Bool {
+        popover.isShown
+    }
+
+    func showPopoverFromHotKey() {
+        guard !popover.isShown else { return }
+        showPopover()
+    }
+
+    func closePopoverFromHotKey() {
+        guard popover.isShown else { return }
+        popover.performClose(nil)
+    }
+
     func popoverDidClose(_ notification: Notification) {
         lastClose = Date()
         state.reset()

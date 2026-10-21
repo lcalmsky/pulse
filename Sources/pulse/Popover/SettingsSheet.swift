@@ -69,6 +69,27 @@ struct SettingsSheet: View {
                 .labelsHidden()
             }
             .padding(.horizontal, 2)
+            .padding(.bottom, 10)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text("단축키")
+                        .font(.system(size: 12))
+                        .foregroundColor(PopoverPalette.secondary)
+                    Spacer(minLength: 0)
+                    KeyHint("⌃⌥P")
+                        .opacity(model.hotKeyUnavailable ? 0.4 : 1)
+                }
+                Text(
+                    model.hotKeyUnavailable
+                        ? "단축키 ⌃⌥P 를 다른 앱이 쓰고 있어요"
+                        : "한 번: 팝오버 · 열린 채로 한 번 더: 플로팅 패널"
+                )
+                .font(.system(size: 11))
+                .foregroundColor(PopoverPalette.tertiary.opacity(model.hotKeyUnavailable ? 0.6 : 1))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 2)
         }
         .padding(12)
         .frame(width: 260)

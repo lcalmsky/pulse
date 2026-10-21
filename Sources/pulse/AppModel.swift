@@ -20,6 +20,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var density: Density
     @Published private(set) var theme: ThemePreference
     @Published private(set) var attentionNotifications: Bool
+    @Published private(set) var hotKeyUnavailable = false
 
     weak var detailPresenter: DetailPresenting?
 
@@ -91,6 +92,10 @@ final class AppModel: ObservableObject {
 
     func setPopoverVisible(_ visible: Bool) {
         popoverVisible = visible
+    }
+
+    func setHotKeyUnavailable(_ unavailable: Bool) {
+        hotKeyUnavailable = unavailable
     }
 
     func start() {
@@ -326,6 +331,10 @@ final class AppModel: ObservableObject {
 
     func togglePanel() {
         panelVisible.toggle()
+    }
+
+    func showPanel() {
+        panelVisible = true
     }
 
     func hidePanel() {
