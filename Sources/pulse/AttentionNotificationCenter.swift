@@ -6,14 +6,8 @@ import UserNotifications
 /// UserNotifications 연동. 번들 식별자가 없으면 디버그 실행 파일이므로 아무것도 하지 않는다.
 /// `UNUserNotificationCenter.current()` 자체가 번들 없는 프로세스에서 예외를 던지기 때문이다.
 final class AttentionNotificationCenter: NSObject, UNUserNotificationCenterDelegate {
-    enum Kind: String {
-        case attention
-        case done
-    }
+    typealias Kind = NotificationKind
 
-    private static let categoryIdentifier = "ATTENTION"
-    private static let openAction = "OPEN_IN_ORCA"
-    private static let laterAction = "LATER"
     private static let sessionIdKey = "sessionId"
     private static let kindKey = "kind"
 
@@ -33,20 +27,20 @@ final class AttentionNotificationCenter: NSObject, UNUserNotificationCenterDeleg
 
         guard let center = center else { return }
         center.delegate = self
-        let open = UNNotificationAction(
-            identifier: Self.openAction,
-            title: "Orca 에서 열기",
-            options: [.foreground]
-        )
-        let later = UNNotificationAction(identifier: Self.laterAction, title: "나중에", options: [])
-        center.setNotificationCategories([
+        center.setNotificationCategories(Set(NotificationStyle.allCategories.map { style in
             UNNotificationCategory(
-                identifier: Self.categoryIdentifier,
-                actions: [open, later],
+                identifier: style.categoryIdentifier,
+                actions: style.buttons.map { button in
+                    UNNotificationAction(
+                        identifier: button.rawValue,
+                        title: button.title,
+                        options: button.bringsAppForward ? [.foreground] : []
+                    )
+                },
                 intentIdentifiers: [],
                 options: []
-            ),
-        ])
+            )
+        }))
     }
 
     /// 시작할 때 현재 권한 상태를 읽어 로그와 설정 시트에 남긴다. 요청은 하지 않는다.
@@ -105,11 +99,14 @@ final class AttentionNotificationCenter: NSObject, UNUserNotificationCenterDeleg
                 return
             }
             for note in notes {
+                let style = NotificationStyle.of(kind: kind, snoozable: note.snoozable)
                 let content = UNMutableNotificationContent()
                 content.title = note.title
                 content.body = note.body
-                content.sound = .default
-                content.categoryIdentifier = Self.categoryIdentifier
+                content.sound = style.playsSound ? .default : nil
+                content.categoryIdentifier = style.categoryIdentifier
+                content.threadIdentifier = note.sessionId
+                content.interruptionLevel = style.interruption == .active ? .active : .passive
                 content.userInfo = [
                     Self.sessionIdKey: note.sessionId,
                     Self.kindKey: kind.rawValue,
@@ -120,8 +117,9 @@ final class AttentionNotificationCenter: NSObject, UNUserNotificationCenterDeleg
                             "알림 전송 실패 \(note.identifier, privacy: .public): \(error.localizedDescription, privacy: .public)"
                         )
                     } else {
+                        let level = style.interruption == .active ? "active" : "passive"
                         Self.logger.notice(
-                            "알림 전송 \(note.identifier, privacy: .public) kind=\(kind.rawValue, privacy: .public)"
+                            "알림 전송 \(note.identifier, privacy: .public) kind=\(kind.rawValue, privacy: .public) level=\(level, privacy: .public)"
                         )
                     }
                 }
@@ -129,7 +127,7 @@ final class AttentionNotificationCenter: NSObject, UNUserNotificationCenterDeleg
         }
     }
 
-    /// 지금 키 집합에 없는 배달 알림을 거둔다. 완료 알림도 확인하거나 진행 중으로 돌아가면 여기서 사라진다.
+    /// 지금 목록에 없는 세션의 배달 알림을 거둔다. 완료 알림도 확인하거나 진행 중으로 돌아가면 여기서 사라진다.
     func syncDelivered(keeping keys: Set<String>) {
         guard let center = center else { return }
         center.getDeliveredNotifications { delivered in
@@ -170,11 +168,37 @@ final class AttentionNotificationCenter: NSObject, UNUserNotificationCenterDeleg
         let sessionId = response.notification.request.content.userInfo[Self.sessionIdKey] as? String
         DispatchQueue.main.async { [weak self] in
             defer { completionHandler() }
-            guard action == UNNotificationDefaultActionIdentifier || action == Self.openAction,
-                  let sessionId,
-                  let item = self?.model?.groups.allItems.first(where: { $0.sessionId == sessionId })
-            else { return }
-            self?.model?.openInOrca(item)
+            let button: NotificationButton?
+            switch action {
+            case UNNotificationDefaultActionIdentifier, NotificationButton.openInOrca.rawValue:
+                button = .openInOrca
+            case NotificationButton.snooze.rawValue:
+                button = .snooze
+            case NotificationButton.acknowledge.rawValue:
+                button = .acknowledge
+            default:
+                button = nil
+            }
+            guard let button else { return }
+            let groups = self?.model?.groups
+            let item: DisplayItem?
+            switch button {
+            case .openInOrca:
+                item = groups?.allItems.first(where: { $0.sessionId == sessionId })
+            case .snooze:
+                item = groups?.attention.first(where: { $0.sessionId == sessionId })
+            case .acknowledge:
+                item = groups?.done.first(where: { $0.sessionId == sessionId })
+            }
+            Self.logger.notice(
+                "알림 응답 button=\(button.rawValue, privacy: .public) sessionId=\(sessionId ?? "-", privacy: .public) 항목=\(item == nil ? "없음" : "있음", privacy: .public)"
+            )
+            guard let item else { return }
+            switch button {
+            case .openInOrca: self?.model?.openInOrca(item)
+            case .snooze: self?.model?.snooze(item)
+            case .acknowledge: self?.model?.acknowledge(item)
+            }
         }
     }
 

@@ -207,7 +207,7 @@ final class AppModel: ObservableObject {
         hiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
         // 완료 알림도 확인(숨김)하거나 진행 중으로 돌아가면 이 집합에서 빠져 알림 센터에서 거둬진다.
         notificationCenter.syncDelivered(
-            keeping: Set((groups.attention + groups.done).map(\.acknowledgeKey))
+            keeping: Set((groups.attention + groups.done).map(\.sessionId))
         )
     }
 
@@ -215,6 +215,7 @@ final class AppModel: ObservableObject {
         let attention = attentionNotifier.evaluate(
             for: groups.attention,
             popoverVisible: popoverVisible,
+            panelVisible: panelVisible,
             enabled: attentionNotifications,
             isFirstUpdate: isFirstUpdate
         )
@@ -223,6 +224,7 @@ final class AppModel: ObservableObject {
             working: groups.working,
             attention: groups.attention,
             popoverVisible: popoverVisible,
+            panelVisible: panelVisible,
             enabled: doneNotifications,
             isFirstUpdate: isFirstUpdate
         )

@@ -5,14 +5,16 @@ public struct AttentionNote: Equatable, Identifiable {
     public let title: String
     public let body: String
     public let sessionId: String
+    public let snoozable: Bool
 
     public var id: String { identifier }
 
-    public init(identifier: String, title: String, body: String, sessionId: String) {
+    public init(identifier: String, title: String, body: String, sessionId: String, snoozable: Bool) {
         self.identifier = identifier
         self.title = title
         self.body = body
         self.sessionId = sessionId
+        self.snoozable = snoozable
     }
 }
 
@@ -30,6 +32,7 @@ public enum NotificationPermission: Equatable {
 public enum NotificationSuppression: String, Equatable {
     case firstUpdate
     case popoverVisible
+    case panelVisible
     case disabled
 }
 
@@ -61,12 +64,14 @@ public struct AttentionNotifier {
     public mutating func notes(
         for items: [DisplayItem],
         popoverVisible: Bool,
+        panelVisible: Bool,
         enabled: Bool,
         isFirstUpdate: Bool
     ) -> [AttentionNote] {
         evaluate(
             for: items,
             popoverVisible: popoverVisible,
+            panelVisible: panelVisible,
             enabled: enabled,
             isFirstUpdate: isFirstUpdate
         ).notes
@@ -75,6 +80,7 @@ public struct AttentionNotifier {
     public mutating func evaluate(
         for items: [DisplayItem],
         popoverVisible: Bool,
+        panelVisible: Bool,
         enabled: Bool,
         isFirstUpdate: Bool
     ) -> NotificationBatch {
@@ -89,6 +95,9 @@ public struct AttentionNotifier {
         guard !popoverVisible else {
             return NotificationBatch(notes: [], candidates: candidates.count, suppression: .popoverVisible)
         }
+        guard !panelVisible else {
+            return NotificationBatch(notes: [], candidates: candidates.count, suppression: .panelVisible)
+        }
         guard !isFirstUpdate else {
             return NotificationBatch(notes: [], candidates: candidates.count, suppression: .firstUpdate)
         }
@@ -97,10 +106,11 @@ public struct AttentionNotifier {
 
     public static func note(for item: DisplayItem) -> AttentionNote {
         AttentionNote(
-            identifier: item.acknowledgeKey,
+            identifier: item.sessionId,
             title: "\(titlePrefix) · \(item.title)",
             body: body(replyTail: item.replyTail, status: item.status),
-            sessionId: item.sessionId
+            sessionId: item.sessionId,
+            snoozable: PopoverRowAction.resolve(item) == .snooze
         )
     }
 
@@ -114,8 +124,8 @@ public struct AttentionNotifier {
 }
 
 /// 진행 중(working·stall)이던 세션이 완료로 바뀌면 알린다.
-/// 앱이 처음 본 세션이 이미 완료였거나, 처음 읽은 목록·팝오버가 열린 동안·설정이 꺼진 동안
-/// 완료가 된 경우에는 보내지 않고 본 것으로만 기록한다.
+/// 앱이 처음 본 세션이 이미 완료였거나, 처음 읽은 목록·팝오버나 플로팅 패널이 열린 동안·
+/// 설정이 꺼진 동안 완료가 된 경우에는 보내지 않고 본 것으로만 기록한다.
 public struct DoneNotifier {
     public static let titlePrefix = "끝났어요"
 
@@ -132,6 +142,7 @@ public struct DoneNotifier {
         working: [DisplayItem],
         attention: [DisplayItem],
         popoverVisible: Bool,
+        panelVisible: Bool,
         enabled: Bool,
         isFirstUpdate: Bool
     ) -> [AttentionNote] {
@@ -140,6 +151,7 @@ public struct DoneNotifier {
             working: working,
             attention: attention,
             popoverVisible: popoverVisible,
+            panelVisible: panelVisible,
             enabled: enabled,
             isFirstUpdate: isFirstUpdate
         ).notes
@@ -150,6 +162,7 @@ public struct DoneNotifier {
         working: [DisplayItem],
         attention: [DisplayItem],
         popoverVisible: Bool,
+        panelVisible: Bool,
         enabled: Bool,
         isFirstUpdate: Bool
     ) -> NotificationBatch {
@@ -170,6 +183,9 @@ public struct DoneNotifier {
         guard !popoverVisible else {
             return NotificationBatch(notes: [], candidates: candidates.count, suppression: .popoverVisible)
         }
+        guard !panelVisible else {
+            return NotificationBatch(notes: [], candidates: candidates.count, suppression: .panelVisible)
+        }
         guard !isFirstUpdate else {
             return NotificationBatch(notes: [], candidates: candidates.count, suppression: .firstUpdate)
         }
@@ -178,10 +194,11 @@ public struct DoneNotifier {
 
     public static func note(for item: DisplayItem) -> AttentionNote {
         AttentionNote(
-            identifier: item.acknowledgeKey,
+            identifier: item.sessionId,
             title: "\(titlePrefix) · \(item.title)",
             body: AttentionNotifier.body(replyTail: item.replyTail, status: item.status),
-            sessionId: item.sessionId
+            sessionId: item.sessionId,
+            snoozable: false
         )
     }
 }

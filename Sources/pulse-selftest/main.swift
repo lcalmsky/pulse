@@ -1693,20 +1693,20 @@ let noteAReborn = Grouping.group(
 ).attention
 
 var notifier = AttentionNotifier()
-expectEqual(notifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: true).count, 0,
+expectEqual(notifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true).count, 0,
             "알림: 첫 갱신은 조용히 기록만 한다")
-expectEqual(notifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 0,
+expectEqual(notifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count, 0,
             "알림: 이미 본 항목은 알리지 않는다")
 
-let freshNotes = notifier.notes(for: noteA + noteB, popoverVisible: false, enabled: true, isFirstUpdate: false)
+let freshNotes = notifier.notes(for: noteA + noteB, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false)
 expectEqual(freshNotes.count, 1, "알림: 새 항목만 알린다")
 expectEqual(freshNotes.first?.sessionId, "attn-b", "알림: sessionId")
-expectEqual(freshNotes.first?.identifier, noteB[0].acknowledgeKey, "알림: 식별자는 sessionId+since")
+expectEqual(freshNotes.first?.identifier, "attn-b", "알림: 식별자는 sessionId")
 expectEqual(freshNotes.first?.title, "확인이 필요해요 · attn-b", "알림: 제목")
 expectEqual(freshNotes.first?.body, "권한 승인을 기다려요", "알림: 답이 없으면 상태 문구")
-expectEqual(notifier.notes(for: noteA + noteB, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 0,
+expectEqual(notifier.notes(for: noteA + noteB, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count, 0,
             "알림: 같은 키는 다시 알리지 않는다")
-expectEqual(notifier.notes(for: noteAReborn, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
+expectEqual(notifier.notes(for: noteAReborn, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count, 1,
             "알림: since 가 바뀌면 새 항목이다")
 
 expectEqual(AttentionNotifier.body(replyTail: "**굵은** [링크](https://example.com) 답", status: "상태"),
@@ -1717,42 +1717,43 @@ expectEqual(AttentionNotifier.body(replyTail: "   ", status: "상태"), "상태"
             "알림: 평문화한 답이 비면 상태 문구")
 
 var popoverNotifier = AttentionNotifier()
-_ = popoverNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: true)
-expectEqual(popoverNotifier.notes(for: noteA + noteB, popoverVisible: true, enabled: true, isFirstUpdate: false).count,
+_ = popoverNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true)
+expectEqual(popoverNotifier.notes(for: noteA + noteB, popoverVisible: true, panelVisible: false, enabled: true, isFirstUpdate: false).count,
             0, "알림: 팝오버가 열려 있으면 알리지 않는다")
-expectEqual(popoverNotifier.notes(for: noteB, popoverVisible: false, enabled: true, isFirstUpdate: false).count,
+expectEqual(popoverNotifier.notes(for: noteB, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count,
             0, "알림: 열려 있는 동안 본 항목은 나중에도 알리지 않는다")
 
 var offNotifier = AttentionNotifier()
-_ = offNotifier.notes(for: [], popoverVisible: false, enabled: false, isFirstUpdate: true)
-expectEqual(offNotifier.notes(for: noteA, popoverVisible: false, enabled: false, isFirstUpdate: false).count,
+_ = offNotifier.notes(for: [], popoverVisible: false, panelVisible: false, enabled: false, isFirstUpdate: true)
+expectEqual(offNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: false, isFirstUpdate: false).count,
             0, "알림: 설정이 꺼져 있으면 알리지 않는다")
-expectEqual(offNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count,
+expectEqual(offNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count,
             0, "알림: 꺼져 있는 동안 본 항목은 켠 뒤에도 알리지 않는다")
 
 var pruneNotifier = AttentionNotifier()
-_ = pruneNotifier.notes(for: [], popoverVisible: false, enabled: true, isFirstUpdate: true)
-expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
+_ = pruneNotifier.notes(for: [], popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true)
+expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count, 1,
             "알림: 새 항목을 알린다")
-_ = pruneNotifier.notes(for: [], popoverVisible: false, enabled: true, isFirstUpdate: false)
-expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, enabled: true, isFirstUpdate: false).count, 1,
+_ = pruneNotifier.notes(for: [], popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false)
+expectEqual(pruneNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count, 1,
             "알림: 응답에서 빠진 키는 지워 다시 새 항목이 된다")
 
 var batchNotifier = AttentionNotifier()
 let firstBatch = batchNotifier.evaluate(
     for: noteA,
     popoverVisible: false,
+    panelVisible: false,
     enabled: true,
     isFirstUpdate: true
 )
 expectEqual(firstBatch.candidates, 1, "알림 후보: 첫 갱신에도 후보 수는 센다")
 expectEqual(firstBatch.notes.count, 0, "알림 후보: 첫 갱신은 보내지 않는다")
 expectEqual(firstBatch.suppression, NotificationSuppression.firstUpdate, "알림 후보: 억제 사유는 첫 갱신")
-let openBatch = batchNotifier.evaluate(for: noteA + noteB, popoverVisible: true, enabled: true, isFirstUpdate: false)
+let openBatch = batchNotifier.evaluate(for: noteA + noteB, popoverVisible: true, panelVisible: false, enabled: true, isFirstUpdate: false)
 expectEqual(openBatch.suppression, NotificationSuppression.popoverVisible, "알림 후보: 억제 사유는 팝오버 열림")
-let offBatch = batchNotifier.evaluate(for: noteB, popoverVisible: false, enabled: false, isFirstUpdate: false)
+let offBatch = batchNotifier.evaluate(for: noteB, popoverVisible: false, panelVisible: false, enabled: false, isFirstUpdate: false)
 expectEqual(offBatch.suppression, NotificationSuppression.disabled, "알림 후보: 억제 사유는 설정 꺼짐")
-let sentBatch = batchNotifier.evaluate(for: noteA + noteB, popoverVisible: false, enabled: true, isFirstUpdate: false)
+let sentBatch = batchNotifier.evaluate(for: noteA + noteB, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false)
 expectEqual(sentBatch.suppression, nil, "알림 후보: 보낼 때는 억제 사유가 없다")
 expectEqual(sentBatch.notes.count, 1, "알림 후보: 새 항목 하나를 보낸다")
 
@@ -1790,6 +1791,7 @@ func doneNotes(
     working: [DisplayItem] = [],
     attention: [DisplayItem] = [],
     popoverVisible: Bool = false,
+    panelVisible: Bool = false,
     enabled: Bool = true,
     isFirstUpdate: Bool = false
 ) -> [AttentionNote] {
@@ -1798,6 +1800,7 @@ func doneNotes(
         working: working,
         attention: attention,
         popoverVisible: popoverVisible,
+        panelVisible: panelVisible,
         enabled: enabled,
         isFirstUpdate: isFirstUpdate
     )
@@ -1813,7 +1816,7 @@ let transitioned = doneNotes(&doneNotifier, done: doneDoneItem)
 expectEqual(transitioned.count, 1, "완료 알림: 진행 중에서 완료로 바뀌면 알린다")
 expectEqual(transitioned.first?.title, "끝났어요 · done-a", "완료 알림: 제목")
 expectEqual(transitioned.first?.body, "마무리했습니다", "완료 알림: 본문은 평문 마지막 답")
-expectEqual(transitioned.first?.identifier, doneDoneItem[0].acknowledgeKey, "완료 알림: 식별자는 sessionId+since")
+expectEqual(transitioned.first?.identifier, "done-a", "완료 알림: 식별자는 sessionId")
 expectEqual(transitioned.first?.sessionId, "done-a", "완료 알림: sessionId")
 expectEqual(doneNotes(&doneNotifier, done: doneDoneItem).count, 0, "완료 알림: 같은 키는 다시 알리지 않는다")
 
@@ -1848,7 +1851,7 @@ var doneFirstNotifier = DoneNotifier()
 _ = doneNotes(&doneFirstNotifier, done: [], working: doneWorkItem)
 let firstUpdateBatch = doneFirstNotifier.evaluate(
     done: doneDoneItem, working: [], attention: [],
-    popoverVisible: false, enabled: true, isFirstUpdate: true
+    popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true
 )
 expectEqual(firstUpdateBatch.candidates, 1, "완료 알림 후보: 첫 갱신에도 후보 수는 센다")
 expectEqual(firstUpdateBatch.suppression, NotificationSuppression.firstUpdate, "완료 알림 후보: 억제 사유는 첫 갱신")
@@ -1857,7 +1860,7 @@ expectEqual(doneNotes(&doneFirstNotifier, done: doneDoneItem).count, 0,
             "완료 알림: 첫 갱신에 본 완료는 나중에도 알리지 않는다")
 let doneFirstBatch = doneFirstNotifier.evaluate(
     done: doneDoneItem, working: [], attention: [],
-    popoverVisible: false, enabled: true, isFirstUpdate: false
+    popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false
 )
 expectEqual(doneFirstBatch.suppression, nil, "완료 알림: 기록된 항목은 후보가 아니다")
 expectEqual(doneFirstBatch.candidates, 0, "완료 알림: 기록된 항목은 후보 수에도 없다")
@@ -1880,11 +1883,89 @@ var doneSuppressNotifier = DoneNotifier()
 _ = doneNotes(&doneSuppressNotifier, done: [], working: doneWorkItem)
 let disabledBatch = doneSuppressNotifier.evaluate(
     done: doneDoneItem, working: [], attention: [],
-    popoverVisible: false, enabled: false, isFirstUpdate: false
+    popoverVisible: false, panelVisible: false, enabled: false, isFirstUpdate: false
 )
 expectEqual(disabledBatch.candidates, 1, "완료 알림 후보: 후보 수")
 expectEqual(disabledBatch.suppression, NotificationSuppression.disabled, "완료 알림 후보: 억제 사유")
 expectEqual(disabledBatch.notes.count, 0, "완료 알림 후보: 보내지 않음")
+
+// MARK: - 패널이 떠 있을 때 알림
+
+var panelNotifier = AttentionNotifier()
+_ = panelNotifier.evaluate(for: [], popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true)
+let panelBatch = panelNotifier.evaluate(
+    for: noteA, popoverVisible: false, panelVisible: true, enabled: true, isFirstUpdate: false
+)
+expectEqual(panelBatch.notes.count, 0, "알림: 플로팅 패널이 떠 있으면 알리지 않는다")
+expectEqual(panelBatch.suppression, NotificationSuppression.panelVisible, "알림: 억제 사유는 패널 표시 중")
+expectEqual(panelBatch.candidates, 1, "알림: 패널이 떠 있어도 후보 수는 센다")
+expectEqual(panelNotifier.notes(for: noteA, popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: false).count,
+            0, "알림: 패널이 떠 있는 동안 들어온 항목은 닫힌 뒤에도 알리지 않는다")
+
+var bothVisibleNotifier = AttentionNotifier()
+_ = bothVisibleNotifier.evaluate(for: [], popoverVisible: false, panelVisible: false, enabled: true, isFirstUpdate: true)
+let bothVisibleBatch = bothVisibleNotifier.evaluate(
+    for: noteA, popoverVisible: true, panelVisible: true, enabled: true, isFirstUpdate: false
+)
+expectEqual(bothVisibleBatch.suppression, NotificationSuppression.popoverVisible,
+            "알림: 팝오버와 패널이 모두 떠 있으면 팝오버가 먼저다")
+
+var donePanelNotifier = DoneNotifier()
+_ = doneNotes(&donePanelNotifier, done: [], working: doneWorkItem)
+let donePanelBatch = donePanelNotifier.evaluate(
+    done: doneDoneItem, working: [], attention: [],
+    popoverVisible: false, panelVisible: true, enabled: true, isFirstUpdate: false
+)
+expectEqual(donePanelBatch.notes.count, 0, "완료 알림: 플로팅 패널이 떠 있으면 보내지 않는다")
+expectEqual(donePanelBatch.suppression, NotificationSuppression.panelVisible, "완료 알림: 억제 사유는 패널 표시 중")
+
+// MARK: - 알림 식별자와 버튼
+
+let stallAlertItem = Grouping.group(
+    SessionsResponse(sessions: [session("stall-note", "stall", minutesAgo: 7)]),
+    now: now
+).attention
+let stallNote = AttentionNotifier.note(for: stallAlertItem[0])
+expectEqual(stallNote.identifier, "stall-note", "알림: stall 식별자는 sessionId")
+expectEqual(stallNote.snoozable, true, "알림: stall 막힘에는 10분 더를 단다")
+let plainNote = AttentionNotifier.note(for: noteB[0])
+expectEqual(plainNote.identifier, "attn-b", "알림: 식별자는 세션마다 하나")
+expectEqual(plainNote.snoozable, false, "알림: stall 이 아닌 막힘에는 10분 더를 달지 않는다")
+let doneNote = DoneNotifier.note(for: doneDoneItem[0])
+expectEqual(doneNote.identifier, "done-a", "완료 알림: 식별자는 sessionId")
+expectEqual(doneNote.snoozable, false, "완료 알림: 10분 더를 달지 않는다")
+
+// MARK: - 알림 스타일
+
+let snoozableStyle = NotificationStyle.of(kind: .attention, snoozable: true)
+expectEqual(snoozableStyle.categoryIdentifier, "ATTENTION", "알림 스타일: stall 막힘 카테고리")
+expectEqual(snoozableStyle.buttons, [.openInOrca, .snooze], "알림 스타일: stall 막힘 버튼")
+expectEqual(snoozableStyle.interruption, .active, "알림 스타일: 막힘은 active")
+expectEqual(snoozableStyle.playsSound, true, "알림 스타일: 막힘은 소리를 낸다")
+
+let plainStyle = NotificationStyle.of(kind: .attention, snoozable: false)
+expectEqual(plainStyle.categoryIdentifier, "ATTENTION_OPEN", "알림 스타일: 그 밖 막힘 카테고리")
+expectEqual(plainStyle.buttons, [.openInOrca], "알림 스타일: 그 밖 막힘 버튼")
+expectEqual(plainStyle.interruption, .active, "알림 스타일: 그 밖 막힘도 active")
+expectEqual(plainStyle.playsSound, true, "알림 스타일: 그 밖 막힘도 소리를 낸다")
+
+let doneStyle = NotificationStyle.of(kind: .done, snoozable: true)
+expectEqual(doneStyle.categoryIdentifier, "DONE", "알림 스타일: 완료 카테고리")
+expectEqual(doneStyle.buttons, [.acknowledge], "알림 스타일: 완료 버튼")
+expectEqual(doneStyle.interruption, .passive, "알림 스타일: 완료는 passive")
+expectEqual(doneStyle.playsSound, false, "알림 스타일: 완료는 무음")
+
+let categoryIds = NotificationStyle.allCategories.map(\.categoryIdentifier)
+expectEqual(categoryIds.sorted(), ["ATTENTION", "ATTENTION_OPEN", "DONE"], "알림 스타일: 카테고리 셋")
+expectEqual(Set(categoryIds).count, categoryIds.count, "알림 스타일: 카테고리 identifier 는 겹치지 않는다")
+expect(!NotificationStyle.allCategories.flatMap(\.buttons).contains { $0.rawValue == "LATER" },
+       "알림 스타일: 「나중에」 버튼은 없다")
+expectEqual(NotificationButton.snooze.title, "10분 더", "알림 스타일: 10분 더 제목")
+expectEqual(NotificationButton.acknowledge.title, "확인", "알림 스타일: 확인 제목")
+expectEqual(NotificationButton.openInOrca.title, "Orca 에서 열기", "알림 스타일: Orca 열기 제목")
+expectEqual(NotificationButton.openInOrca.bringsAppForward, true, "알림 스타일: Orca 열기만 앱을 앞으로")
+expectEqual(NotificationButton.snooze.bringsAppForward, false, "알림 스타일: 10분 더는 앱을 앞으로 가져오지 않는다")
+expectEqual(NotificationButton.acknowledge.bringsAppForward, false, "알림 스타일: 확인은 앱을 앞으로 가져오지 않는다")
 
 // MARK: - 알림이 거둬지는 키
 
