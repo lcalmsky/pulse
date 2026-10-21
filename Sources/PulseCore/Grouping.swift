@@ -53,6 +53,10 @@ public struct DisplayItem: Equatable, Identifiable {
 
     public var id: String { sessionId }
 
+    /// 화면에 그리는 행의 식별자. 그룹이 바뀌면 다른 행으로 취급해
+    /// 목록 뷰가 섹션을 건너 같은 뷰를 재사용하지 않게 한다.
+    public var rowID: String { "\(group.rawValue)+\(sessionId)" }
+
     public var clickAction: SessionClickAction {
         SessionClick.resolve(href: href, orcaTerminal: orcaTerminal, cwd: cwd)
     }

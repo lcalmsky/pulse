@@ -162,6 +162,21 @@ expect(!grouped.items(for: .attention).contains { $0.sessionId == "off" }, "그�
 expect(!grouped.items(for: .attention).contains { $0.sessionId == "stale" }, "그룹: stale 숨김")
 expect(!grouped.items(for: .done).contains { $0.sessionId == "unknown" }, "그룹: 모르는 버킷 숨김")
 
+// MARK: - 행 식별자
+
+for group in DisplayGroup.allCases {
+    expect(
+        grouped.items(for: group).allSatisfy { $0.group == group },
+        "행 식별자: \(group) 배열의 항목은 같은 그룹 판정을 갖는다"
+    )
+}
+let visibleRowIDs = DisplayGroup.allCases.flatMap { grouped.visibleItems(for: $0).map(\.rowID) }
+expectEqual(Set(visibleRowIDs).count, visibleRowIDs.count, "행 식별자: 그룹을 건너 유일")
+let movingDone = Grouping.group(SessionsResponse(sessions: [session("moving", "done")]), now: now).done[0]
+let movingWorking = Grouping.group(SessionsResponse(sessions: [session("moving", "working")]), now: now).working[0]
+expectEqual(movingWorking.rowID, "\(DisplayGroup.working.rawValue)+moving", "행 식별자: 그룹 + sessionId")
+expect(movingDone.rowID != movingWorking.rowID, "행 식별자: 그룹이 바뀌면 다른 행")
+
 // MARK: - 상태 문구
 
 let byId = Dictionary(uniqueKeysWithValues: grouped.items(for: .attention).map { ($0.sessionId, $0) })

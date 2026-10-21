@@ -52,15 +52,16 @@ struct PopoverView: View {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                     ForEach(sections, id: \.group.rawValue) { section in
                         Section {
-                            ForEach(section.items) { item in
+                            ForEach(section.items, id: \.rowID) { item in
                                 SessionRowView(
                                     item: item,
+                                    group: section.group,
                                     model: model,
                                     selected: isSelected(item),
                                     optionDown: state.optionDown
                                 )
                                 .padding(.horizontal, 6)
-                                .id(item.sessionId)
+                                .id(item.rowID)
                             }
                             if section.group == .done,
                                let overflow = model.groups.doneOverflowText {
@@ -124,7 +125,7 @@ struct PopoverView: View {
         let items = state.filter.selectableItems(in: model.groups)
         guard items.indices.contains(index) else { return }
         withAnimation(.easeOut(duration: 0.12)) {
-            proxy.scrollTo(items[index].sessionId, anchor: .center)
+            proxy.scrollTo(items[index].rowID, anchor: .center)
         }
     }
 

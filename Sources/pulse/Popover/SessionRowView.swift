@@ -3,6 +3,8 @@ import SwiftUI
 
 struct SessionRowView: View {
     let item: DisplayItem
+    /// 행의 모양은 이 행이 놓인 섹션의 판정을 따른다.
+    let group: DisplayGroup
     @ObservedObject var model: AppModel
     let selected: Bool
     let optionDown: Bool
@@ -21,7 +23,7 @@ struct SessionRowView: View {
                 avatar
                 VStack(alignment: .leading, spacing: 2) {
                     titleRow
-                    if compact, item.group != .attention {
+                    if compact, group != .attention {
                         EmptyView()
                     } else {
                         subtitle
@@ -81,7 +83,7 @@ struct SessionRowView: View {
     @ViewBuilder
     private var avatar: some View {
         let side: CGFloat = compact ? 18 : 28
-        switch item.group {
+        switch group {
         case .attention:
             badgeAvatar("!", color: .orange, side: side)
         case .working:
@@ -132,7 +134,7 @@ struct SessionRowView: View {
     private var subtitleText: Text {
         var text = Text(item.status)
             .font(.system(size: 11.5, weight: .semibold))
-            .foregroundColor(PopoverPalette.color(for: item.group))
+            .foregroundColor(PopoverPalette.color(for: group))
         if let place = item.placeText {
             text = text + Text(" · \(place)")
                 .font(.system(size: 11.5))
@@ -206,7 +208,7 @@ struct SessionRowView: View {
 
     @ViewBuilder
     private var attentionBar: some View {
-        if item.group == .attention {
+        if group == .attention {
             RoundedRectangle(cornerRadius: 2)
                 .fill(Color.orange)
                 .frame(width: 3)
@@ -216,7 +218,7 @@ struct SessionRowView: View {
 
     @ViewBuilder
     private var rowBackground: some View {
-        if item.group == .attention {
+        if group == .attention {
             LinearGradient(
                 stops: [
                     .init(color: Color.orange.opacity(highlighted ? 0.24 : 0.16), location: 0),

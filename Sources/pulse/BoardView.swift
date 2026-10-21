@@ -126,10 +126,10 @@ struct BoardView: View {
         let showRestore = group == .done && model.hiddenDoneCount > 0
         if !items.isEmpty || showRestore {
             sectionHeader(group, count: model.groups.items(for: group).count, showRestore: showRestore)
-            ForEach(items) { item in
+            ForEach(items, id: \.rowID) { item in
                 VStack(alignment: .leading, spacing: 0) {
-                    SessionRowView(item: item, model: model, selected: false, optionDown: false)
-                    if item.isStall, item.group == .attention {
+                    SessionRowView(item: item, group: group, model: model, selected: false, optionDown: false)
+                    if item.isStall, group == .attention {
                         stallAction(item)
                     }
                 }
