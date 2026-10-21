@@ -272,7 +272,7 @@ public enum Grouping {
                 if let elapsed { return "\(elapsed) 전 끝남" }
                 return "끝났어요"
             }
-            return "완료했어요"
+            return "끝났어요"
         }
     }
 

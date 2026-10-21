@@ -339,7 +339,7 @@ public enum LocalSessions {
                 message = "권한 승인을 기다려요"
             } else {
                 status = "waiting_input"
-                message = "입력을 기다려요"
+                message = "답을 기다리고 있어요"
             }
         case "busy", "shell":
             if let last = summary.lastMeaningfulAt,

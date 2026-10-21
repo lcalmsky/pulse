@@ -10,7 +10,7 @@ struct SegmentRingView: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.10), lineWidth: stroke)
+                .stroke(PopoverPalette.stroke, lineWidth: stroke)
             ForEach(segments.indices, id: \.self) { index in
                 Circle()
                     .trim(from: segments[index].start, to: segments[index].end)
@@ -24,6 +24,7 @@ struct SegmentRingView: View {
                 Text("\(total)")
                     .font(.system(size: 12, weight: .bold))
                     .monospacedDigit()
+                    .foregroundColor(PopoverPalette.text)
             }
         }
         .frame(width: size, height: size)
@@ -32,9 +33,9 @@ struct SegmentRingView: View {
     private var segments: [(start: CGFloat, end: CGFloat, color: Color)] {
         let gap = 3 / (CGFloat.pi * max(size - stroke, 1))
         let values: [(Double, Color)] = [
-            (ratios.attention, .orange),
-            (ratios.working, .blue),
-            (ratios.done, .green),
+            (ratios.attention, PopoverPalette.attention),
+            (ratios.working, PopoverPalette.working),
+            (ratios.done, PopoverPalette.done),
         ]
         var result: [(start: CGFloat, end: CGFloat, color: Color)] = []
         var offset: CGFloat = 0

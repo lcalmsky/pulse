@@ -30,18 +30,18 @@ struct FilterChips: View {
                 Text(filter.title)
                     .font(.system(size: 11.5, weight: .medium))
                 Text("\(filter.count(in: model.groups))")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 11.5, weight: .medium))
                     .monospacedDigit()
-                    .foregroundColor(selected ? PopoverPalette.secondary : PopoverPalette.tertiary)
+                    .foregroundColor(PopoverPalette.tertiary)
             }
-            .foregroundColor(selected ? .primary : PopoverPalette.secondary)
+            .foregroundColor(selected ? PopoverPalette.text : PopoverPalette.secondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Capsule().fill(selected ? Color.primary.opacity(0.07) : Color.clear))
+            .background(Capsule().fill(selected ? PopoverPalette.rowHover : Color.clear))
             .overlay(
                 Capsule()
                     .stroke(
-                        selected ? Color.primary.opacity(0.15) : Color.primary.opacity(0.10),
+                        selected ? PopoverPalette.strokeHi : PopoverPalette.stroke,
                         lineWidth: 1
                     )
             )

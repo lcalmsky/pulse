@@ -118,7 +118,7 @@ struct SettingsSheet: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.primary.opacity(0.14), lineWidth: 0.5)
+                .stroke(PopoverPalette.strokeHi, lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
     }
@@ -200,22 +200,23 @@ private struct SettingsOptionCard<Preview: View>: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 Text(title)
                     .font(.system(size: 11.5, weight: .medium))
-                    .foregroundColor(selected || hovering ? .primary : PopoverPalette.secondary)
+                    .foregroundColor(selected || hovering ? PopoverPalette.text : PopoverPalette.secondary)
             }
             .padding(.horizontal, 6)
             .padding(.top, 8)
             .padding(.bottom, 7)
             .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(selected ? Color.primary.opacity(0.06) : Color.clear)
-            )
             .overlay(
                 RoundedRectangle(cornerRadius: 9)
                     .stroke(
-                        selected ? Color.accentColor : Color.primary.opacity(hovering ? 0.24 : 0.12),
-                        lineWidth: selected ? 1.5 : 1
+                        selected ? PopoverPalette.selection : (hovering ? PopoverPalette.strokeHi : PopoverPalette.stroke),
+                        lineWidth: 1
                     )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(PopoverPalette.selection.opacity(selected ? 0.3 : 0), lineWidth: 2)
+                    .padding(-2)
             )
             .contentShape(RoundedRectangle(cornerRadius: 9))
         }
@@ -238,12 +239,12 @@ private struct DensityPreview: View {
             .frame(maxHeight: .infinity)
             .padding(5)
         }
-        .background(Color.primary.opacity(0.06))
+        .background(PopoverPalette.glassHi)
     }
 
     private func bar(width: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 2)
-            .fill(Color.primary.opacity(0.35))
+            .fill(PopoverPalette.secondary.opacity(0.5))
             .frame(width: max(0, width), height: 4)
     }
 }

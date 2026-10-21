@@ -28,7 +28,7 @@ struct SessionRowView: View {
                     } else {
                         subtitle
                     }
-                    if !compact, let reply = item.replyTail {
+                    if !compact, group == .attention, let reply = item.replyTail {
                         quote(reply)
                     }
                     if !compact {
@@ -37,6 +37,7 @@ struct SessionRowView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .modifier(ReplyHelp(reply: group == .attention ? nil : item.replyTail))
             .contentShape(Rectangle())
             .onTapGesture {
                 guard item.isActionable else { return }
@@ -74,7 +75,7 @@ struct SessionRowView: View {
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay(
             RoundedRectangle(cornerRadius: 9)
-                .stroke(selected ? Color.accentColor.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                .stroke(selected ? PopoverPalette.selection : Color.clear, lineWidth: 1.5)
         )
         .opacity(item.isActionable ? 1 : 0.45)
         .onHover { hovering = $0 }
@@ -85,19 +86,19 @@ struct SessionRowView: View {
         let side: CGFloat = compact ? 18 : 28
         switch group {
         case .attention:
-            badgeAvatar("!", color: .orange, side: side)
+            badgeAvatar("!", color: PopoverPalette.attention, side: side)
         case .working:
             WorkingAvatar(progress: item.progress?.fraction, size: side)
         case .done:
-            badgeAvatar("✓", color: .green, side: side)
+            badgeAvatar("✓", color: PopoverPalette.done, side: side)
         }
     }
 
     private func badgeAvatar(_ symbol: String, color: Color, side: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: side * 0.28)
+        RoundedRectangle(cornerRadius: 8)
             .fill(color.opacity(0.18))
             .overlay(
-                RoundedRectangle(cornerRadius: side * 0.28)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(color.opacity(0.4), lineWidth: 1)
             )
             .overlay(
@@ -112,6 +113,7 @@ struct SessionRowView: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(item.title)
                 .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(PopoverPalette.text)
                 .lineLimit(1)
                 .truncationMode(.tail)
             if optionDown, item.isActionable, showsOrca {
@@ -159,20 +161,21 @@ struct SessionRowView: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(Color.primary.opacity(0.05))
+                    .fill(PopoverPalette.glassHi)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 7)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    .stroke(PopoverPalette.stroke, lineWidth: 1)
             )
-            .padding(.top, 4)
+            .padding(.top, 6)
     }
 
     @ViewBuilder
     private var metadata: some View {
         let tags = item.keyTag.map { [$0] } ?? []
         let pullRequest = item.prURL != nil ? item.prTag : nil
-        if item.progress != nil || !tags.isEmpty || pullRequest != nil {
+        let stripes = group == .working && item.progress == nil
+        if item.progress != nil || stripes || !tags.isEmpty || pullRequest != nil {
             HStack(spacing: 5) {
                 if let progress = item.progress {
                     ProgressBar(fraction: progress.fraction)
@@ -180,6 +183,8 @@ struct SessionRowView: View {
                         .font(.system(size: 10.5, weight: .medium))
                         .monospacedDigit()
                         .foregroundColor(PopoverPalette.secondary)
+                } else if stripes {
+                    StripedProgressBar()
                 }
                 ForEach(tags, id: \.self) { tag in
                     TagView(text: tag)
@@ -190,7 +195,7 @@ struct SessionRowView: View {
                     }
                 }
             }
-            .padding(.top, 3)
+            .padding(.top, 5)
         }
     }
 
@@ -209,10 +214,11 @@ struct SessionRowView: View {
     @ViewBuilder
     private var attentionBar: some View {
         if group == .attention {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color.orange)
+            RoundedRectangle(cornerRadius: 3)
+                .fill(PopoverPalette.attention)
                 .frame(width: 3)
-                .padding(.vertical, 9)
+                .padding(.vertical, 10)
+                .shadow(color: PopoverPalette.attention.opacity(0.6), radius: 5)
         }
     }
 
@@ -221,15 +227,15 @@ struct SessionRowView: View {
         if group == .attention {
             LinearGradient(
                 stops: [
-                    .init(color: Color.orange.opacity(highlighted ? 0.24 : 0.16), location: 0),
-                    .init(color: highlighted ? Color.primary.opacity(0.07) : Color.clear, location: 0.7),
-                    .init(color: highlighted ? Color.primary.opacity(0.07) : Color.clear, location: 1),
+                    .init(color: PopoverPalette.attention.opacity(highlighted ? 0.24 : 0.16), location: 0),
+                    .init(color: highlighted ? PopoverPalette.rowHover : Color.clear, location: 0.7),
+                    .init(color: highlighted ? PopoverPalette.rowHover : Color.clear, location: 1),
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
         } else if highlighted {
-            Color.primary.opacity(0.07)
+            PopoverPalette.rowHover
         } else {
             Color.clear
         }
@@ -246,12 +252,12 @@ private struct RowActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 15, weight: .medium))
                 .frame(width: 24, height: 24)
-                .foregroundColor(hovering ? .primary : PopoverPalette.secondary)
+                .foregroundColor(hovering ? PopoverPalette.text : PopoverPalette.secondary)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(hovering ? Color.primary.opacity(0.08) : Color.clear)
+                        .fill(hovering ? PopoverPalette.rowHover : Color.clear)
                 )
                 .contentShape(Rectangle())
         }
@@ -261,17 +267,48 @@ private struct RowActionButton: View {
     }
 }
 
+/// 체크리스트 수치가 없는 진행 중 행에 쓰는 줄무늬 막대.
+/// 애니메이션은 막대 안쪽 그리기에만 걸어 레이아웃에 영향을 주지 않는다.
+private struct StripedProgressBar: View {
+    var body: some View {
+        TimelineView(.animation) { context in
+            let phase = context.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 1)
+            Canvas { context, size in
+                context.clip(
+                    to: Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 2)
+                )
+                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(PopoverPalette.working))
+                let stripe: CGFloat = 6
+                let period = stripe * 2
+                var x = -period + CGFloat(phase) * period
+                while x < size.width + period {
+                    var path = Path()
+                    path.move(to: CGPoint(x: x, y: size.height))
+                    path.addLine(to: CGPoint(x: x + stripe, y: size.height))
+                    path.addLine(to: CGPoint(x: x + stripe + size.height, y: 0))
+                    path.addLine(to: CGPoint(x: x + size.height, y: 0))
+                    path.closeSubpath()
+                    context.fill(path, with: .color(PopoverPalette.purple.opacity(0.6)))
+                    x += period
+                }
+            }
+        }
+        .frame(width: 64, height: 4)
+    }
+}
+
 private struct ProgressBar: View {
     let fraction: Double
 
     var body: some View {
         ZStack(alignment: .leading) {
             Capsule()
-                .fill(Color.primary.opacity(0.12))
+                .fill(PopoverPalette.stroke)
             Capsule()
                 .fill(
                     LinearGradient(
-                        colors: [.blue, .purple],
+                        colors: [PopoverPalette.working, PopoverPalette.purple],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -294,11 +331,11 @@ private struct TagView: View {
             .padding(.vertical, 1)
             .background(
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(Color.primary.opacity(0.06))
+                    .fill(PopoverPalette.glassHi)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    .stroke(PopoverPalette.stroke, lineWidth: 1)
             )
     }
 }
@@ -313,23 +350,36 @@ private struct PullRequestTagButton: View {
         Button(action: action) {
             Text(text)
                 .font(.system(size: 10.5, design: .monospaced))
-                .foregroundColor(hovering ? .primary : PopoverPalette.secondary)
+                .foregroundColor(hovering ? PopoverPalette.text : PopoverPalette.secondary)
                 .lineLimit(1)
                 .padding(.horizontal, 6)
                 .frame(minWidth: 22, minHeight: 22)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
-                        .fill(Color.primary.opacity(hovering ? 0.12 : 0.06))
+                        .fill(hovering ? PopoverPalette.rowHover : PopoverPalette.glassHi)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
-                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                        .stroke(PopoverPalette.stroke, lineWidth: 1)
                 )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help("PR \(text) 열기")
+    }
+}
+
+/// 인용 상자는 「확인 필요」 행에만 그린다. 다른 행의 마지막 답은 호버 툴팁으로 보여 준다.
+private struct ReplyHelp: ViewModifier {
+    let reply: String?
+
+    func body(content: Content) -> some View {
+        if let reply, !reply.isEmpty {
+            content.help(reply)
+        } else {
+            content
+        }
     }
 }
 
@@ -341,11 +391,11 @@ private struct WorkingAvatar: View {
         if let progress {
             ZStack {
                 Circle()
-                    .stroke(Color.primary.opacity(0.10), lineWidth: size * 0.11)
+                    .stroke(PopoverPalette.stroke, lineWidth: size * 0.11)
                 Circle()
                     .trim(from: 0, to: max(0.02, CGFloat(progress)))
                     .stroke(
-                        Color.blue,
+                        PopoverPalette.working,
                         style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -368,11 +418,11 @@ private struct SpinningAvatar: View {
                 .truncatingRemainder(dividingBy: 1.1) / 1.1
             ZStack {
                 Circle()
-                    .stroke(Color.primary.opacity(0.10), lineWidth: size * 0.11)
+                    .stroke(PopoverPalette.stroke, lineWidth: size * 0.11)
                 Circle()
                     .trim(from: 0, to: 0.28)
                     .stroke(
-                        Color.blue,
+                        PopoverPalette.working,
                         style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(phase * 360 - 90))

@@ -188,7 +188,7 @@ expectEqual(byId["idle"]?.status, "답을 기다리고 있어요", "문구: idle
 expectEqual(byId["stall"]?.status, "백그라운드 작업 7분째 · npm test", "문구: stall 백그라운드")
 expectEqual(byId["working"]?.status, "3분째 · 테스트 실행", "문구: working")
 expectEqual(byId["untracked"]?.status, "진행 중이에요", "문구: untracked")
-expectEqual(byId["done"]?.status, "완료했어요", "문구: done")
+expectEqual(byId["done"]?.status, "끝났어요", "문구: done")
 expectEqual(byId["ended"]?.status, "5분 전 끝남", "문구: ended")
 
 let messageGroup = Grouping.group(
@@ -906,9 +906,9 @@ expectEqual(permissionGroup.attention.first?.status, "권한 승인을 기다려
 let inputNeeded = localSession(status: "waiting", waitingFor: "input needed")
 expectEqual(inputNeeded.bucket, "wait", "상태 표: 입력 대기도 wait 버킷")
 expectEqual(inputNeeded.status, "waiting_input", "상태 표: 입력 대기 status")
-expectEqual(inputNeeded.message, "입력을 기다려요", "상태 표: 입력 대기 문구")
+expectEqual(inputNeeded.message, "답을 기다리고 있어요", "상태 표: 입력 대기 문구")
 expectEqual(Grouping.group(SessionsResponse(sessions: [inputNeeded]), now: now).attention.first?.status,
-            "입력을 기다려요", "상태 표: 입력 대기는 확인 필요 그룹")
+            "답을 기다리고 있어요", "상태 표: 입력 대기는 확인 필요 그룹")
 
 let otherWaiting = localSession(status: "waiting", waitingFor: "something else")
 expectEqual(otherWaiting.bucket, "wait", "상태 표: 그 밖의 waitingFor 도 wait 버킷")
@@ -929,7 +929,7 @@ expectEqual(idle.bucket, "done", "상태 표: idle 은 완료 버킷")
 expectEqual(idle.status, "idle", "상태 표: idle status")
 let idleMappedGroup = Grouping.group(SessionsResponse(sessions: [idle]), now: now)
 expectEqual(idleMappedGroup.done.count, 1, "상태 표: idle 은 완료 그룹")
-expectEqual(idleMappedGroup.done.first?.status, "완료했어요", "상태 표: idle 은 완료 문구")
+expectEqual(idleMappedGroup.done.first?.status, "끝났어요", "상태 표: idle 은 완료 문구")
 
 let unknownStatus = localSession(status: "paused")
 expectEqual(unknownStatus.bucket, "working", "상태 표: 그 밖의 상태는 working")

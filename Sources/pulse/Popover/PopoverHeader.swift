@@ -21,6 +21,7 @@ struct PopoverHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(PopoverPalette.text)
                     .lineLimit(1)
                 Text(subtitle)
                     .font(.system(size: 11.5))

@@ -79,10 +79,11 @@ struct BoardView: View {
         return HStack(spacing: 6) {
             Text("Claude 세션")
                 .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(PopoverPalette.text)
             Spacer(minLength: 4)
-            CountBadge(count: counts.attention, color: .orange)
-            CountBadge(count: counts.working, color: .blue)
-            CountBadge(count: counts.done, color: .green)
+            CountBadge(count: counts.attention, color: PopoverPalette.attention)
+            CountBadge(count: counts.working, color: PopoverPalette.working)
+            CountBadge(count: counts.done, color: PopoverPalette.done)
             Button(action: { model.collapsed.toggle() }) {
                 Image(systemName: model.collapsed ? "chevron.down" : "chevron.up")
                     .font(.system(size: 10, weight: .semibold))
@@ -153,9 +154,10 @@ struct BoardView: View {
                 .frame(width: 6, height: 6)
             Text("\(SessionFilter.title(for: group)) \(count)")
                 .font(.system(size: 11, weight: .semibold))
+                .tracking(0.44)
                 .foregroundColor(PopoverPalette.tertiary)
             Rectangle()
-                .fill(Color.primary.opacity(0.10))
+                .fill(PopoverPalette.stroke)
                 .frame(height: 1)
             if group == .done {
                 Button("모두 확인") {
@@ -163,7 +165,7 @@ struct BoardView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.blue)
+                .foregroundColor(PopoverPalette.working.opacity(0.9))
                 .contentShape(Rectangle())
                 if showRestore {
                     Button("다시 보기") {
@@ -188,7 +190,7 @@ struct BoardView: View {
             Button("더 기다리기") { model.snooze(item) }
                 .font(.system(size: 10))
                 .buttonStyle(.borderless)
-                .foregroundColor(.orange)
+                .foregroundColor(PopoverPalette.attention)
         }
         .padding(.trailing, 8)
         .padding(.bottom, 4)

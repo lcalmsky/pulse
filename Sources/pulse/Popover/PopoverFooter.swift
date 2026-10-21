@@ -8,7 +8,7 @@ struct PopoverFooter: View {
     var body: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.primary.opacity(0.08))
+                .fill(PopoverPalette.stroke)
                 .frame(height: 1)
             HStack(spacing: 2) {
                 PopoverTextButton(
@@ -41,7 +41,7 @@ struct PopoverFooter: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
         }
     }
 }
