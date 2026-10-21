@@ -160,6 +160,8 @@ public struct Session: Equatable, Identifiable {
     public let dataPath: String?
     public let counts: SessionCounts?
     public let total: Int?
+    /// deadhd 상태 파일의 `summary.states`. 단계 순서를 그대로 담는다.
+    public let stepStates: [String]?
     public let pr: PullRequestLink?
     /// 대표 PR 과 주소가 다른 나머지 PR 태그.
     public let extraPRs: [PullRequestLink]
@@ -196,6 +198,7 @@ public struct Session: Equatable, Identifiable {
         dataPath: String? = nil,
         counts: SessionCounts? = nil,
         total: Int? = nil,
+        stepStates: [String]? = nil,
         pr: PullRequestLink? = nil,
         extraPRs: [PullRequestLink] = [],
         jiraKey: String? = nil,
@@ -225,6 +228,7 @@ public struct Session: Equatable, Identifiable {
         self.dataPath = dataPath
         self.counts = counts
         self.total = total
+        self.stepStates = stepStates
         self.pr = pr
         self.extraPRs = extraPRs
         self.jiraKey = jiraKey
@@ -289,6 +293,7 @@ extension Session: Decodable {
         counts = Lenient.object(container, .counts, as: SessionCounts.self)
             ?? Lenient.object(summary, .counts, as: SessionCounts.self)
         total = Lenient.int(container, .total) ?? Lenient.int(summary, .total)
+        stepStates = nil
         pagePath = nil
         dataPath = nil
         pr = nil

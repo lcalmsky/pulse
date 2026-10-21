@@ -39,6 +39,11 @@ enum PopoverPalette {
         light: rgb(0x00, 0x00, 0x00, 0.05)
     )
 
+    static let stepPanel = dynamic(
+        dark: rgb(0xff, 0xff, 0xff, 0.04),
+        light: rgb(0x00, 0x00, 0x00, 0.04)
+    )
+
     /// `--glass` 의 RGB. 투명도 줄이기가 켜졌을 때 단색 배경으로 쓴다.
     static let glassSolid = dynamic(
         dark: rgb(0x1c, 0x1c, 0x22),

@@ -21,6 +21,8 @@ public struct DeadhdState: Equatable {
     public let title: String?
     public let counts: SessionCounts?
     public let total: Int?
+    /// `summary.states` 의 단계 상태. 문자열 아닌 원소가 섞이면 배열 전체를 버린다.
+    public let states: [String]?
     public let nowLabel: String?
     public let key: String?
     public let keyHref: String?
@@ -82,12 +84,19 @@ public struct DeadhdState: Equatable {
         }
         let tasksObject = object["backgroundTasks"] as? [[String: Any]] ?? []
         let compactionsObject = object["compactions"] as? [String: Any]
+        let states: [String]?
+        if let raw = summary?["states"] as? [Any] {
+            states = raw.allSatisfy { $0 is String } ? raw.compactMap { $0 as? String } : nil
+        } else {
+            states = nil
+        }
 
         return DeadhdState(
             sessionId: sessionId,
             title: string(summary?["title"]),
             counts: counts,
             total: integer(summary?["total"]),
+            states: states,
             nowLabel: string(summary?["nowLabel"]),
             key: string(summary?["key"]),
             keyHref: string(summary?["keyHref"]),

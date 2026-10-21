@@ -40,6 +40,8 @@ public struct DisplayItem: Equatable, Identifiable {
     public let key: String?
     public let progress: ChecklistProgress?
     public let counts: SessionCounts?
+    /// 상태 파일이 남긴 단계 순서. 스텝퍼가 막힌 단계의 실제 위치를 그릴 때 쓴다.
+    public let stepStates: [String]?
     public let etaText: String?
     public let backgroundTaskCount: Int?
     public let lastToolName: String?
@@ -74,7 +76,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public var rowID: String { "\(group.rawValue)+\(sessionId)" }
 
     public var clickAction: SessionClickAction {
-        SessionClick.resolve(page: pagePath, orcaTerminal: orcaTerminal, cwd: cwd)
+        SessionClick.resolve(orcaTerminal: orcaTerminal, cwd: cwd)
     }
 
     public var isActionable: Bool { clickAction != .none }
@@ -103,6 +105,7 @@ public struct DisplayItem: Equatable, Identifiable {
             self.progress = nil
             self.counts = nil
         }
+        self.stepStates = session.stepStates
         self.etaText = Grouping.etaText(session, now: now)
         self.backgroundTaskCount = session.activity?.backgroundTasks
         self.lastToolName = Grouping.nonEmpty(session.activity?.lastTool?.name)

@@ -55,6 +55,25 @@ public enum Stepper {
         return segments
     }
 
+    /// 상태 파일의 단계 순서를 그대로 쓴다. 개수가 전체와 맞지 않으면 개수 기반으로 돌아간다.
+    public static func segments(
+        states: [String]?,
+        counts: SessionCounts?,
+        total: Int?
+    ) -> [StepSegment] {
+        guard let states, !states.isEmpty, let total, states.count == total else {
+            return segments(counts: counts, total: total)
+        }
+        return states.map { state in
+            switch state {
+            case "done": return .done
+            case "now", "side": return .current
+            case "blocked": return .blocked
+            default: return .left
+            }
+        }
+    }
+
     public static func position(counts: SessionCounts?, total: Int?) -> String? {
         guard !segments(counts: counts, total: total).isEmpty,
               let counts, let total else { return nil }

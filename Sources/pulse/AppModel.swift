@@ -4,9 +4,10 @@ import Foundation
 import OSLog
 import PulseCore
 
-struct DetailTarget: Equatable {
-    let item: DisplayItem
-    let url: URL
+/// 펼친 행이 보여 줄 체크리스트. `steps` 가 nil 이면 읽기 실패다.
+struct ChecklistSnapshot: Equatable {
+    let steps: [ChecklistStep]?
+    let modifiedAt: Date?
 }
 
 final class AppModel: ObservableObject {
@@ -25,7 +26,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var doneNotifications: Bool
     @Published private(set) var notificationPermission: NotificationPermission = .unknown
     @Published private(set) var hotKeyUnavailable = false
-    @Published private(set) var detail: DetailTarget?
+    /// 단계를 펼친 세션. 팝오버와 플로팅 패널이 같은 펼침을 본다.
+    @Published private(set) var expandedSteps: Set<String> = []
+    /// 세 줄 창을 넘겨 전체 단계를 보는 세션.
+    @Published private(set) var fullSteps: Set<String> = []
+    @Published private(set) var checklists: [String: ChecklistSnapshot] = [:]
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
 
@@ -205,6 +210,7 @@ final class AppModel: ObservableObject {
             snoozedUntil: snoozes
         )
         hiddenDoneCount = acknowledgements.hiddenCount(in: response, now: now)
+        pruneStepState()
         // 완료 알림도 확인(숨김)하거나 진행 중으로 돌아가면 이 집합에서 빠져 알림 센터에서 거둬진다.
         notificationCenter.syncDelivered(
             keeping: Set((groups.attention + groups.done).map(\.sessionId))
@@ -246,8 +252,6 @@ final class AppModel: ObservableObject {
 
     func open(_ item: DisplayItem) {
         switch item.clickAction {
-        case .detail(let path):
-            openPage(item, path: path)
         case .orca(let handle):
             switchTerminal(handle)
         case .cwd(let cwd):
@@ -257,30 +261,72 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func openPage(_ item: DisplayItem) {
-        guard let path = item.pagePath else { return }
-        openPage(item, path: path)
-    }
-
-    /// HTML 이 아직 없으면 render.py 로 만든 뒤 연다.
+    /// HTML 이 아직 없으면 render.py 로 만든 뒤 브라우저로 연다.
     /// deadhd 의 serve.py 주소 규칙을 먼저 시도하고, 실패하면 file:// 로 연다.
     /// 서버 확인이 파일 IO 라서 화면을 붙잡지 않도록 백그라운드에서 돈다.
-    private func openPage(_ item: DisplayItem, path: String) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+    func openPageInBrowser(_ item: DisplayItem) {
+        guard let path = item.pagePath else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
             guard DeadhdPage.ensurePage(path: path, dataPath: item.dataPath) else {
                 Self.pageLogger.error("진행 페이지를 만들지 못해 열지 않았다: \(path, privacy: .public)")
                 return
             }
             let url = DeadhdPage.url(for: path)
             DispatchQueue.main.async {
-                guard let self else { return }
-                self.detail = DetailTarget(item: item, url: url)
+                NSWorkspace.shared.open(url)
             }
         }
     }
 
-    func closeDetail() {
-        detail = nil
+    // MARK: - 단계 펼침
+
+    func toggleSteps(_ item: DisplayItem) {
+        let id = item.sessionId
+        if expandedSteps.contains(id) {
+            expandedSteps.remove(id)
+            fullSteps.remove(id)
+            checklists[id] = nil
+        } else {
+            expandedSteps.insert(id)
+            loadChecklist(item)
+        }
+    }
+
+    func toggleFullSteps(_ item: DisplayItem) {
+        if fullSteps.contains(item.sessionId) {
+            fullSteps.remove(item.sessionId)
+        } else {
+            fullSteps.insert(item.sessionId)
+        }
+    }
+
+    /// 파일 하나가 수 KB 라 메인 스레드에서 동기로 읽는다.
+    private func loadChecklist(_ item: DisplayItem) {
+        guard let path = item.dataPath else {
+            checklists[item.sessionId] = ChecklistSnapshot(steps: nil, modifiedAt: nil)
+            return
+        }
+        let url = URL(fileURLWithPath: path)
+        let modifiedAt = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate
+        if let modifiedAt, let existing = checklists[item.sessionId], existing.modifiedAt == modifiedAt {
+            return
+        }
+        checklists[item.sessionId] = ChecklistSnapshot(
+            steps: (try? Data(contentsOf: url)).flatMap { Checklist.parse($0) },
+            modifiedAt: modifiedAt
+        )
+    }
+
+    /// 목록에서 사라진 세션의 펼침·캐시를 버리고, 펼쳐진 세션은 파일이 바뀌었는지 본다.
+    private func pruneStepState() {
+        let ids = Set(groups.allItems.map(\.sessionId))
+        expandedSteps.formIntersection(ids)
+        fullSteps.formIntersection(ids)
+        checklists = checklists.filter { ids.contains($0.key) }
+        for item in groups.allItems where expandedSteps.contains(item.sessionId) {
+            loadChecklist(item)
+        }
     }
 
     func openLink(_ urlString: String) {

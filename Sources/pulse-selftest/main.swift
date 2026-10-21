@@ -374,31 +374,26 @@ expectEqual(fewDone.doneOverflowText, nil, "완료 잘라내기: 5개 이하면 
 
 // MARK: - 클릭 규칙
 
-expectEqual(SessionClick.resolve(page: nil, orcaTerminal: nil), SessionClickAction.none,
+expectEqual(SessionClick.resolve(orcaTerminal: nil), SessionClickAction.none,
             "클릭 규칙: 둘 다 없으면 비활성")
-expectEqual(SessionClick.resolve(page: "  ", orcaTerminal: " "), SessionClickAction.none,
+expectEqual(SessionClick.resolve(orcaTerminal: " "), SessionClickAction.none,
             "클릭 규칙: 공백뿐이면 없는 것으로 본다")
-expectEqual(SessionClick.resolve(page: nil, orcaTerminal: "term-1"), .orca("term-1"),
-            "클릭 규칙: 페이지가 없으면 Orca")
-expectEqual(
-    SessionClick.resolve(page: "/tmp/deadhd-x.html", orcaTerminal: "term-1"),
-    .detail("/tmp/deadhd-x.html"),
-    "클릭 규칙: 페이지가 있으면 Orca 보다 페이지"
-)
-expectEqual(SessionClick.resolve(page: "", orcaTerminal: " term-1 "), .orca("term-1"),
+expectEqual(SessionClick.resolve(orcaTerminal: "term-1"), .orca("term-1"),
+            "클릭 규칙: 핸들이 있으면 Orca")
+expectEqual(SessionClick.resolve(orcaTerminal: " term-1 "), .orca("term-1"),
             "클릭 규칙: 앞뒤 공백을 지운다")
-expectEqual(SessionClick.resolve(page: nil, orcaTerminal: nil, cwd: "/a/b"), .cwd("/a/b"),
+expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: "/a/b"), .cwd("/a/b"),
             "클릭 규칙: 핸들이 없으면 cwd 로 찾는다")
-expectEqual(SessionClick.resolve(page: nil, orcaTerminal: "term-1", cwd: "/a/b"), .orca("term-1"),
+expectEqual(SessionClick.resolve(orcaTerminal: "term-1", cwd: "/a/b"), .orca("term-1"),
             "클릭 규칙: cwd 보다 핸들")
-expectEqual(SessionClick.resolve(page: "/tmp/a.html", orcaTerminal: nil, cwd: "/a/b"), .detail("/tmp/a.html"),
-            "클릭 규칙: cwd 보다 페이지")
-expectEqual(SessionClick.resolve(page: nil, orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
+expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
             "클릭 규칙: 공백뿐인 cwd 는 없는 것으로 본다")
 
 let clickGrouped = Grouping.group(
     SessionsResponse(sessions: [
         Session(sessionId: "page", bucket: "working", orcaTerminal: "t", pagePath: "/tmp/a.html"),
+        Session(sessionId: "pageOnly", bucket: "working", pagePath: "/tmp/a.html"),
+        Session(sessionId: "dataOnly", bucket: "working", dataPath: "/tmp/a.json"),
         Session(sessionId: "orca", bucket: "working", orcaTerminal: "t"),
         Session(sessionId: "cwd", bucket: "working", cwd: "/a/b"),
         Session(sessionId: "none", bucket: "working"),
@@ -408,11 +403,15 @@ let clickGrouped = Grouping.group(
 let clickItems: [String: DisplayItem] = Dictionary(
     uniqueKeysWithValues: clickGrouped.working.map { ($0.sessionId, $0) }
 )
-expectEqual(clickItems["page"]?.clickAction, .detail("/tmp/a.html"), "클릭 규칙: 항목이 상세 창으로 간다")
+expectEqual(clickItems["page"]?.clickAction, .orca("t"), "클릭 규칙: 진행 페이지는 Orca 보다 뒤")
 expectEqual(clickItems["orca"]?.clickAction, .orca("t"), "클릭 규칙: 항목이 Orca 로 간다")
 expectEqual(clickItems["page"]?.isActionable, true, "클릭 규칙: 페이지 항목은 누를 수 있다")
 expectEqual(clickItems["cwd"]?.clickAction, .cwd("/a/b"), "클릭 규칙: cwd 만 있어도 Orca 로 간다")
 expectEqual(clickItems["cwd"]?.isActionable, true, "클릭 규칙: cwd 만 있어도 누를 수 있다")
+expectEqual(clickItems["pageOnly"]?.clickAction, SessionClickAction.none,
+            "클릭 규칙: 터미널 없는 페이지 항목은 행 탭이 비어 있다")
+expectEqual(clickItems["pageOnly"]?.isActionable, false, "클릭 규칙: 터미널이 없으면 페이지가 있어도 행 탭 동작은 없다")
+expectEqual(clickItems["dataOnly"]?.isActionable, false, "클릭 규칙: 단계만 있는 행도 행 탭 동작은 없다")
 expectEqual(clickItems["none"]?.isActionable, false, "클릭 규칙: 대상 없는 항목은 비활성")
 
 // MARK: - Orca 터미널 cwd 매칭
@@ -1226,6 +1225,8 @@ let parsedState = deadhdState(deadhdJSON)
 expectEqual(parsedState?.title, "deadhd 제목", "상태 파일: 제목")
 expectEqual(parsedState?.counts, SessionCounts(done: 5, left: 3, now: 1, blocked: 1), "상태 파일: counts")
 expectEqual(parsedState?.total, 9, "상태 파일: total")
+expectEqual(parsedState?.states, ["done", "done", "done", "done", "done", "now", "left", "left", "left"],
+            "상태 파일: 단계 상태")
 expectEqual(parsedState?.nowLabel, "흔들림·행 어긋남", "상태 파일: 지금 단계")
 expectEqual(parsedState?.key, "APP-1", "상태 파일: 지라 키")
 expectEqual(parsedState?.keyHref, "https://tracker.example.com/browse/APP-1", "상태 파일: 지라 링크")
@@ -1292,6 +1293,11 @@ expectEqual(lenientState?.hasBackgroundTasks, false, "상태 파일: 배열이 �
 expectEqual(lenientState?.backgroundTasks, [], "상태 파일: 버린 작업 목록은 빈 배열")
 expectEqual(lenientState?.compactions?.count, 0, "상태 파일: 어긋난 압축 횟수는 0")
 expectEqual(lenientState?.lastTool, nil, "상태 파일: 이름이 숫자인 도구는 버린다")
+expectEqual(lenientState?.states, nil, "상태 파일: states 가 없으면 nil")
+let mixedStates = deadhdState("""
+{"sessionId":"local","summary":{"states":["done",1]}}
+""")
+expectEqual(mixedStates?.states, nil, "상태 파일: 문자열 아닌 원소가 섞이면 배열 전체를 버린다")
 
 let absentState = deadhdState("{\"sessionId\":\"local\"}")
 expectEqual(absentState?.summaryAvailable, false, "상태 파일: summary 가 없으면 체크리스트가 없다")
@@ -1349,7 +1355,10 @@ expectEqual(mergedItem?.blocked, true, "합치기: 막힌 항목이 있으면 �
 expectEqual(mergedItem?.progressStale, false, "합치기: 최근 데이터는 흐리지 않는다")
 expectEqual(mergedItem?.prTag, "#16331", "합치기: PR 태그")
 expectEqual(mergedItem?.jiraKey, "APP-1", "합치기: 지라 태그")
-expectEqual(mergedItem?.clickAction, .detail("/tmp/deadhd-x.html"), "합치기: 기본 동작은 상세 창")
+expectEqual(mergedItem?.clickAction, .cwd("/Users/a/proj"), "합치기: 행 탭은 cwd 로 터미널을 찾는다")
+expectEqual(mergedItem?.isActionable, true, "합치기: cwd 가 있으면 누를 수 있다")
+expectEqual(mergedItem?.stepStates, ["done", "done", "done", "done", "done", "now", "left", "left", "left"],
+            "합치기: 단계 상태를 항목에 넘긴다")
 expectEqual(mergedItem?.activityLine, "압축 1 · 백그라운드 2 · Bash 12초 전", "합치기: 활동 줄")
 
 let staleSession = localSession(status: "busy", summary: deadhdSummary,
@@ -2035,6 +2044,165 @@ expectEqual(Stepper.position(counts: stepperCounts, total: 9), "5/9", "스텝퍼
 expectEqual(Stepper.position(counts: SessionCounts(done: 4, now: 0), total: 9), "4/9", "스텝퍼 위치: 현재 없음")
 expectEqual(Stepper.position(counts: SessionCounts(done: 9, now: 2), total: 9), "9/9", "스텝퍼 위치: 전체에서 자른다")
 expectEqual(Stepper.position(counts: nil, total: 9), nil, "스텝퍼 위치: 스텝퍼가 비면 nil")
+expectEqual(
+    Stepper.segments(states: ["done", "done", "blocked", "left", "left"], counts: nil, total: 5),
+    [.done, .done, .blocked, .left, .left],
+    "스텝퍼: 막힌 단계를 실제 위치에 그린다"
+)
+expectEqual(
+    Stepper.segments(states: ["done", "side", "left"], counts: nil, total: 3),
+    [.done, .current, .left],
+    "스텝퍼: 병렬 진행도 현재로 그린다"
+)
+expectEqual(
+    Stepper.segments(states: ["done", "now"], counts: stepperCounts, total: 4),
+    Stepper.segments(counts: stepperCounts, total: 4),
+    "스텝퍼: 상태 개수가 전체와 다르면 개수 기반"
+)
+expectEqual(
+    Stepper.segments(states: nil, counts: stepperCounts, total: 9),
+    Stepper.segments(counts: stepperCounts, total: 9),
+    "스텝퍼: 상태가 없으면 개수 기반"
+)
+
+// MARK: - 체크리스트 단계
+
+let checklistJSON = """
+{
+  "title": "제목",
+  "items": [
+    {"id": "a", "label": "준비", "state": "done", "sub": "완료", "doneAt": "2026-10-21T11:12:00+09:00"},
+    {"id": "b", "title": "검증", "state": "now", "sub": "  "},
+    {"id": "c", "label": "", "state": "weird"},
+    {"id": "d", "state": "done"},
+    {"state": "left"}
+  ]
+}
+"""
+let parsedSteps = Checklist.parse(Data(checklistJSON.utf8))
+expectEqual(parsedSteps?.count, 5, "체크리스트: 단계 수")
+expectEqual(parsedSteps?[0].label, "준비", "체크리스트: label 을 쓴다")
+expectEqual(parsedSteps?[0].state, .done, "체크리스트: 완료")
+expectEqual(parsedSteps?[0].sub, "완료", "체크리스트: sub")
+expectEqual(parsedSteps?[0].doneAt, utcDate(2026, 10, 21, 2, 12), "체크리스트: 완료 시각")
+expectEqual(parsedSteps?[1].label, "검증", "체크리스트: label 이 없으면 title")
+expectEqual(parsedSteps?[1].state, .now, "체크리스트: 지금")
+expectEqual(parsedSteps?[1].sub, nil, "체크리스트: 공백뿐인 sub 는 nil")
+expectEqual(parsedSteps?[1].doneAt, nil, "체크리스트: 시각이 없으면 nil")
+expectEqual(parsedSteps?[2].label, "c", "체크리스트: label 이 비면 id")
+expectEqual(parsedSteps?[2].state, .left, "체크리스트: 알 수 없는 상태는 남음")
+expectEqual(parsedSteps?[3].state, .done, "체크리스트: doneAt 없는 완료")
+expectEqual(parsedSteps?[3].doneAt, nil, "체크리스트: doneAt 없는 완료는 시각이 없다")
+expectEqual(parsedSteps?[4].label, "단계 5", "체크리스트: 이름이 없으면 순번")
+expectEqual(Checklist.parse(Data("[]".utf8)), nil, "체크리스트: 최상위 배열은 버린다")
+expectEqual(Checklist.parse(Data("not json".utf8)), nil, "체크리스트: 깨진 JSON 은 버린다")
+expectEqual(Checklist.parse(Data("{\"title\":\"x\"}".utf8)), nil, "체크리스트: items 가 없으면 버린다")
+let skippedItemSteps = Checklist.parse(Data("{\"items\":[1,{\"id\":\"ok\"}]}".utf8))
+expectEqual(skippedItemSteps?.count, 1, "체크리스트: 객체가 아닌 항목은 건너뛴다")
+expectEqual(skippedItemSteps?.first?.label, "ok", "체크리스트: 건너뛴 뒤에도 단계를 읽는다")
+
+let sevenStates: [StepState] = [.done, .done, .done, .done, .done, .now, .left]
+let sevenWindow = StepWindow.make(sevenStates)
+expectEqual(sevenWindow.rows, [4, 5, 6], "단계 창: 직전 완료·지금·다음")
+expectEqual(sevenWindow.hiddenBefore, 4, "단계 창: 앞에 숨은 수")
+expectEqual(sevenWindow.hasHidden, true, "단계 창: 숨은 단계가 있다")
+expectEqual(StepWindow.make([.now, .left, .left]).rows, [0, 1, 2], "단계 창: 첫 단계가 지금")
+expectEqual(StepWindow.make(Array(repeating: StepState.done, count: 5)).rows, [2, 3, 4],
+            "단계 창: 전부 완료면 끝 셋")
+let twoWindow = StepWindow.make([.done, .now])
+expectEqual(twoWindow.rows, [0, 1], "단계 창: 둘이면 둘 다")
+expectEqual(twoWindow.hasHidden, false, "단계 창: 다 보이면 숨은 단계 없음")
+let blockedLater = StepWindow.make(
+    [.done, .done, .done, .now, .left, .left, .blocked, .left, .left]
+)
+expectEqual(blockedLater.rows, [2, 3, 6], "단계 창: 뒤쪽 막힘을 마지막 자리에 넣는다")
+let blockedEarlier = StepWindow.make(
+    [.blocked, .done, .done, .done, .done, .now, .left, .left, .left]
+)
+expectEqual(blockedEarlier.rows, [0, 5, 6], "단계 창: 앞쪽 막힘을 첫 자리에 넣는다")
+expectEqual(
+    StepWindow.make([.done, .done, .blocked, .now, .left]).rows,
+    [2, 3, 4],
+    "단계 창: 막힘이 이미 창 안이면 그대로"
+)
+expectEqual(
+    StepWindow.make([.done, .done, .done, .done, .blocked, .left, .left]).rows,
+    [3, 4, 5],
+    "단계 창: 지금이 없으면 첫 막힘이 기준"
+)
+expectEqual(StepWindow.make([.done, .side, .left, .left]).rows, [0, 1, 2],
+            "단계 창: 병렬 진행이 기준")
+let emptyWindow = StepWindow.make([])
+expectEqual(emptyWindow.rows, [], "단계 창: 빈 배열")
+expectEqual(emptyWindow.hiddenBefore, 0, "단계 창: 빈 배열의 앞 수")
+expectEqual(emptyWindow.hasHidden, false, "단계 창: 빈 배열은 숨은 단계 없음")
+
+let seoul = TimeZone(identifier: "Asia/Seoul")!
+func step(_ label: String, _ state: StepState, _ doneAt: String? = nil) -> ChecklistStep {
+    ChecklistStep(label: label, state: state, doneAt: TimestampParser.parse(doneAt))
+}
+let headSteps = [
+    step("a", .done, "2026-10-21T13:52:00+09:00"),
+    step("b", .done, "2026-10-21T13:55:00+09:00"),
+    step("c", .done, "2026-10-21T14:00:00+09:00"),
+    step("d", .done, "2026-10-21T14:02:00+09:00"),
+    step("e", .done),
+    step("f", .now),
+    step("g", .left),
+]
+let headWindow = StepWindow.make(headSteps.map(\.state))
+expectEqual(
+    StepWindow.headText(headSteps, window: headWindow, timeZone: seoul),
+    "앞 4단계 완료 · 13:52 – 14:02",
+    "단계 머리: 앞 단계 완료와 시각 범위"
+)
+let headNoTime = headSteps.map { ChecklistStep(label: $0.label, state: $0.state) }
+expectEqual(
+    StepWindow.headText(headNoTime, window: headWindow, timeZone: seoul),
+    "앞 4단계 완료",
+    "단계 머리: 완료 시각이 없으면 시각 없이"
+)
+let mixedHead = [
+    step("a", .left),
+    step("b", .done, "2026-10-21T13:52:00+09:00"),
+    step("c", .done, "2026-10-21T13:55:00+09:00"),
+    step("d", .done, "2026-10-21T14:02:00+09:00"),
+    step("e", .done),
+    step("f", .now),
+    step("g", .left),
+]
+expectEqual(
+    StepWindow.headText(mixedHead, window: StepWindow.make(mixedHead.map(\.state)), timeZone: seoul),
+    "앞 4단계 · 완료 3",
+    "단계 머리: 완료 아닌 단계가 섞이면 완료 수"
+)
+let startWindow = StepWindow.make(Array(repeating: StepState.left, count: 9))
+expectEqual(startWindow.rows, [0, 1, 2], "단계 창: 지금이 첫 단계면 앞 없음")
+expectEqual(
+    StepWindow.headText(Array(repeating: ChecklistStep(label: "x", state: .left), count: 9),
+                       window: startWindow, timeZone: seoul),
+    "전체 9단계 보기",
+    "단계 머리: 앞이 비면 전체 보기"
+)
+expectEqual(StepWindow.headText([], window: emptyWindow, timeZone: seoul), nil,
+            "단계 머리: 숨은 단계가 없으면 nil")
+
+let trailingSteps = [
+    ChecklistStep(label: "a", state: .done, sub: "완료"),
+    ChecklistStep(label: "b", state: .left, sub: "대기"),
+]
+expectEqual(StepWindow.trailingText(trailingSteps, index: 1), "대기 · 마지막",
+            "단계 꼬리: 마지막 남은 단계")
+expectEqual(StepWindow.trailingText([ChecklistStep(label: "a", state: .left)], index: 0), "마지막",
+            "단계 꼬리: 마지막 남은 단계에 sub 가 없으면 마지막만")
+expectEqual(StepWindow.trailingText(trailingSteps, index: 0), "완료",
+            "단계 꼬리: 마지막이 아니면 sub")
+expectEqual(
+    StepWindow.trailingText([ChecklistStep(label: "a", state: .left, sub: "대기"),
+                            ChecklistStep(label: "b", state: .done)], index: 0),
+    "대기",
+    "단계 꼬리: 중간 남은 단계는 sub 만"
+)
 
 // MARK: - 행 문구
 

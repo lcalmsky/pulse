@@ -189,13 +189,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     private func handleKey(_ event: NSEvent) -> Bool {
         guard popover.isShown else { return false }
-        if model.detail != nil {
-            let close = event.keyCode == 53
-                || (event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "[")
-            guard close else { return false }
-            model.closeDetail()
-            return true
-        }
         if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "," {
             state.settingsOpen.toggle()
             return true
