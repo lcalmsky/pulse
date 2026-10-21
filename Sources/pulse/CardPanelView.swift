@@ -67,7 +67,14 @@ struct CardPanelView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            PulseMark(size: 16)
+            CardGlyph(
+                size: 16,
+                ring: .segments(SegmentRatio.make(
+                    attention: model.groups.counts.attention,
+                    working: model.groups.counts.working,
+                    done: model.groups.counts.done
+                ))
+            )
             Text("Pulse")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(PopoverPalette.text)
@@ -132,8 +139,7 @@ private struct SingleCard: View {
 
     private var attention: some View {
         HStack(spacing: 10) {
-            PulseMark(size: 24, badge: true, circular: true)
-                .frame(width: 32, height: 32)
+            CardGlyph(size: 32, ring: .solid(PopoverPalette.attention))
             VStack(alignment: .leading, spacing: 1) {
                 Text(CardPanelText.question(item))
                     .font(.system(size: 13, weight: .semibold))
@@ -371,8 +377,7 @@ private struct AwayCard: View {
             if card.expires {
                 RemainingRing(card: card, paused: model.cardsPaused)
             } else {
-                PulseMark(size: 24, badge: true, circular: true)
-                    .frame(width: 32, height: 32)
+                CardGlyph(size: 32, ring: .solid(PopoverPalette.attention))
             }
             text(metaSize: 11, spacing: 1)
             Spacer(minLength: 0)
@@ -510,7 +515,7 @@ private func canAnswer(_ item: DisplayItem) -> Bool {
     item.orcaTerminal != nil || item.cwd != nil
 }
 
-/// 아이콘을 두른 남은 시간 링.
+/// 남은 시간 링 글리프.
 private struct RemainingRing: View {
     let card: NotificationCard
     let paused: Bool
@@ -518,72 +523,108 @@ private struct RemainingRing: View {
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: paused)) { context in
-            ZStack {
-                Circle().strokeBorder(PopoverPalette.stroke, lineWidth: 2)
-                Circle()
-                    .trim(from: 0, to: CardDeck.remainingFraction(of: card, paused: paused, now: context.date))
-                    .stroke(PopoverPalette.done, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .padding(1)
-                PulseMark(size: size - 8, circular: true)
-            }
-            .frame(width: size, height: size)
-            .allowsHitTesting(false)
+            CardGlyph(
+                size: size,
+                ring: .remaining(CardDeck.remainingFraction(of: card, paused: paused, now: context.date))
+            )
         }
     }
 }
 
-struct PulseMark: View {
+/// 메뉴 막대 아이콘(MenuBarIcon)과 같은 비율의 링과 파형.
+private struct CardGlyph: View {
+    enum Ring {
+        case remaining(Double)
+        case solid(Color)
+        case segments(SegmentRatio)
+    }
+
     let size: CGFloat
-    var badge: Bool = false
-    var circular: Bool = false
+    let ring: Ring
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Group {
-                if circular {
-                    Circle().fill(PopoverPalette.working)
-                } else {
-                    RoundedRectangle(cornerRadius: size * 9 / 40).fill(PopoverPalette.working)
-                }
-            }
-            .frame(width: size, height: size)
-            PulseLine()
+        let radius = size * 8.8 / 22
+        let line = size * 2.8 / 22
+        ZStack {
+            Circle()
+                .stroke(PopoverPalette.text.opacity(0.18), lineWidth: line)
+                .frame(width: radius * 2, height: radius * 2)
+            ringLayer(radius: radius, line: line)
+            CardWave()
                 .stroke(
-                    Color.white,
-                    style: StrokeStyle(
-                        lineWidth: size * 3 / 40,
-                        lineCap: .round,
-                        lineJoin: .round
-                    )
+                    PopoverPalette.text,
+                    style: StrokeStyle(lineWidth: size * 1.7 / 22, lineCap: .round, lineJoin: .round)
                 )
-                .frame(width: size, height: size)
-            if badge {
-                Circle()
-                    .fill(PopoverPalette.attention)
-                    .frame(width: 7, height: 7)
-                    .overlay(Circle().strokeBorder(PopoverPalette.glassSolid, lineWidth: 1.5))
-                    .offset(x: circular ? 1 : 2, y: circular ? -1 : -2)
-            }
+                .frame(width: radius * 2, height: radius * 2)
         }
         .frame(width: size, height: size)
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func ringLayer(radius: CGFloat, line: CGFloat) -> some View {
+        switch ring {
+        case let .remaining(fraction):
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(PopoverPalette.done, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: radius * 2, height: radius * 2)
+        case let .solid(color):
+            Circle()
+                .stroke(color, lineWidth: line)
+                .frame(width: radius * 2, height: radius * 2)
+        case let .segments(ratio):
+            SegmentRing(ratio: ratio, radius: radius, line: line)
+        }
     }
 }
 
-private struct PulseLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        let scale = min(rect.width, rect.height) / 40
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + x * scale, y: rect.minY + y * scale)
+private struct SegmentRing: View {
+    let ratio: SegmentRatio
+    let radius: CGFloat
+    let line: CGFloat
+
+    private static let unit = 1 / (2 * Double.pi * 8.8)
+
+    var body: some View {
+        ZStack {
+            ForEach(arcs.indices, id: \.self) { index in
+                Circle()
+                    .trim(from: arcs[index].start, to: arcs[index].end)
+                    .stroke(arcs[index].color, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: radius * 2, height: radius * 2)
+            }
         }
+    }
+
+    private var arcs: [(start: Double, end: Double, color: Color)] {
+        let pieces: [(Double, Color)] = [
+            (ratio.attention, PopoverPalette.attention),
+            (ratio.working, PopoverPalette.working),
+            (ratio.done, PopoverPalette.done),
+        ]
+        var offset = 0.0
+        var result: [(start: Double, end: Double, color: Color)] = []
+        for (fraction, color) in pieces where fraction > 0 {
+            let drawn = max(fraction - 1.6 * Self.unit, 0.1 * Self.unit)
+            result.append((offset, offset + drawn, color))
+            offset += fraction
+        }
+        return result
+    }
+}
+
+private struct CardWave: Shape {
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
         var path = Path()
-        path.move(to: point(8, 21))
-        path.addLine(to: point(14, 21))
-        path.addLine(to: point(17, 13))
-        path.addLine(to: point(21, 28))
-        path.addLine(to: point(25, 17))
-        path.addLine(to: point(27, 21))
-        path.addLine(to: point(32, 21))
+        for (index, point) in PulseGlyph.wave.enumerated() {
+            let target = CGPoint(x: center.x + point.x * radius, y: center.y - point.y * radius)
+            if index == 0 { path.move(to: target) } else { path.addLine(to: target) }
+        }
         return path
     }
 }
