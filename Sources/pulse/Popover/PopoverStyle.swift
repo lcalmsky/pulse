@@ -50,12 +50,6 @@ enum PopoverPalette {
         light: rgb(0xf6, 0xf6, 0xfa)
     )
 
-    /// 시안 알림 패널의 배경(`--glass` 에 0.94 불투명도).
-    static let cardGlass = dynamic(
-        dark: rgb(0x1c, 0x1c, 0x22, 0.94),
-        light: rgb(0xf6, 0xf6, 0xfa, 0.94)
-    )
-
     static let selection = dynamic(
         dark: rgb(0x0a, 0x84, 0xff, 0.90),
         light: rgb(0x00, 0x7a, 0xff, 0.92)

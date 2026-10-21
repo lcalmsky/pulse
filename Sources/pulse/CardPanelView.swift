@@ -11,7 +11,7 @@ struct CardPanelView: View {
     var body: some View {
         content
             .frame(width: 340)
-            .background(PopoverPalette.cardGlass)
+            .background(PopoverBackground())
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(key: CardHeightKey.self, value: proxy.size.height)
@@ -32,15 +32,6 @@ struct CardPanelView: View {
         }
         if shown.count == 1, let entry = shown.first {
             SingleCard(card: entry.card, item: entry.item, model: model)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(
-                            entry.card.kind == .attention
-                                ? PopoverPalette.attention.opacity(0.40)
-                                : PopoverPalette.stroke,
-                            lineWidth: 1
-                        )
-                )
         } else if !shown.isEmpty {
             VStack(spacing: 0) {
                 header
@@ -58,10 +49,6 @@ struct CardPanelView: View {
             }
             .padding(.top, 6)
             .padding(.bottom, 4)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(PopoverPalette.stroke, lineWidth: 1)
-            )
         } else {
             Color.clear.frame(width: 340, height: 0)
         }
@@ -112,6 +99,8 @@ private struct SingleCard: View {
     let item: DisplayItem
     @ObservedObject var model: AppModel
 
+    @State private var hovering = false
+
     var body: some View {
         switch card.kind {
         case .attention: attention
@@ -120,83 +109,101 @@ private struct SingleCard: View {
     }
 
     private var attention: some View {
-        HStack(alignment: .top, spacing: 10) {
-            PulseMark(size: 22, badge: true)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(item.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(PopoverPalette.text)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text("확인 필요")
-                        .font(.system(size: 11))
-                        .foregroundColor(PopoverPalette.attention)
-                        .fixedSize()
-                }
+        HStack(spacing: 10) {
+            PulseMark(size: 24, badge: true, circular: true)
+                .frame(width: 32, height: 32)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(CardPanelText.question(item))
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(PopoverPalette.text)
-                    .lineSpacing(3)
-                    .lineLimit(6)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 6) {
-                    if let meta = CardText.attentionMeta(place: item.placeText, since: item.sortDate, now: Date()) {
-                        Text(meta)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(PopoverPalette.tertiary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    Spacer(minLength: 0)
-                    CardButtons(item: item, model: model, showsSnooze: true, showsAnswer: true, showsOpen: true, showsAcknowledge: false)
-                }
-                .padding(.top, 4)
+                attentionMeta
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            Spacer(minLength: 0)
+            if hovering && item.isStall {
+                CardButtons(item: item, model: model, showsSnooze: true, showsAnswer: false, showsOpen: false, showsAcknowledge: false)
+            }
+            answerButton
         }
         .padding(.top, 10)
         .padding(.bottom, 10)
-        .padding(.leading, 14)
+        .padding(.leading, 10)
         .padding(.trailing, 10)
         .contentShape(Rectangle())
+        .onHover { hovering = $0 }
         .onTapGesture {
             guard item.isActionable else { return }
             model.openCard(item)
         }
     }
 
+    private var attentionMeta: Text {
+        var meta = Text("")
+        if let place = item.placeText?.trimmingCharacters(in: .whitespacesAndNewlines), !place.isEmpty {
+            meta = meta + Text("\(place) · ")
+                .font(.system(size: 11))
+                .foregroundColor(PopoverPalette.secondary)
+        }
+        meta = meta + Text("확인 필요")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundColor(PopoverPalette.attention)
+        if let elapsed = TimePhrase.duration(from: item.sortDate, to: Date()) {
+            meta = meta + Text(" · \(elapsed)째")
+                .font(.system(size: 11))
+                .foregroundColor(PopoverPalette.secondary)
+        }
+        return meta
+    }
+
+    private var answerButton: some View {
+        Button {
+            if canAnswer(item) {
+                model.answerCard(item)
+            } else {
+                model.openCard(item)
+            }
+        } label: {
+            Text(canAnswer(item) ? "답하기" : "열기")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Color.black.opacity(0.85))
+                .padding(.horizontal, 11)
+                .frame(height: 24)
+                .background(Capsule().fill(PopoverPalette.attention))
+        }
+        .buttonStyle(.plain)
+        .disabled(!item.isActionable)
+    }
+
     private var done: some View {
         HStack(spacing: 10) {
-            PulseMark(size: 22)
+            RemainingRing(card: card, paused: model.cardsPaused)
             VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(item.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(PopoverPalette.text)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text(CardText.doneBanner(runDuration: card.runDuration))
-                        .font(.system(size: 11))
-                        .foregroundColor(PopoverPalette.done)
-                        .fixedSize()
-                }
                 Text(CardText.doneSummary(summary: item.summary, status: item.status))
-                    .font(.system(size: 12))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(PopoverPalette.text)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(CardText.doneMeta(title: item.title, runDuration: card.runDuration))
+                    .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
             Spacer(minLength: 0)
-            CardButtons(item: item, model: model, showsSnooze: false, showsAnswer: false, showsOpen: true, showsAcknowledge: false)
+            if hovering {
+                CardButtons(item: item, model: model, showsSnooze: false, showsAnswer: false, showsOpen: true, showsAcknowledge: true)
+            }
         }
-        .frame(height: 56)
-        .padding(.leading, 14)
-        .padding(.trailing, 10)
-        .overlay(alignment: .bottomLeading) {
-            RemainingBar(card: card, paused: model.cardsPaused)
-        }
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .padding(.leading, 10)
+        .padding(.trailing, hovering ? 10 : 12)
         .contentShape(Rectangle())
+        .onHover { hovering = $0 }
         .onTapGesture {
             guard item.isActionable else { return }
             model.openCard(item)
@@ -270,9 +277,7 @@ private struct DoneCardRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "checkmark")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(PopoverPalette.done)
+            RemainingRing(card: card, paused: model.cardsPaused, size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(item.title)
@@ -314,9 +319,6 @@ private struct DoneCardRow: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(hovering ? PopoverPalette.rowHover : Color.clear)
         )
-        .overlay(alignment: .bottomLeading) {
-            RemainingBar(card: card, paused: model.cardsPaused)
-        }
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture {
@@ -333,8 +335,6 @@ private struct CardButtons: View {
     let showsAnswer: Bool
     let showsOpen: Bool
     let showsAcknowledge: Bool
-
-    private var showsOrca: Bool { item.orcaTerminal != nil || item.cwd != nil }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -377,7 +377,7 @@ private struct CardButtons: View {
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
                     help: "답하기 · Orca 에서 터미널 열기",
-                    enabled: showsOrca,
+                    enabled: canAnswer(item),
                     symbolSize: 13,
                     restingFill: PopoverPalette.attention,
                     restingGlyph: Color.black.opacity(0.85)
@@ -389,20 +389,30 @@ private struct CardButtons: View {
     }
 }
 
-/// 카드 아래 2px 남은 시간 선. 레이아웃 높이에 끼어들지 않도록 overlay 로만 그린다.
-private struct RemainingBar: View {
+/// Orca 로 답할 수 있는 항목인지. 답하기 버튼과 캡슐 버튼이 같은 기준을 쓴다.
+private func canAnswer(_ item: DisplayItem) -> Bool {
+    item.orcaTerminal != nil || item.cwd != nil
+}
+
+/// 아이콘을 두른 남은 시간 링.
+private struct RemainingRing: View {
     let card: NotificationCard
     let paused: Bool
+    var size: CGFloat = 32
 
     @State private var fraction: Double = 1
 
     var body: some View {
-        GeometryReader { proxy in
-            Rectangle()
-                .fill(PopoverPalette.done.opacity(0.7))
-                .frame(width: max(0, proxy.size.width * fraction), height: 2)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        ZStack {
+            Circle().strokeBorder(PopoverPalette.stroke, lineWidth: 2)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(PopoverPalette.done, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .padding(1)
+            PulseMark(size: size - 8, circular: true)
         }
+        .frame(width: size, height: size)
         .allowsHitTesting(false)
         .onAppear { sync() }
         .onChange(of: paused) { _ in sync() }
@@ -428,12 +438,18 @@ private struct RemainingBar: View {
 struct PulseMark: View {
     let size: CGFloat
     var badge: Bool = false
+    var circular: Bool = false
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            RoundedRectangle(cornerRadius: size * 9 / 40)
-                .fill(PopoverPalette.working)
-                .frame(width: size, height: size)
+            Group {
+                if circular {
+                    Circle().fill(PopoverPalette.working)
+                } else {
+                    RoundedRectangle(cornerRadius: size * 9 / 40).fill(PopoverPalette.working)
+                }
+            }
+            .frame(width: size, height: size)
             PulseLine()
                 .stroke(
                     Color.white,
@@ -449,7 +465,7 @@ struct PulseMark: View {
                     .fill(PopoverPalette.attention)
                     .frame(width: 7, height: 7)
                     .overlay(Circle().strokeBorder(PopoverPalette.glassSolid, lineWidth: 1.5))
-                    .offset(x: 2, y: -2)
+                    .offset(x: circular ? 1 : 2, y: circular ? -1 : -2)
             }
         }
         .frame(width: size, height: size)

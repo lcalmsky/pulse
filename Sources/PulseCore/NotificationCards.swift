@@ -208,10 +208,10 @@ public enum CardText {
         return TimePhrase.relative(from: finishedAt, to: now)
     }
 
-    /// 끝남 카드 한 장일 때의 상태 문구.
-    public static func doneBanner(runDuration: TimeInterval?) -> String {
-        guard let runDuration else { return "끝났어요" }
-        return "끝났어요 · \(duration(runDuration)) 걸림"
+    /// 끝남 카드 2행: 「{세션} · 끝남 · 1분 걸림」. 걸린 시간을 모르면 「{세션} · 끝남」.
+    public static func doneMeta(title: String, runDuration: TimeInterval?) -> String {
+        guard let runDuration else { return "\(title) · 끝남" }
+        return "\(title) · 끝남 · \(duration(runDuration)) 걸림"
     }
 
     /// 끝남 카드 본문: 요약 한 줄, 없으면 상태 문구.
@@ -219,18 +219,6 @@ public enum CardText {
         guard let trimmed = summary?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty else { return status }
         return trimmed
-    }
-
-    /// 확인 필요 카드 바닥줄: 「워크트리 · N분째」. 둘 중 있는 것만 잇는다.
-    public static func attentionMeta(place: String?, since: Date?, now: Date) -> String? {
-        var parts: [String] = []
-        if let place = place?.trimmingCharacters(in: .whitespacesAndNewlines), !place.isEmpty {
-            parts.append(place)
-        }
-        if let duration = TimePhrase.duration(from: since, to: now) {
-            parts.append("\(duration)째")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// `TimePhrase.duration` 과 같은 규칙으로 초를 문구로 바꾼다. 1분 미만도 1분으로 본다.

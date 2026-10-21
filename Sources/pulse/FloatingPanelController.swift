@@ -10,6 +10,8 @@ final class FloatingPanelController: NSObject {
         let fixedWidth: Bool
         let remembersFrame: Bool
         let cornerRadius: CGFloat
+        /// true 면 macOS 26 의 Liquid Glass(NSGlassEffectView)로 창 배경을 그린다. 그 아래 OS 에서는 NSVisualEffectView 로 돌아간다.
+        let liquidGlass: Bool
     }
 
     private let panel: NSPanel
@@ -86,7 +88,8 @@ final class FloatingPanelController: NSObject {
                 minimumWidth: 340,
                 fixedWidth: false,
                 remembersFrame: true,
-                cornerRadius: 16
+                cornerRadius: 16,
+                liquidGlass: false
             ),
             visible: model.$panelVisible.eraseToAnyPublisher(),
             resizeTriggers: triggers
@@ -106,7 +109,8 @@ final class FloatingPanelController: NSObject {
                 minimumWidth: 340,
                 fixedWidth: true,
                 remembersFrame: false,
-                cornerRadius: 14
+                cornerRadius: 14,
+                liquidGlass: true
             ),
             visible: model.$cardPanelVisible.eraseToAnyPublisher(),
             resizeTriggers: triggers
@@ -131,6 +135,20 @@ final class FloatingPanelController: NSObject {
     }
 
     private func configureContent() {
+        hosting.autoresizingMask = [.width, .height]
+        hosting.wantsLayer = true
+        hosting.layer?.backgroundColor = NSColor.clear.cgColor
+
+        if options.liquidGlass, #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = options.cornerRadius
+            glass.style = .regular
+            hosting.frame = glass.bounds
+            glass.contentView = hosting
+            panel.contentView = glass
+            return
+        }
+
         let effect = NSVisualEffectView()
         effect.material = .popover
         effect.blendingMode = .behindWindow
@@ -139,13 +157,8 @@ final class FloatingPanelController: NSObject {
         effect.layer?.cornerRadius = options.cornerRadius
         effect.layer?.masksToBounds = true
         effect.layer?.backgroundColor = NSColor.clear.cgColor
-
         hosting.frame = effect.bounds
-        hosting.autoresizingMask = [.width, .height]
-        hosting.wantsLayer = true
-        hosting.layer?.backgroundColor = NSColor.clear.cgColor
         effect.addSubview(hosting)
-
         panel.contentView = effect
     }
 

@@ -2504,15 +2504,10 @@ expectEqual(CardText.doneTrail(runDuration: 840, finishedAt: now, now: now), "14
 expectEqual(CardText.doneTrail(runDuration: nil, finishedAt: now.addingTimeInterval(-660), now: now), "11분 전",
             "카드 문구: 완료 시각")
 expectEqual(CardText.doneTrail(runDuration: nil, finishedAt: nil, now: now), nil, "카드 문구: 둘 다 없음")
-expectEqual(CardText.doneBanner(runDuration: 5400), "끝났어요 · 1시간 걸림", "카드 문구: 한 장 배너")
-expectEqual(CardText.doneBanner(runDuration: nil), "끝났어요", "카드 문구: 걸린 시간 모름")
+expectEqual(CardText.doneMeta(title: "pulse-main", runDuration: 60), "pulse-main · 끝남 · 1분 걸림", "카드 문구: 2행")
+expectEqual(CardText.doneMeta(title: "pulse-main", runDuration: nil), "pulse-main · 끝남", "카드 문구: 2행, 걸린 시간 모름")
 expectEqual(CardText.doneSummary(summary: "요약", status: "끝났어요"), "요약", "카드 문구: 요약 먼저")
 expectEqual(CardText.doneSummary(summary: "  ", status: "끝났어요"), "끝났어요", "카드 문구: 요약이 비면 상태")
-expectEqual(CardText.attentionMeta(place: "pulse", since: now.addingTimeInterval(-180), now: now), "pulse · 3분째",
-            "카드 문구: 메타")
-expectEqual(CardText.attentionMeta(place: nil, since: now.addingTimeInterval(-180), now: now), "3분째",
-            "카드 문구: 메타 시각만")
-expectEqual(CardText.attentionMeta(place: nil, since: nil, now: now), nil, "카드 문구: 메타 없음")
 
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)
