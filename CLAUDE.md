@@ -87,7 +87,6 @@ scripts/bundle.sh && open build/Pulse.app   # 번들
 ```
 
 - XCTest 를 쓰지 않는다. 검사는 `Sources/pulse-selftest/main.swift` 의 `expectEqual` 로 쓴다. 검사 수는 줄어들면 안 된다. PulseCore 의 로직(문구, 그룹 판정, 설정 이행)을 바꾸면 거기에 검사를 더한다. SwiftUI 뷰는 검사 대상이 아니다.
-- macOS 알림(권한 요청과 소리 경로)은 앱 번들로 띄웠을 때만 동작한다. 실행 파일을 그대로 띄우면 그 부분만 건너뛴다.
 - `CLAUDE_CONFIG_DIR` 이 셸에 잡혀 있으면 Pulse 가 그 디렉터리를 읽는다. 자기 세션을 보려면 그 변수를 비우고 띄운다.
 
 ## 예시 그림
