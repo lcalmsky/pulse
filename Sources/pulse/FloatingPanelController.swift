@@ -26,6 +26,10 @@ final class FloatingPanelController: NSObject {
         didSet { hosting.onHover = onHover }
     }
 
+    var onPointerMove: ((CGPoint?) -> Void)? {
+        didSet { hosting.onPointerMove = onPointerMove }
+    }
+
     init(
         options: Options,
         visible: AnyPublisher<Bool, Never>,
@@ -103,6 +107,7 @@ final class FloatingPanelController: NSObject {
             model.$cards.map { _ in () }.eraseToAnyPublisher(),
             model.$groups.map { _ in () }.eraseToAnyPublisher(),
         ]).eraseToAnyPublisher()
+        let pointer = CardPointer()
         let controller = FloatingPanelController(
             options: Options(
                 defaultWidth: 340,
@@ -115,9 +120,14 @@ final class FloatingPanelController: NSObject {
             visible: model.$cardPanelVisible.eraseToAnyPublisher(),
             resizeTriggers: triggers
         ) { updateSize in
-            AnyView(CardPanelView(model: model, onContentHeightChange: updateSize))
+            AnyView(
+                CardPanelView(model: model, onContentHeightChange: updateSize)
+                    .environmentObject(pointer)
+            )
         }
         controller.onHover = { model.setCardHover($0) }
+        controller.onPointerMove = { pointer.move(to: $0) }
+        controller.panel.acceptsMouseMovedEvents = true
         return controller
     }
 
@@ -171,6 +181,8 @@ final class FloatingPanelController: NSObject {
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
+            // 숨긴 창에는 mouseExited 가 오지 않아, 다시 뜰 때 남은 위치로 호버가 켜지지 않게 비운다.
+            hosting.onPointerMove?(nil)
         }
     }
 
@@ -271,6 +283,7 @@ final class FloatingPanelController: NSObject {
 /// 비활성 패널에서 첫 클릭이 창 활성화에만 쓰이지 않고 버튼에 닿게 한다.
 private final class FirstMouseHostingView: NSHostingView<AnyView> {
     var onHover: ((Bool) -> Void)?
+    var onPointerMove: ((CGPoint?) -> Void)?
     private var hoverArea: NSTrackingArea?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -281,7 +294,7 @@ private final class FirstMouseHostingView: NSHostingView<AnyView> {
         if let hoverArea { removeTrackingArea(hoverArea) }
         let area = NSTrackingArea(
             rect: .zero,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
@@ -291,9 +304,22 @@ private final class FirstMouseHostingView: NSHostingView<AnyView> {
 
     override func mouseEntered(with event: NSEvent) {
         onHover?(true)
+        onPointerMove?(pointerLocation(for: event))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        onPointerMove?(pointerLocation(for: event))
     }
 
     override func mouseExited(with event: NSEvent) {
         onHover?(false)
+        onPointerMove?(nil)
+    }
+
+    private func pointerLocation(for event: NSEvent) -> CGPoint {
+        let point = convert(event.locationInWindow, from: nil)
+        guard !isFlipped else { return point }
+        return CGPoint(x: point.x, y: bounds.height - point.y)
     }
 }

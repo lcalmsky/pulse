@@ -11,6 +11,7 @@ struct CardPanelView: View {
     var body: some View {
         content
             .frame(width: 340)
+            .coordinateSpace(name: "cardPanel")
             .background(PopoverBackground())
             .background(
                 GeometryReader { proxy in
@@ -97,6 +98,16 @@ struct CardPanelView: View {
     }
 }
 
+/// 비활성 앱 창에서는 SwiftUI `onHover` 가 불리지 않아 호스팅 뷰의 추적 영역 위치로 호버를 판정한다.
+final class CardPointer: ObservableObject {
+    @Published private(set) var location: CGPoint?
+
+    func move(to point: CGPoint?) {
+        guard point != location else { return }
+        location = point
+    }
+}
+
 private struct ShownCard: Identifiable {
     let card: NotificationCard
     let item: DisplayItem
@@ -145,7 +156,7 @@ private struct SingleCard: View {
         .padding(.leading, 10)
         .padding(.trailing, 10)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .cardHover($hovering)
         .onTapGesture {
             guard item.isActionable else { return }
             model.openCard(item)
@@ -214,7 +225,7 @@ private struct SingleCard: View {
         .padding(.leading, 10)
         .padding(.trailing, hovering ? 10 : 12)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .cardHover($hovering)
         .onTapGesture {
             guard item.isActionable else { return }
             model.openCard(item)
@@ -331,7 +342,7 @@ private struct DoneCardRow: View {
                 .fill(hovering ? PopoverPalette.rowHover : Color.clear)
         )
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .cardHover($hovering)
         .onTapGesture {
             guard item.isActionable else { return }
             model.openCard(item)
@@ -413,7 +424,7 @@ private struct AwayCard: View {
             }
         }
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .cardHover($hovering)
         .onTapGesture { model.openAwaySummary() }
     }
 
@@ -505,38 +516,20 @@ private struct RemainingRing: View {
     let paused: Bool
     var size: CGFloat = 32
 
-    @State private var fraction: Double = 1
-
     var body: some View {
-        ZStack {
-            Circle().strokeBorder(PopoverPalette.stroke, lineWidth: 2)
-            Circle()
-                .trim(from: 0, to: fraction)
-                .stroke(PopoverPalette.done, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .padding(1)
-            PulseMark(size: size - 8, circular: true)
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: paused)) { context in
+            ZStack {
+                Circle().strokeBorder(PopoverPalette.stroke, lineWidth: 2)
+                Circle()
+                    .trim(from: 0, to: CardDeck.remainingFraction(of: card, paused: paused, now: context.date))
+                    .stroke(PopoverPalette.done, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .padding(1)
+                PulseMark(size: size - 8, circular: true)
+            }
+            .frame(width: size, height: size)
+            .allowsHitTesting(false)
         }
-        .frame(width: size, height: size)
-        .allowsHitTesting(false)
-        .onAppear { sync() }
-        .onChange(of: paused) { _ in sync() }
-    }
-
-    private func sync() {
-        let current = frozenFraction()
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) { fraction = current }
-        guard !paused else { return }
-        let remaining = current * CardDeck.doneLifetime
-        guard remaining > 0 else { return }
-        // 무한 반복 없이 한 번만 줄인다. 창 높이는 건드리지 않는다.
-        withAnimation(.linear(duration: remaining)) { fraction = 0 }
-    }
-
-    private func frozenFraction() -> Double {
-        CardDeck.remainingFraction(of: card, paused: paused, now: Date())
     }
 }
 
@@ -598,6 +591,36 @@ private struct PulseLine: Shape {
 private enum CardPanelText {
     static func question(_ item: DisplayItem) -> String {
         "“\(RowText.question(detail: item.detail, replyTail: item.replyTail, status: item.status))”"
+    }
+}
+
+private struct CardHover: ViewModifier {
+    @EnvironmentObject private var pointer: CardPointer
+    @Binding var hovering: Bool
+
+    func body(content: Content) -> some View {
+        content.background(
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .named("cardPanel"))
+                Color.clear
+                    .allowsHitTesting(false)
+                    .onAppear { update(frame: frame) }
+                    .onChange(of: frame) { newFrame in update(frame: newFrame) }
+                    .onChange(of: pointer.location) { _ in update(frame: frame) }
+            }
+        )
+    }
+
+    private func update(frame: CGRect) {
+        let inside = pointer.location.map(frame.contains) ?? false
+        guard inside != hovering else { return }
+        hovering = inside
+    }
+}
+
+private extension View {
+    func cardHover(_ hovering: Binding<Bool>) -> some View {
+        modifier(CardHover(hovering: hovering))
     }
 }
 
