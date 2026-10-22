@@ -74,7 +74,8 @@ When there are no sessions it shows an empty state, and when sessions cannot be 
 
 Keeps the same list as the popover **in a separate window.** You can drag it and resize it, and it remembers its position and size.
 
-- Its height follows the content and scrolls inside once the content exceeds 70 percent of the screen height or the window height you set
+- Its height follows the content and, once the content exceeds 70 percent of the screen height, only the list scrolls inside
+- When you set the window size yourself, it uses that height as is; only the list scrolls and the header and search bar stay at the top
 - Appears on every Space
 - Hide it with the close button in the header or `⌃⌥P`
 - A single click or `⌃⌥P` lets you drive it from the keyboard without bringing another app forward, using the same keys as the popover. When there is no search or selection left to clear, `Esc` returns keyboard focus to the app you came from
