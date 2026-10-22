@@ -302,6 +302,8 @@ public enum Grouping {
                    let name = clean(task.taskDescription) ?? clean(task.type),
                    let duration {
                     base = L10n.backgroundTaskFor(duration, name)
+                } else if let duration, (session.activity?.backgroundTasks ?? 0) > 0 {
+                    base = L10n.backgroundTaskCheckStuck(duration)
                 } else if let duration {
                     base = L10n.workingForCheckStuck(duration)
                 } else {

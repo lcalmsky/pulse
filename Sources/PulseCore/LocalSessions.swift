@@ -92,6 +92,8 @@ public struct TranscriptSummary: Equatable {
 
 public enum LocalSessions {
     public static let stallThreshold: TimeInterval = 10 * 60
+    /// 끝나지 않은 백그라운드 작업이 있는 shell 세션에 쓰는 기준.
+    public static let backgroundStallThreshold: TimeInterval = 60 * 60
     public static let replyTailLimit = 160
     public static let promptTitleLimit = 60
     public static let actionLabelLimit = 40
@@ -419,8 +421,11 @@ public enum LocalSessions {
                 message = L10n.waitingForReply
             }
         case "busy", "shell":
+            let threshold = record.status == "shell" && (summary.backgroundTasks ?? 0) > 0
+                ? backgroundStallThreshold
+                : stallThreshold
             if let last = summary.lastMeaningfulAt,
-               now.timeIntervalSince(last) > stallThreshold {
+               now.timeIntervalSince(last) > threshold {
                 bucket = "stall"
             } else {
                 bucket = "working"

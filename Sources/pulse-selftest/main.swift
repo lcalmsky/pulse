@@ -1133,6 +1133,42 @@ expectEqual(noTranscript.bucket, "working", "stall: 트랜스크립트가 없으
 let staleIdle = localSession(status: "idle", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600)))
 expectEqual(staleIdle.bucket, "done", "stall: stall 판정은 busy/shell 에만 적용")
 
+let shellBackground = localSession(
+    status: "shell",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-1800), backgroundTasks: 1)
+)
+expectEqual(shellBackground.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 30분이 지나도 working")
+
+let shellBackgroundBoundary = localSession(
+    status: "shell",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600), backgroundTasks: 1)
+)
+expectEqual(shellBackgroundBoundary.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 정확히 60분이면 working")
+
+let shellBackgroundStalled = localSession(
+    status: "shell",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
+)
+expectEqual(shellBackgroundStalled.bucket, "stall", "stall: 백그라운드 작업이 도는 shell 도 60분이 넘으면 stall")
+
+let shellNoBackground = localSession(
+    status: "shell",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 0)
+)
+expectEqual(shellNoBackground.bucket, "stall", "stall: 백그라운드 작업이 없는 shell 은 기존 기준")
+
+let busyWithBackground = localSession(
+    status: "busy",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 1)
+)
+expectEqual(busyWithBackground.bucket, "stall", "stall: busy 는 백그라운드 작업이 있어도 기준을 늘리지 않는다")
+
+expectEqual(
+    Grouping.group(SessionsResponse(sessions: [shellBackgroundStalled]), now: now).attention.first?.status,
+    "백그라운드 작업 2분째 · 멈췄는지 확인해 보세요",
+    "stall: 백그라운드 작업이 있는 stall 은 백그라운드 작업 문구"
+)
+
 // MARK: - 제목·시각·필드
 
 let titled = localSession(

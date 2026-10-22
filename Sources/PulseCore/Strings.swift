@@ -105,6 +105,10 @@ public enum L10n {
         pick("백그라운드 작업 \(duration)째 · \(name)", "Background task for \(duration) · \(name)")
     }
 
+    public static func backgroundTaskCheckStuck(_ duration: String) -> String {
+        pick("백그라운드 작업 \(duration)째 · 멈췄는지 확인해 보세요", "Background task for \(duration) · check if it's stuck")
+    }
+
     public static func workingForCheckStuck(_ duration: String) -> String {
         pick("작업 \(duration)째 · 멈췄는지 확인해 보세요", "Working for \(duration) · check if it's stuck")
     }
