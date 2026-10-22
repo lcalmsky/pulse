@@ -57,6 +57,7 @@ The list is ordered **attention → working → done**.
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
 - **Done** shows the latest five only and folds the rest into `N more`
 - **Header and footer** the header has the three group counts and a collapse button, and the footer has the refresh time and the floating panel, settings, and quit buttons
+- **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
 When there are no sessions it shows an empty state, and when sessions cannot be read it shows a `Retry now` banner.
 
@@ -76,6 +77,7 @@ Keeps the same list as the popover **in a separate window.** You can drag it and
 - Its height follows the content and scrolls inside once it exceeds 70 percent of the screen height
 - Appears on every Space
 - Hide it with the close button in the header or `⌃⌥P`
+- A single click lets you drive it from the keyboard without bringing another app forward, using the same keys as the popover
 
 </td>
 </tr>
@@ -171,15 +173,19 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 |---|---|
 | `⌃⌥P` | Global hotkey. Opens the popover, pressing it again while open shows the floating panel, and when only the panel is visible it hides it |
 | `↑` `↓` | Move through items. Pressing past either end wraps around to the other side |
+| `⌥↑` `⌥↓` | Jump to the first or last item |
+| Typed characters | Typing a character without `⌘` or `⌃` in the popover or a floating panel that takes the keyboard opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels |
 | `→` | Expand the selected row's steps. Pressing it again shows all steps |
 | `←` | Collapse the expanded steps one step at a time |
 | `⌥→` | Expand the selected row's steps all the way |
 | `⌥←` | Collapse the expanded steps at once |
 | `↩` | Open the selected item |
 | `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca` |
-| `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes |
-| `Esc` | Close settings if they are open, otherwise close the popover |
+| `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes. When the search line is open it deletes search text |
+| `Esc` | Close settings if they are open, close the search first if it is open, otherwise close the popover |
 | `⌘,` | Open and close settings |
+
+A floating panel takes the same keys after a single click, without bringing another app forward. In the panel, `Esc` clears only the search and the selection and does not hide the panel.
 
 ### Opening sessions
 
