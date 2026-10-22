@@ -172,7 +172,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 self.state.optionDown = event.modifierFlags.contains(.option)
                 return event
             }
-            guard self.popover.isShown else { return event }
+            // 플로팅 패널이 키를 가져가도 팝오버가 떠 있을 수 있어, 팝오버 창의 키만 받는다.
+            guard self.popover.isShown,
+                  event.window === self.popover.contentViewController?.view.window else { return event }
             return self.keyboard.handle(event) ? nil : event
         }
     }

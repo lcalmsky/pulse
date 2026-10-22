@@ -2338,14 +2338,18 @@ expectEqual(notifiedGroups.allItems.count, 2, "알림 키: 전체 항목에서 �
 
 // MARK: - 전역 단축키
 
-expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: false), .openPopover,
-            "단축키: 팝오버가 닫혀 있으면 팝오버를 연다")
-expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: false), .closePopoverAndShowPanel,
+expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: false, panelKey: false), .openPopover,
+            "단축키: 팝오버와 패널이 모두 닫혀 있으면 팝오버를 연다")
+expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: true, panelKey: false), .focusPanel,
+            "단축키: 패널만 떠 있고 키 창이 아니면 패널에 포커스를 준다")
+expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: true, panelKey: true), .hidePanel,
+            "단축키: 패널이 키 창이면 패널을 숨긴다")
+expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: false, panelKey: false), .closePopoverAndShowPanel,
             "단축키: 팝오버가 열려 있으면 닫고 플로팅 패널을 띄운다")
-expectEqual(HotKeyRouting.action(popoverOpen: false, panelVisible: true), .hidePanel,
-            "단축키: 플로팅 패널만 떠 있으면 패널을 닫는다")
-expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true), .closePopover,
-            "단축키: 패널이 이미 떠 있으면 팝오버만 닫는다")
+expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true, panelKey: false), .closePopoverAndFocusPanel,
+            "단축키: 팝오버가 열려 있고 패널이 떠 있으면 닫고 패널에 포커스를 준다")
+expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true, panelKey: true), .closePopoverAndFocusPanel,
+            "단축키: 팝오버가 열려 있으면 패널의 키 창 여부와 상관없이 닫고 포커스를 준다")
 
 // MARK: - 머리글 뱃지
 

@@ -26,6 +26,7 @@ final class FloatingPanelController: NSObject {
     private var listState: PopoverState?
     private var panelHeight: PanelContentHeight?
     private var keyMonitor: Any?
+    private var previousApp: NSRunningApplication?
 
     var onHover: ((Bool) -> Void)? {
         didSet { hosting.onHover = onHover }
@@ -92,7 +93,13 @@ final class FloatingPanelController: NSObject {
             model: model,
             state: state,
             handlesSettings: false,
-            close: { state.selectedIndex = nil }
+            close: { [weak self] in
+                if state.selectedIndex != nil {
+                    state.selectedIndex = nil
+                } else {
+                    self?.restorePreviousApp()
+                }
+            }
         )
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
             guard let self, self.panel.isVisible, self.panel.isKeyWindow, event.window === self.panel else {
@@ -104,6 +111,25 @@ final class FloatingPanelController: NSObject {
             }
             return keyboard.handle(event) ? nil : event
         }
+    }
+
+    /// 목록 패널이 키 창인지. 전역 단축키가 숨길지 포커스를 줄지 가른다.
+    var isKey: Bool { panel.isKeyWindow }
+
+    /// 목록 패널을 키 창으로 만든다. `.nonactivatingPanel` 이라 다른 앱은 앞으로 나오지 않는다.
+    func focus() {
+        guard options.acceptsKeyboard, !panel.isKeyWindow else { return }
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        previousApp = frontmost?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// 포커스를 넘겨받기 전의 앱으로 돌려준다. 기억한 앱이 없거나 이미 끝났으면 아무것도 하지 않는다.
+    private func restorePreviousApp() {
+        guard let app = previousApp else { return }
+        previousApp = nil
+        guard !app.isTerminated else { return }
+        app.activate(options: [])
     }
 
     static func board(model: AppModel) -> FloatingPanelController {
@@ -222,6 +248,7 @@ final class FloatingPanelController: NSObject {
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
+            previousApp = nil
             listState?.reset()
             // 숨긴 창에는 mouseExited 가 오지 않아, 다시 뜰 때 남은 위치로 호버가 켜지지 않게 비운다.
             hosting.onPointerMove?(nil)

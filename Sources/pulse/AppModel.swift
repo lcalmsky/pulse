@@ -73,6 +73,9 @@ final class AppModel: ObservableObject {
     private var errorGeneration = 0
     private var localReading = false
 
+    /// 패널 컨트롤러가 생긴 뒤 AppDelegate 가 넣는다. 바닥글에서 패널을 띄울 때 키보드 포커스를 준다.
+    var onPanelFocusRequest: (() -> Void)?
+
     init() {
         let settings = AppSettings(
             densityRaw: defaults.string(forKey: AppSettings.densityKey),
@@ -712,6 +715,7 @@ final class AppModel: ObservableObject {
         panelVisible.toggle()
         if panelVisible {
             deck.dismissAll()
+            onPanelFocusRequest?()
         }
         publishCards()
     }

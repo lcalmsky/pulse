@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController = StatusItemController(model: model)
         panelController = FloatingPanelController.board(model: model)
         cardPanelController = FloatingPanelController.cards(model: model)
+        model.onPanelFocusRequest = { [weak self] in self?.panelController?.focus() }
 
         let hotKey = GlobalHotKey { [weak self] in self?.handleHotKey() }
         self.hotKey = hotKey
@@ -37,15 +38,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let statusController else { return }
         switch HotKeyRouting.action(
             popoverOpen: statusController.isPopoverShown,
-            panelVisible: model.panelVisible
+            panelVisible: model.panelVisible,
+            panelKey: panelController?.isKey ?? false
         ) {
         case .openPopover:
             statusController.showPopoverFromHotKey()
         case .closePopoverAndShowPanel:
             statusController.closePopoverFromHotKey()
             model.showPanel()
-        case .closePopover:
+            panelController?.focus()
+        case .closePopoverAndFocusPanel:
             statusController.closePopoverFromHotKey()
+            panelController?.focus()
+        case .focusPanel:
+            panelController?.focus()
         case .hidePanel:
             model.hidePanel()
         }

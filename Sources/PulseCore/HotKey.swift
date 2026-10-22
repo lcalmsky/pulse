@@ -3,15 +3,17 @@ import Foundation
 public enum HotKeyAction: Equatable {
     case openPopover
     case closePopoverAndShowPanel
-    case closePopover
+    case closePopoverAndFocusPanel
+    case focusPanel
     case hidePanel
 }
 
 public enum HotKeyRouting {
-    public static func action(popoverOpen: Bool, panelVisible: Bool) -> HotKeyAction {
+    public static func action(popoverOpen: Bool, panelVisible: Bool, panelKey: Bool) -> HotKeyAction {
         if popoverOpen {
-            return panelVisible ? .closePopover : .closePopoverAndShowPanel
+            return panelVisible ? .closePopoverAndFocusPanel : .closePopoverAndShowPanel
         }
-        return panelVisible ? .hidePanel : .openPopover
+        guard panelVisible else { return .openPopover }
+        return panelKey ? .hidePanel : .focusPanel
     }
 }
