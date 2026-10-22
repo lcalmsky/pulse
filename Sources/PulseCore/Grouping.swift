@@ -86,9 +86,9 @@ public struct DisplayItem: Equatable, Identifiable {
     /// 지금 하는 일 한 줄을 그리는 행. 확인 필요 섹션에 있는 stall 도 진행 중으로 다룬다.
     public var isRunning: Bool { group == .working || isStall }
 
-    /// 단계 줄을 펼칠 수 있는 행. 데이터 파일 경로와 그릴 단계가 모두 있어야 한다.
+    /// 진행 중 섹션에서 단계 줄을 펼칠 수 있는 행. 데이터 파일 경로와 그릴 단계가 모두 있어야 한다.
     public var showsStepLine: Bool {
-        guard dataPath != nil else { return false }
+        guard group == .working, dataPath != nil else { return false }
         return !Stepper.segments(states: stepStates, counts: counts, total: progress?.total).isEmpty
     }
 

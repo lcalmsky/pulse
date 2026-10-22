@@ -1851,6 +1851,34 @@ expectEqual(StepDisclosure.next(from: .collapsed, by: 1, toEnd: false, canShowFu
 expectEqual(StepDisclosure.next(from: .collapsed, by: 1, toEnd: true, canShowFull: false), .window,
             "단계 펼침: 전체 단계가 없으면 접힘에서 ⌥→ 는 세 단계")
 
+// MARK: - 단계 줄
+
+let stepLineGrouped = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "working", bucket: "working", dataPath: "/tmp/a.json",
+                counts: SessionCounts(done: 1, left: 1, now: 1), total: 3,
+                stepStates: ["done", "now", "left"]),
+        Session(sessionId: "workingNoData", bucket: "working",
+                counts: SessionCounts(done: 1, left: 1, now: 1), total: 3,
+                stepStates: ["done", "now", "left"]),
+        Session(sessionId: "wait", bucket: "wait", dataPath: "/tmp/a.json",
+                counts: SessionCounts(done: 1, left: 1, now: 1), total: 3,
+                stepStates: ["done", "now", "left"]),
+        Session(sessionId: "done", bucket: "done", since: now, dataPath: "/tmp/a.json",
+                counts: SessionCounts(done: 3), total: 3,
+                stepStates: ["done", "done", "done"]),
+    ]),
+    now: now
+)
+expectEqual(stepLineGrouped.working.first { $0.sessionId == "working" }?.showsStepLine, true,
+            "단계 줄: 진행 중이고 데이터 파일이 있으면 펼칠 수 있다")
+expectEqual(stepLineGrouped.working.first { $0.sessionId == "workingNoData" }?.showsStepLine, false,
+            "단계 줄: 데이터 파일이 없으면 펼칠 수 없다")
+expectEqual(stepLineGrouped.attention.first { $0.sessionId == "wait" }?.showsStepLine, false,
+            "단계 줄: 확인 필요 행은 펼칠 수 없다")
+expectEqual(stepLineGrouped.done.first { $0.sessionId == "done" }?.showsStepLine, false,
+            "단계 줄: 완료 행은 펼칠 수 없다")
+
 // MARK: - 되돌리기 토스트
 
 expectEqual(UndoToast.duration, 6, "토스트: 6초")
