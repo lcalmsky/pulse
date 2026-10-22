@@ -38,6 +38,14 @@ cat > "$shims/gh" <<EOF
 #!/bin/bash
 echo "\$*" >> "$work/gh.log"
 [[ "\$1 \$2" != "api user" ]] || echo lcalmsky
+if [[ "\$1 \$2" == "release create" ]]; then
+    while ((\$# > 0)); do
+        if [[ "\$1" == --notes-file ]]; then
+            cp "\$2" "$work/release-notes"
+        fi
+        shift
+    done
+fi
 exit 0
 EOF
 cat > "$shims/git" <<EOF
@@ -175,6 +183,8 @@ expect_eq "전체 실행: formula 커밋" "$(g log -1 --format=%s)" "chore: Form
 expect_eq "전체 실행: url 갱신" "$(formula_line url)" '  url "https://github.com/lcalmsky/pulse/archive/refs/tags/v0.2.1.tar.gz"'
 expect_eq "전체 실행: 푸시 순서" "$(tr '\n' '|' < "$work/push.log")" "push origin main|push origin v0.2.1|push origin main|"
 expect_eq "전체 실행: 릴리즈 생성" "$(grep -c '^release create v0.2.1 ' "$work/gh.log")" "1"
+check "전체 실행: 업데이트 안내" 0 "업데이트: brew upgrade lcalmsky/pulse/pulse"
+expect_eq "전체 실행: 릴리즈 노트 업데이트 안내" "$(grep -c 'brew upgrade lcalmsky/pulse/pulse' "$work/release-notes" 2>/dev/null || true)" "1"
 
 echo "release-selftest: $total checks, $failures failures"
 ((failures == 0))

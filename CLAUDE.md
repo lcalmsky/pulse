@@ -61,13 +61,13 @@
 6. 태그로 GitHub Release 를 만들고, 본문에 바뀐 기능과 업데이트 방법을 적는다.
 7. 태그 tarball 의 sha256 을 구한다.
 8. `Formula/pulse.rb` 의 url 과 sha256 을 새 값으로 바꿔 `chore: Formula vX.Y.Z` 로 커밋하고 푸시한다.
-9. 릴리즈 URL 과 `brew upgrade pulse` 를 안내한다.
+9. 릴리즈 URL 과 `brew upgrade lcalmsky/pulse/pulse` 를 안내한다.
 
 스크립트가 7단계 이후에서 멈췄다면(태그와 Release 는 이미 있는 상태) `scripts/release.sh --formula-only X.Y.Z` 로 7~9단계만 다시 한다. 이 옵션은 `-m` 과 `--notes-file` 을 받지 않고, 1단계에서 태그 `vX.Y.Z` 가 로컬과 원격에 있는지 검사하며 버전 증가 검사와 2~6단계는 건너뛴다.
 
 릴리즈 전에 `gh auth switch -u lcalmsky` 로 활성 계정을 맞추고, origin 이 `git@github-lcalmsky:lcalmsky/pulse.git` 인지 확인한다.
 
-Homebrew 는 같은 저장소를 tap 으로 쓴다(`Formula/pulse.rb`). 릴리즈마다 스크립트가 태그 tarball 의 sha256 으로 formula 를 갱신해 두 번째 커밋을 만든다. formula 를 갱신하지 않으면 `brew upgrade pulse` 가 새 버전을 모른다. 첫 릴리즈 전에는 formula 의 `url` 과 `sha256` 이 자리표시자라 `brew install pulse` 가 실패하고 `--HEAD` 설치만 된다. 첫 `scripts/release.sh` 가 둘을 실제 값으로 바꾼다.
+Homebrew 는 같은 저장소를 tap 으로 쓴다(`Formula/pulse.rb`). 릴리즈마다 스크립트가 태그 tarball 의 sha256 으로 formula 를 갱신해 두 번째 커밋을 만든다. formula 를 갱신하지 않으면 `brew upgrade lcalmsky/pulse/pulse` 가 새 버전을 모른다. 첫 릴리즈 전에는 formula 의 `url` 과 `sha256` 이 자리표시자라 `brew install lcalmsky/pulse/pulse` 가 실패하고 `--HEAD` 설치만 된다. 첫 `scripts/release.sh` 가 둘을 실제 값으로 바꾼다. 짧은 이름 `pulse` 는 공식 cask 의 다른 앱으로 해석된다.
 
 ## 커밋
 

@@ -169,7 +169,7 @@ update_formula() {
     begin_step "9/9 마무리"
     step="완료"
     echo "릴리즈: https://github.com/lcalmsky/pulse/releases/tag/v$version"
-    echo "업데이트: brew upgrade pulse"
+    echo "업데이트: brew upgrade lcalmsky/pulse/pulse"
 }
 
 # 1. 검사
@@ -232,7 +232,7 @@ if ((dry_run)); then
     fi
     echo "7. https://github.com/lcalmsky/pulse/archive/refs/tags/v$version.tar.gz 의 sha256 을 구한다 (최대 5회, 3초 간격)"
     echo "8. Formula/pulse.rb 의 url 과 sha256 을 갱신하고 git commit -am \"chore: Formula v$version\" 후 푸시한다"
-    echo "9. 릴리즈 URL 과 brew upgrade pulse 를 안내한다"
+    echo "9. 릴리즈 URL 과 brew upgrade lcalmsky/pulse/pulse 를 안내한다"
     exit 0
 fi
 
@@ -306,7 +306,7 @@ $summary
 
 ## 업데이트
 
-- Homebrew: \`brew upgrade pulse\`
+- Homebrew: \`brew upgrade lcalmsky/pulse/pulse\`
 - 소스 빌드: \`scripts/bundle.sh\`
 EOF
     notes_file="$notes_tmp"
