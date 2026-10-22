@@ -150,7 +150,7 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 
 - **Progress** draws `5/9` and a step bar. A blocked step is painted orange
 - **Current step** shows the step name and `~N min left`
-- **Steps** clicking the step line expands the previous, current, and next steps inside the row
+- **Steps** clicking the step line expands the previous, current, and next steps inside the row. On the selected row, `→` expands and pressing it again shows all steps, while `←` collapses them one at a time
 - **Progress page** the document button opens the deadhd progress page in a browser
 - **Activity** an activity line such as `1 compaction · 2 in background · Bash 12 seconds ago`
 
@@ -170,6 +170,10 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 |---|---|
 | `⌃⌥P` | Global hotkey. Opens the popover, pressing it again while open shows the floating panel, and when only the panel is visible it hides it |
 | `↑` `↓` | Move through items. Pressing past either end wraps around to the other side |
+| `→` | Expand the selected row's steps. Pressing it again shows all steps |
+| `←` | Collapse the expanded steps one step at a time |
+| `⌥→` | Expand the selected row's steps all the way |
+| `⌥←` | Collapse the expanded steps at once |
 | `↩` | Open the selected item |
 | `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca` |
 | `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes |
