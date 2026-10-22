@@ -31,7 +31,7 @@
 
 | 바뀐 파일 | 다시 찍을 그림 |
 |---|---|
-| `MenuBarIcon.swift`, `StatusItemController.swift` | `menubar.png` |
+| `MenuBarIcon.swift`, `StatusItemController.swift` | `popover.png`, `deadhd-steps.png`, `settings.png` (메뉴 막대 줄) |
 | `Popover/SessionRowView.swift` | `popover.png`, `deadhd-steps.png`, `panel.png` |
 | `Popover/` 의 나머지 파일(`SettingsSheet.swift`, `PopoverStyle.swift` 제외) | `popover.png`, `deadhd-steps.png` |
 | `BoardView.swift`, `FloatingPanelController.swift` | `panel.png` |
