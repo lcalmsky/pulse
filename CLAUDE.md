@@ -100,12 +100,12 @@ scripts/bundle.sh && open build/Pulse.app   # 번들
 README 가 쓰는 그림은 `docs/images/` 아래에 있고, 목록의 정본은 `docs/images/README.md` 다. 어떤 변경에 어떤 그림을 다시 찍는지는 위 「그림 대조표」를 따른다.
 
 ```bash
-scripts/demo.sh start                       # 데모 세션 5개를 띄운다. 팝오버·단계 펼침·설정·카드 그림용
-scripts/demo.sh start --many                # 세션 15개를 띄운다. 플로팅 패널 그림용
+scripts/demo.sh start                       # 데모 세션 5개를 띄운다. 팝오버·플로팅 패널·단계 펼침·설정·카드 그림용
+scripts/demo.sh start --many                # 세션 15개를 띄운다
 scripts/demo.sh start --lang en             # 영어 데모 세션 5개를 띄운다. 영어판 그림용
-scripts/demo.sh start --many --lang en      # 영어 세션 15개를 띄운다. 영어판 플로팅 패널 그림용
+scripts/demo.sh start --many --lang en      # 영어 세션 15개를 띄운다
 scripts/demo.sh fire done                   # 끝남 카드를 띄운다. attention, both 도 있다
 scripts/demo.sh stop                        # 데모 세션을 내린다
 ```
 
-`scripts/demo.sh` 는 `start [--many] [--replace] [--lang ko|en]`, `render [--many] [--lang ko|en] <디렉터리>`, `fire done|attention|both`, `stop` 을 받는다. 영어 그림은 `--lang en` 데모로 찍고 이름을 `<이름>.en.png` 로 붙인다. 단계 펼침은 팝오버에서 `api-server` 행의 단계 줄을 누른 상태로 찍고, 카드는 팝오버와 패널을 닫은 뒤 `fire` 로 띄워 찍는다. 끝남 카드는 8초 뒤 사라지므로 `fire done` 이 끝나고 4초 안에 찍는다. 메뉴 막대 줄에 다른 앱의 아이콘이 함께 찍히면 Pulse 아이콘 주변만 남기고 지운다.
+`scripts/demo.sh` 는 `start [--many] [--replace] [--lang ko|en]`, `render [--many] [--lang ko|en] <디렉터리>`, `fire done|attention|both`, `stop` 을 받는다. 영어 그림은 `--lang en` 데모로 찍고 이름을 `<이름>.en.png` 로 붙인다. 단계 펼침은 팝오버에서 `api-server` 행의 단계 줄을 누른 상태로 찍고, 카드는 팝오버와 패널을 닫은 뒤 `fire` 로 띄워 찍는다. 플로팅 패널은 팝오버 바닥글의 패널 버튼으로 띄우고, 팝오버 그림과 같은 비율(506×683pt, 2x 로 1012×1366px)로 벽지 여백을 두고 찍는다. 끝남 카드는 8초 뒤 사라지므로 `fire done` 이 끝나고 4초 안에 찍는다. 메뉴 막대 줄에 다른 앱의 아이콘이 함께 찍히면 Pulse 아이콘 주변만 남기고 지운다.

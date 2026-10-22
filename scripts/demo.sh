@@ -23,7 +23,7 @@ usage() {
                                                   --lang en 은 영어 데이터와 PULSE_LANG=en 을 쓴다
   scripts/demo.sh render [--many] [--lang ko|en] <디렉터리>
                                                   템플릿을 현재 시각으로 전개한다
-                                                  --many 는 세션 15개짜리 묶음(플로팅 패널용)을 쓴다
+                                                  --many 는 세션 15개짜리 묶음을 쓴다
   scripts/demo.sh fire done                       새 「끝남」 세션으로 끝남 카드를 띄운다
   scripts/demo.sh fire attention                  새 「확인 필요」 세션으로 카드를 띄운다
   scripts/demo.sh fire both                       둘 다 넣어 여러 장 카드를 띄운다

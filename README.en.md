@@ -67,13 +67,12 @@ When there are no sessions it shows an empty state, and when sessions cannot be 
 
 <table width="100%">
 <tr>
-<td width="42%" valign="top"><img src="docs/images/panel.en.png" alt="Floating panel" width="300"></td>
+<td width="42%" valign="top"><img src="docs/images/panel.en.png" alt="Floating panel" width="360"></td>
 <td valign="top">
 
-Keeps the same list as the popover **in a separate window.**
+Keeps the same list as the popover **in a separate window.** You can drag it and resize it, and it remembers its position and size.
 
-- Drag to move and resize it, and it remembers its position and size
-- Scrolls inside once it exceeds 70 percent of the screen height
+- Its height follows the content and scrolls inside once it exceeds 70 percent of the screen height
 - Appears on every Space
 - Hide it with the close button in the header or `⌃⌥P`
 
@@ -112,7 +111,7 @@ On macOS 26 and later it uses Liquid Glass, and on earlier versions a blur backg
 <td width="42%" valign="top"><img src="docs/images/settings.en.png" alt="Settings sheet" width="360"></td>
 <td valign="top">
 
-Open it with the gear button or `⌘,`.
+Open it with the gear button or `⌘,`. Change the density, theme, and notifications here, and check the hotkey status.
 
 | Item | Choice |
 |---|---|
@@ -252,7 +251,7 @@ swift run pulse-selftest    # Checks PulseCore logic. Does not use XCTest
 scripts/bundle.sh
 ```
 
-- **Demos** `scripts/demo.sh start` launches sessions, `fire done|attention|both` shows cards, and `stop` takes them down. `start --many` launches 15 sessions for the floating panel image. Every example image is captured from these demos, so the project names and text on screen are made up.
+- **Demos** `scripts/demo.sh start` launches sessions, `fire done|attention|both` shows cards, and `stop` takes them down. `start --many` launches 15 sessions. Every example image is captured from these demos, so the project names and text on screen are made up.
 - **Release** `scripts/release.sh X.Y.Z -m "<summary of changed features>"` does the version, build, checks, tag, GitHub release, and Homebrew formula update in one go. If it stopped at the step that downloads the tarball, `scripts/release.sh --formula-only X.Y.Z` redoes only the formula update. `scripts/release-selftest.sh` checks this script.
 - Repository rules are in [CLAUDE.md](CLAUDE.md).
 

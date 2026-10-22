@@ -10,7 +10,7 @@ README 가 쓰는 그림 목록입니다. 각 그림은 `scripts/demo.sh` 데모
 - `settings.png` 설정 시트
 - `deadhd-steps.png` deadhd 단계 펼침
 
-영어판은 같은 그림을 `scripts/demo.sh start --lang en` 데모로 찍어 이름 뒤에 `.en.png` 를 붙입니다. 플로팅 패널은 `scripts/demo.sh start --many --lang en` 으로 찍습니다. `README.en.md` 가 이 7장을 씁니다.
+영어판은 같은 그림을 `scripts/demo.sh start --lang en` 데모로 찍어 이름 뒤에 `.en.png` 를 붙입니다. `README.en.md` 가 이 7장을 씁니다.
 
 - `popover.en.png` 팝오버 (영어판)
 - `panel.en.png` 플로팅 패널 (영어판)

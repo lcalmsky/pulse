@@ -67,13 +67,12 @@ brew services start pulse
 
 <table width="100%">
 <tr>
-<td width="42%" valign="top"><img src="docs/images/panel.png" alt="플로팅 패널" width="300"></td>
+<td width="42%" valign="top"><img src="docs/images/panel.png" alt="플로팅 패널" width="360"></td>
 <td valign="top">
 
-팝오버와 같은 목록을 **별도 창에 계속 띄워 둡니다.**
+팝오버와 같은 목록을 **별도 창에 계속 띄워 둡니다.** 끌어 옮기고 크기를 바꿀 수 있고, 위치와 크기를 기억합니다.
 
-- 끌어 옮기고 크기를 바꿀 수 있고, 위치와 크기를 기억합니다
-- 화면 높이의 70% 를 넘으면 안에서 스크롤합니다
+- 높이는 내용에 맞추고, 화면 높이의 70% 를 넘으면 안에서 스크롤합니다
 - 모든 Space 에서 보입니다
 - 머리글의 닫기 버튼이나 `⌃⌥P` 로 숨깁니다
 
@@ -112,7 +111,7 @@ macOS 26 이상에서는 Liquid Glass, 그 아래에서는 블러 배경입니�
 <td width="42%" valign="top"><img src="docs/images/settings.png" alt="설정 시트" width="360"></td>
 <td valign="top">
 
-톱니 버튼이나 `⌘,` 로 엽니다.
+톱니 버튼이나 `⌘,` 로 엽니다. 밀도, 테마, 알림을 여기서 바꾸고 단축키 상태를 확인합니다.
 
 | 항목 | 선택 |
 |---|---|
@@ -252,7 +251,7 @@ swift run pulse-selftest    # PulseCore 로직 검사. XCTest 는 쓰지 않습�
 scripts/bundle.sh
 ```
 
-- **데모** `scripts/demo.sh start` 로 세션을 띄우고 `fire done|attention|both` 로 카드를 띄우며 `stop` 으로 내립니다. `start --many` 는 플로팅 패널 그림용으로 세션 15개를 띄웁니다. 예시 그림은 모두 이 데모로 찍어서 프로젝트 이름과 문구가 가짜입니다.
+- **데모** `scripts/demo.sh start` 로 세션을 띄우고 `fire done|attention|both` 로 카드를 띄우며 `stop` 으로 내립니다. `start --many` 는 세션 15개를 띄웁니다. 예시 그림은 모두 이 데모로 찍어서 프로젝트 이름과 문구가 가짜입니다.
 - **릴리즈** `scripts/release.sh X.Y.Z -m "<바뀐 기능 요약>"` 하나로 버전, 빌드, 검사, 태그, GitHub Release, Homebrew formula 갱신을 합니다. tarball 을 받는 단계에서 멈췄다면 `scripts/release.sh --formula-only X.Y.Z` 로 formula 갱신만 다시 합니다. `scripts/release-selftest.sh` 가 이 스크립트를 검사합니다.
 - 저장소 규칙은 [CLAUDE.md](CLAUDE.md) 에 있습니다.
 
