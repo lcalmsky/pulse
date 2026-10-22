@@ -23,8 +23,9 @@
 
 ```sh
 brew tap lcalmsky/pulse https://github.com/lcalmsky/pulse
-brew install pulse
-brew services start pulse
+brew trust lcalmsky/pulse
+brew install lcalmsky/pulse/pulse
+brew services start lcalmsky/pulse/pulse
 ```
 
 메뉴 막대에 파형을 그린 작은 링이 생깁니다. 링을 누르거나 `⌃⌥P` 를 누르면 팝오버가 열립니다.
@@ -203,10 +204,13 @@ deadhd 를 쓰지 않는 세션은 체크리스트와 단계 펼침만 없습니
 
 ```sh
 brew tap lcalmsky/pulse https://github.com/lcalmsky/pulse
-brew install pulse          # 최신 소스는 brew install --HEAD pulse
-brew services start pulse
-brew upgrade pulse          # 업데이트
+brew trust lcalmsky/pulse
+brew install lcalmsky/pulse/pulse          # 최신 소스는 brew install --HEAD lcalmsky/pulse/pulse
+brew services start lcalmsky/pulse/pulse
+brew upgrade lcalmsky/pulse/pulse          # 업데이트
 ```
+
+공식 Homebrew 에 같은 이름 `pulse` 의 다른 앱 cask 가 있어 짧은 이름을 쓰면 그 앱이 설치되므로 `lcalmsky/pulse/pulse` 전체 이름을 씁니다. Homebrew 7 부터는 `brew trust` 로 tap 을 신뢰해야 formula 를 불러옵니다.
 
 ### 소스에서 빌드
 

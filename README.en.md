@@ -23,8 +23,9 @@
 
 ```sh
 brew tap lcalmsky/pulse https://github.com/lcalmsky/pulse
-brew install pulse
-brew services start pulse
+brew trust lcalmsky/pulse
+brew install lcalmsky/pulse/pulse
+brew services start lcalmsky/pulse/pulse
 ```
 
 A small ring with a heartbeat line appears in the menu bar. Click the ring or press `⌃⌥P` to open the popover.
@@ -203,10 +204,13 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 
 ```sh
 brew tap lcalmsky/pulse https://github.com/lcalmsky/pulse
-brew install pulse          # latest source: brew install --HEAD pulse
-brew services start pulse
-brew upgrade pulse          # update
+brew trust lcalmsky/pulse
+brew install lcalmsky/pulse/pulse          # latest source: brew install --HEAD lcalmsky/pulse/pulse
+brew services start lcalmsky/pulse/pulse
+brew upgrade lcalmsky/pulse/pulse          # update
 ```
+
+Homebrew's official repositories also have a cask named `pulse` for a different app, so the short name installs that app instead; these commands use the full `lcalmsky/pulse/pulse` name. Starting with Homebrew 7, a third-party tap must be trusted with `brew trust` before its formula can be loaded.
 
 ### Build from source
 
