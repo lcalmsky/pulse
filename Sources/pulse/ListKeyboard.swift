@@ -20,7 +20,7 @@ struct ListKeyboard {
 
         switch event.keyCode {
         case 53:
-            if !state.query.isEmpty {
+            if !state.query.isEmpty || state.searchFocused {
                 state.clearSearch()
                 state.syncSelection(to: model.groups)
             } else if handlesSettings, state.settingsOpen {
@@ -69,8 +69,8 @@ struct ListKeyboard {
                 state.syncSelection(to: model.groups)
                 return true
             }
-            // 키를 누르고 있어 생기는 반복은 삼킨다. 지우기 반복이 확인 처리로 새지 않게.
-            if event.isARepeat { return true }
+            // 검색어를 다 지운 뒤 한 번 더 누른 ⌫ 와 키 반복이 확인 처리로 새지 않게 한다.
+            if event.isARepeat || state.searchFocused { return true }
             guard let item = selectedItem(in: items) else { return true }
             model.acknowledge(item)
             return true
@@ -89,6 +89,7 @@ struct ListKeyboard {
 
         // ⌘·⌃ 없이 친 글자는 검색어가 된다. 필드가 포커스를 받은 뒤로는 조합 입력을 위해 필드에 넘긴다.
         guard let text = typedText(event), !state.searchFocused else { return false }
+        if state.query.isEmpty, text.trimmingCharacters(in: .whitespaces).isEmpty { return false }
         state.query += text
         state.syncSelection(to: model.groups)
         state.searchFocusRequest += 1

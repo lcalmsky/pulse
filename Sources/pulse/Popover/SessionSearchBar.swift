@@ -68,6 +68,13 @@ struct SessionSearchBar: View {
 
     private func focus() {
         // 새로 그려진 필드가 같은 갱신 주기에 있지 않을 수 있어 다음 런루프에 넘긴다.
-        DispatchQueue.main.async { focused = true }
+        // macOS 필드는 포커스를 받으면 글자를 전부 선택하므로, 첫 글자가 다음 글자에 덮이지 않게 커서를 끝으로 옮긴다.
+        DispatchQueue.main.async {
+            focused = true
+            DispatchQueue.main.async {
+                guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+                editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
+            }
+        }
     }
 }
