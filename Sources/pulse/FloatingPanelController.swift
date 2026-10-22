@@ -12,15 +12,19 @@ final class FloatingPanelController: NSObject {
         let cornerRadius: CGFloat
         /// true 면 macOS 26 의 Liquid Glass(NSGlassEffectView)로 창 배경을 그린다. 그 아래 OS 에서는 NSVisualEffectView 로 돌아간다.
         let liquidGlass: Bool
+        /// 목록 패널만 클릭했을 때 키 창이 되어 목록 키를 받는다.
+        let acceptsKeyboard: Bool
     }
 
-    private let panel: NSPanel
+    private let panel: ListPanel
     private let hosting: FirstMouseHostingView
     private let options: Options
     private let defaults = UserDefaults.standard
     private var cancellables: Set<AnyCancellable> = []
     private var manualSize = false
     private var programmaticSize: NSSize?
+    private var listState: PopoverState?
+    private var keyMonitor: Any?
 
     var onHover: ((Bool) -> Void)? {
         didSet { hosting.onHover = onHover }
@@ -37,7 +41,7 @@ final class FloatingPanelController: NSObject {
         content: (@escaping () -> Void) -> AnyView
     ) {
         self.options = options
-        panel = NSPanel(
+        panel = ListPanel(
             contentRect: NSRect(x: 0, y: 0, width: options.defaultWidth, height: 240),
             styleMask: options.fixedWidth
                 ? [.borderless, .nonactivatingPanel]
@@ -75,6 +79,30 @@ final class FloatingPanelController: NSObject {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+        }
+    }
+
+    /// 목록 패널이 키 창일 때만 공용 목록 키 처리로 넘긴다.
+    func installListKeyboard(model: AppModel, state: PopoverState) {
+        listState = state
+        let keyboard = ListKeyboard(
+            model: model,
+            state: state,
+            handlesSettings: false,
+            close: { state.selectedIndex = nil }
+        )
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+            guard let self, self.panel.isVisible, self.panel.isKeyWindow, event.window === self.panel else {
+                return event
+            }
+            if event.type == .flagsChanged {
+                state.optionDown = event.modifierFlags.contains(.option)
+                return event
+            }
+            return keyboard.handle(event) ? nil : event
+        }
     }
 
     static func board(model: AppModel) -> FloatingPanelController {
@@ -86,20 +114,24 @@ final class FloatingPanelController: NSObject {
             model.$hiddenDoneCount.map { _ in () }.eraseToAnyPublisher(),
             model.$recentAcknowledgedCount.map { _ in () }.eraseToAnyPublisher(),
         ]).eraseToAnyPublisher()
-        return FloatingPanelController(
+        let state = PopoverState()
+        let controller = FloatingPanelController(
             options: Options(
                 defaultWidth: 440,
                 minimumWidth: 340,
                 fixedWidth: false,
                 remembersFrame: true,
                 cornerRadius: 16,
-                liquidGlass: false
+                liquidGlass: false,
+                acceptsKeyboard: true
             ),
             visible: model.$panelVisible.eraseToAnyPublisher(),
             resizeTriggers: triggers
         ) { updateSize in
-            AnyView(BoardView(model: model, onContentHeightChange: updateSize))
+            AnyView(BoardView(model: model, state: state, onContentHeightChange: updateSize))
         }
+        controller.installListKeyboard(model: model, state: state)
+        return controller
     }
 
     static func cards(model: AppModel) -> FloatingPanelController {
@@ -115,7 +147,8 @@ final class FloatingPanelController: NSObject {
                 fixedWidth: true,
                 remembersFrame: false,
                 cornerRadius: 14,
-                liquidGlass: true
+                liquidGlass: true,
+                acceptsKeyboard: false
             ),
             visible: model.$cardPanelVisible.eraseToAnyPublisher(),
             resizeTriggers: triggers
@@ -140,7 +173,9 @@ final class FloatingPanelController: NSObject {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
-        panel.becomesKeyOnlyIfNeeded = true
+        panel.acceptsKeyboard = options.acceptsKeyboard
+        // 키를 받는 패널은 클릭할 때만 키 창이 되고, 그 밖에는 띄워도 키를 가져가지 않는다.
+        panel.becomesKeyOnlyIfNeeded = !options.acceptsKeyboard
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     }
 
@@ -181,6 +216,7 @@ final class FloatingPanelController: NSObject {
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
+            listState?.reset()
             // 숨긴 창에는 mouseExited 가 오지 않아, 다시 뜰 때 남은 위치로 호버가 켜지지 않게 비운다.
             hosting.onPointerMove?(nil)
         }
@@ -279,6 +315,13 @@ final class FloatingPanelController: NSObject {
         defaults.set(Double(panel.frame.width), forKey: "panelWidth")
         defaults.set(Double(panel.frame.height), forKey: "panelHeight")
     }
+}
+
+/// borderless NSPanel 은 기본적으로 키 창이 되지 않는다. 목록 패널만 키 입력을 받는다.
+private final class ListPanel: NSPanel {
+    var acceptsKeyboard = false
+
+    override var canBecomeKey: Bool { acceptsKeyboard }
 }
 
 /// 비활성 패널에서 첫 클릭이 창 활성화에만 쓰이지 않고 버튼에 닿게 한다.

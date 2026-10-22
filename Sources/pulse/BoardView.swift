@@ -4,6 +4,7 @@ import PulseCore
 
 struct BoardView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var state: PopoverState
     var onContentHeightChange: (() -> Void)?
 
     @State private var naturalHeight: CGFloat = 0
@@ -11,10 +12,18 @@ struct BoardView: View {
     var body: some View {
         Group {
             if naturalHeight > maximumHeight {
-                SlimScrollView {
-                    board
+                ScrollViewReader { proxy in
+                    SlimScrollView {
+                        board
+                    }
+                    .frame(height: maximumHeight)
+                    .onChange(of: state.selectedIndex) { _ in
+                        scrollToSelection(proxy)
+                    }
+                    .onChange(of: state.revealRequest) { _ in
+                        revealSelection(proxy)
+                    }
                 }
-                .frame(height: maximumHeight)
             } else {
                 board
             }
@@ -31,6 +40,10 @@ struct BoardView: View {
     private var board: some View {
         VStack(alignment: .leading, spacing: 10) {
             PopoverHeader(model: model, onClose: { model.hidePanel() })
+
+            if !state.query.isEmpty || state.searchFocused {
+                SessionSearchBar(model: model, state: state)
+            }
 
             if model.recentAcknowledgedCount > 0 {
                 HStack(spacing: 5) {
@@ -85,6 +98,12 @@ struct BoardView: View {
                     .foregroundColor(PopoverPalette.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
+            } else if sections.isEmpty, !state.query.isEmpty {
+                Text(L10n.noSearchResults)
+                    .font(.system(size: 11))
+                    .foregroundColor(PopoverPalette.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
             }
             ForEach(Array(sections.enumerated()), id: \.element.group) { index, section in
                 SessionSectionLabel(
@@ -97,13 +116,14 @@ struct BoardView: View {
                         item: item,
                         group: section.group,
                         model: model,
-                        selected: false,
-                        optionDown: false
+                        selected: isSelected(item),
+                        optionDown: state.optionDown
                     )
                     .padding(.horizontal, 8)
                     .padding(.bottom, section.group == .attention ? 12 : 0)
+                    .id(item.rowID)
                 }
-                if section.group == .done, let overflow = model.groups.doneOverflowText {
+                if section.group == .done, state.query.isEmpty, let overflow = model.groups.doneOverflowText {
                     Text(overflow)
                         .font(.system(size: 11))
                         .foregroundColor(PopoverPalette.secondary)
@@ -117,9 +137,33 @@ struct BoardView: View {
     }
 
     private var sections: [SessionSection] {
-        DisplayGroup.allCases.compactMap { group in
-            let items = model.groups.visibleItems(for: group)
-            return items.isEmpty ? nil : SessionSection(group: group, items: items)
+        state.filter.sections(in: model.groups, query: state.query)
+    }
+
+    private func isSelected(_ item: DisplayItem) -> Bool {
+        guard let index = state.selectedIndex else { return false }
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
+        guard items.indices.contains(index) else { return false }
+        return items[index].id == item.id
+    }
+
+    private func scrollToSelection(_ proxy: ScrollViewProxy) {
+        guard let index = state.selectedIndex else { return }
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
+        guard items.indices.contains(index) else { return }
+        withAnimation(.easeOut(duration: 0.12)) {
+            proxy.scrollTo(items[index].rowID, anchor: .center)
+        }
+    }
+
+    /// 펼침이 바뀌어 행 높이가 달라진 뒤에 최소한으로 스크롤한다.
+    private func revealSelection(_ proxy: ScrollViewProxy) {
+        guard let index = state.selectedIndex else { return }
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
+        guard items.indices.contains(index) else { return }
+        let rowID = items[index].rowID
+        DispatchQueue.main.async {
+            proxy.scrollTo(rowID, anchor: nil)
         }
     }
 }
