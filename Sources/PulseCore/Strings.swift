@@ -103,9 +103,10 @@ public enum L10n {
         pick("작업 \(duration)째 · 멈췄는지 확인해 보세요", "Working for \(duration) · check if it's stuck")
     }
 
-    /// 확인 필요 카드 메타의 「· 12분째」.
-    public static func durationSoFar(_ duration: String) -> String {
-        pick("\(duration)째", "for \(duration)")
+    /// 확인 필요 카드 메타의 「· 12분째」. 영어는 카드 폭에 맞춰 「12m」 으로 줄인다.
+    public static func durationSoFar(minutes: Int) -> String {
+        if minutes < 60 { return pick("\(minutes)분째", "\(minutes)m") }
+        return pick("\(minutes / 60)시간째", "\(minutes / 60)h")
     }
 
     /// 진행 중 행 상태의 「12분째」.
@@ -118,7 +119,7 @@ public enum L10n {
     }
 
     public static func minutesLeft(_ count: Int) -> String {
-        pick("약 \(count)분 남음", "About \(plural(count, "minute", "minutes")) left")
+        pick("약 \(count)분 남음", "~\(count) min left")
     }
 
     // MARK: - 도구 이름
@@ -258,12 +259,12 @@ public enum L10n {
     public static var lockedAlertsGrouped: String {
         pick(
             "화면이 잠긴 사이의 알림은 돌아오면 한 장으로 묶어요",
-            "Alerts from while the screen was locked come back as one card"
+            "Locked-screen alerts arrive as one card"
         )
     }
     public static var shortcut: String { pick("단축키", "Shortcut") }
     public static var shortcutTaken: String { pick("단축키 ⌃⌥P 를 다른 앱이 쓰고 있어요", "Another app is using ⌃⌥P") }
     public static var shortcutHint: String {
-        pick("한 번: 팝오버 · 열린 채로 한 번 더: 플로팅 패널", "Once: popover · Again while open: floating panel")
+        pick("한 번: 팝오버 · 열린 채로 한 번 더: 플로팅 패널", "Once: popover · Twice: floating panel")
     }
 }

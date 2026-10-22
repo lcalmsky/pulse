@@ -10,6 +10,12 @@ public enum TimePhrase {
         return L10n.hours(Int(seconds / 3600))
     }
 
+    /// 확인 필요 카드 메타의 경과 시간. 1분 미만도 1분으로 본다.
+    public static func soFar(from date: Date?, to now: Date) -> String? {
+        guard let date else { return nil }
+        return L10n.durationSoFar(minutes: max(1, Int(max(0, now.timeIntervalSince(date)) / 60)))
+    }
+
     /// 「N분째」처럼 단위만 붙이는 자리에 쓴다. 1분 미만도 1분으로 본다.
     public static func duration(from date: Date?, to now: Date) -> String? {
         guard let date else { return nil }

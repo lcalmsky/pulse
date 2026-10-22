@@ -3228,13 +3228,15 @@ let enEtaOne = DisplayItem(
     group: .working,
     now: now
 )
-expectEqual(enEtaOne.etaText, "About 1 minute left", "영어 문구: 남은 1분")
+expectEqual(enEtaOne.etaText, "~1 min left", "영어 문구: 남은 1분")
 let enEtaThree = DisplayItem(
     session: Session(sessionId: "eta3", bucket: "working", since: now, eta: now.addingTimeInterval(180)),
     group: .working,
     now: now
 )
-expectEqual(enEtaThree.etaText, "About 3 minutes left", "영어 문구: 남은 3분")
+expectEqual(enEtaThree.etaText, "~3 min left", "영어 문구: 남은 3분")
+expectEqual(L10n.lockedAlertsGrouped, "Locked-screen alerts arrive as one card", "영어 문구: 잠긴 사이 알림 묶음")
+expectEqual(L10n.shortcutHint, "Once: popover · Twice: floating panel", "영어 문구: 단축키 설명")
 let enEmptyTitled = DisplayItem(session: Session(sessionId: "untitled", bucket: "working"), group: .working, now: now)
 expectEqual(enEmptyTitled.title, "Untitled session", "영어 문구: 제목 없는 세션")
 
@@ -3283,7 +3285,9 @@ expectEqual(SessionActivity(compactions: 2, backgroundTasks: 0, lastTool: LastTo
 
 expectEqual(NotificationButton.openInOrca.title, "Open in Orca", "영어 알림 스타일: Orca 열기 제목")
 expectEqual(NotificationButton.snooze.title, "Snooze 10 min", "영어 알림 스타일: 10분 더 제목")
-expectEqual(L10n.durationSoFar("12 minutes"), "for 12 minutes", "영어 카드 메타: 경과 시간")
+expectEqual(L10n.durationSoFar(minutes: 12), "12m", "영어 카드 메타: 경과 분")
+expectEqual(L10n.durationSoFar(minutes: 125), "2h", "영어 카드 메타: 경과 시간")
+expectEqual(TimePhrase.soFar(from: now.addingTimeInterval(-20), to: now), "1m", "영어 카드 메타: 1분 미만은 1m")
 expectEqual(NotificationButton.acknowledge.title, "Dismiss", "영어 알림 스타일: 확인 제목")
 expectEqual(AttentionNotifier.titlePrefix, "Needs your attention", "영어 알림: 확인 필요 제목 접두어")
 expectEqual(DoneNotifier.titlePrefix, "Finished", "영어 알림: 끝남 제목 접두어")
@@ -3323,6 +3327,9 @@ expectEqual(localSession(status: "waiting", waitingFor: "input needed").message,
             "Waiting for your reply", "영어 상태 표: 입력 대기 문구")
 
 L10n.language = .ko
+expectEqual(TimePhrase.soFar(from: now.addingTimeInterval(-720), to: now), "12분째", "카드 메타: 경과 분")
+expectEqual(TimePhrase.soFar(from: now.addingTimeInterval(-7500), to: now), "2시간째", "카드 메타: 경과 시간")
+expectEqual(TimePhrase.soFar(from: nil, to: now), nil, "카드 메타: 기준 시각 없음")
 
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

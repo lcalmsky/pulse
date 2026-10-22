@@ -179,8 +179,8 @@ private struct SingleCard: View {
         meta = meta + Text(L10n.groupAttention)
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(PopoverPalette.attention)
-        if let elapsed = TimePhrase.duration(from: item.sortDate, to: Date()) {
-            meta = meta + Text(" · \(L10n.durationSoFar(elapsed))")
+        if let elapsed = TimePhrase.soFar(from: item.sortDate, to: Date()) {
+            meta = meta + Text(" · \(elapsed)")
                 .font(.system(size: 11))
                 .foregroundColor(PopoverPalette.secondary)
         }
