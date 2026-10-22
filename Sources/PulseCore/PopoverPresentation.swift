@@ -94,6 +94,39 @@ public enum KeyboardSelection {
     }
 }
 
+/// 단계 목록을 펼친 정도. 접힘 → 세 단계 창 → 전체 순서다.
+public enum StepDisclosure: Int, Comparable {
+    case collapsed
+    case window
+    case full
+
+    public static func < (lhs: StepDisclosure, rhs: StepDisclosure) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+
+    /// 키를 눌렀을 때 옮겨 갈 단계. `by` 는 +1(→)·-1(←), `toEnd` 는 ⌥ 동반, `canShowFull` 은 전체 단계 표시 가능 여부다.
+    public static func next(
+        from current: StepDisclosure,
+        by step: Int,
+        toEnd: Bool,
+        canShowFull: Bool
+    ) -> StepDisclosure {
+        guard step != 0 else { return current }
+        if step > 0 {
+            switch current {
+            case .collapsed: return toEnd && canShowFull ? .full : .window
+            case .window: return canShowFull ? .full : .window
+            case .full: return .full
+            }
+        }
+        switch current {
+        case .collapsed: return .collapsed
+        case .window: return .collapsed
+        case .full: return toEnd ? .collapsed : .window
+        }
+    }
+}
+
 public enum UndoToast {
     public static let duration: TimeInterval = 6
 

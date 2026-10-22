@@ -522,6 +522,52 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// 키보드로 단계 펼침을 한 칸 옮긴다. 단계가 실제로 바뀌었으면 true 를 돌려준다.
+    @discardableResult
+    func stepDisclosure(_ item: DisplayItem, by step: Int, toEnd: Bool) -> Bool {
+        let id = item.sessionId
+        let from = disclosure(of: item)
+        // 접힘에서 펼칠 때만 체크리스트를 먼저 읽어야 전체 단계 가능 여부를 알 수 있다.
+        if from == .collapsed, step > 0 {
+            expandedSteps.insert(id)
+            loadChecklist(item)
+        }
+        let target = StepDisclosure.next(
+            from: from,
+            by: step,
+            toEnd: toEnd,
+            canShowFull: canShowFullSteps(item)
+        )
+        applyDisclosure(target, to: item)
+        return target != from
+    }
+
+    private func disclosure(of item: DisplayItem) -> StepDisclosure {
+        guard expandedSteps.contains(item.sessionId) else { return .collapsed }
+        return fullSteps.contains(item.sessionId) ? .full : .window
+    }
+
+    private func canShowFullSteps(_ item: DisplayItem) -> Bool {
+        guard let steps = checklists[item.sessionId]?.steps else { return false }
+        return StepWindow.make(steps.map(\.state)).hasHidden
+    }
+
+    private func applyDisclosure(_ value: StepDisclosure, to item: DisplayItem) {
+        let id = item.sessionId
+        switch value {
+        case .collapsed:
+            expandedSteps.remove(id)
+            fullSteps.remove(id)
+            checklists[id] = nil
+        case .window:
+            expandedSteps.insert(id)
+            fullSteps.remove(id)
+        case .full:
+            expandedSteps.insert(id)
+            fullSteps.insert(id)
+        }
+    }
+
     func toggleFullSteps(_ item: DisplayItem) {
         if fullSteps.contains(item.sessionId) {
             fullSteps.remove(item.sessionId)

@@ -199,7 +199,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 popover.performClose(nil)
             }
             return true
-        case 126, 125, 36, 76, 51, 117:
+        case 126, 125, 36, 76, 51, 117, 123, 124:
             // 설정 시트가 열려 있는 동안에는 목록 단축키를 넘기지 않는다.
             if state.settingsOpen { return true }
         default:
@@ -229,6 +229,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         case 51, 117:
             guard let item = selectedItem(in: items) else { return true }
             model.acknowledge(item)
+            return true
+        case 123, 124:
+            guard let item = selectedItem(in: items), item.showsStepLine else { return true }
+            let changed = model.stepDisclosure(
+                item,
+                by: event.keyCode == 124 ? 1 : -1,
+                toEnd: event.modifierFlags.contains(.option)
+            )
+            if changed { state.revealRequest += 1 }
             return true
         default:
             return false

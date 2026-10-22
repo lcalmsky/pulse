@@ -86,6 +86,12 @@ public struct DisplayItem: Equatable, Identifiable {
     /// 지금 하는 일 한 줄을 그리는 행. 확인 필요 섹션에 있는 stall 도 진행 중으로 다룬다.
     public var isRunning: Bool { group == .working || isStall }
 
+    /// 단계 줄을 펼칠 수 있는 행. 데이터 파일 경로와 그릴 단계가 모두 있어야 한다.
+    public var showsStepLine: Bool {
+        guard dataPath != nil else { return false }
+        return !Stepper.segments(states: stepStates, counts: counts, total: progress?.total).isEmpty
+    }
+
     /// 제목과 같은 이름의 태그는 카드에 같은 글자를 두 번 보이므로 그리지 않는다.
     public var keyTag: String? {
         guard let key else { return nil }

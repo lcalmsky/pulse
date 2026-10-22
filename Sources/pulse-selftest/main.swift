@@ -1815,6 +1815,42 @@ expectEqual(KeyboardSelection.move(from: 0, by: -1, count: 3), 2, "키보드: �
 expectEqual(KeyboardSelection.move(from: 9, by: 1, count: 3), 0, "키보드: 범위를 벗어난 선택은 처음으로")
 expectEqual(KeyboardSelection.move(from: nil, by: 1, count: 0), nil, "키보드: 고를 행이 없으면 없음")
 
+// MARK: - 단계 펼침 키
+
+expect(StepDisclosure.collapsed < .window && StepDisclosure.window < .full, "단계 펼침: 접힘 < 세 단계 < 전체")
+expectEqual(StepDisclosure.next(from: .collapsed, by: 1, toEnd: false, canShowFull: true), .window,
+            "단계 펼침: 접힘에서 → 는 세 단계")
+expectEqual(StepDisclosure.next(from: .collapsed, by: 1, toEnd: true, canShowFull: true), .full,
+            "단계 펼침: 접힘에서 ⌥→ 는 전체")
+expectEqual(StepDisclosure.next(from: .collapsed, by: -1, toEnd: false, canShowFull: true), .collapsed,
+            "단계 펼침: 접힘에서 ← 는 그대로")
+expectEqual(StepDisclosure.next(from: .collapsed, by: -1, toEnd: true, canShowFull: true), .collapsed,
+            "단계 펼침: 접힘에서 ⌥← 는 그대로")
+expectEqual(StepDisclosure.next(from: .window, by: 1, toEnd: false, canShowFull: true), .full,
+            "단계 펼침: 세 단계에서 → 는 전체")
+expectEqual(StepDisclosure.next(from: .window, by: 1, toEnd: true, canShowFull: true), .full,
+            "단계 펼침: 세 단계에서 ⌥→ 는 전체")
+expectEqual(StepDisclosure.next(from: .window, by: -1, toEnd: false, canShowFull: true), .collapsed,
+            "단계 펼침: 세 단계에서 ← 는 접힘")
+expectEqual(StepDisclosure.next(from: .window, by: -1, toEnd: true, canShowFull: true), .collapsed,
+            "단계 펼침: 세 단계에서 ⌥← 는 접힘")
+expectEqual(StepDisclosure.next(from: .full, by: 1, toEnd: false, canShowFull: true), .full,
+            "단계 펼침: 전체에서 → 는 그대로")
+expectEqual(StepDisclosure.next(from: .full, by: 1, toEnd: true, canShowFull: true), .full,
+            "단계 펼침: 전체에서 ⌥→ 는 그대로")
+expectEqual(StepDisclosure.next(from: .full, by: -1, toEnd: false, canShowFull: true), .window,
+            "단계 펼침: 전체에서 ← 는 세 단계")
+expectEqual(StepDisclosure.next(from: .full, by: -1, toEnd: true, canShowFull: true), .collapsed,
+            "단계 펼침: 전체에서 ⌥← 는 접힘")
+expectEqual(StepDisclosure.next(from: .window, by: 1, toEnd: false, canShowFull: false), .window,
+            "단계 펼침: 전체 단계가 없으면 세 단계에서 → 는 그대로")
+expectEqual(StepDisclosure.next(from: .window, by: 1, toEnd: true, canShowFull: false), .window,
+            "단계 펼침: 전체 단계가 없으면 세 단계에서 ⌥→ 도 그대로")
+expectEqual(StepDisclosure.next(from: .collapsed, by: 1, toEnd: false, canShowFull: false), .window,
+            "단계 펼침: 전체 단계가 없으면 접힘에서 → 는 세 단계")
+expectEqual(StepDisclosure.next(from: .collapsed, by: 1, toEnd: true, canShowFull: false), .window,
+            "단계 펼침: 전체 단계가 없으면 접힘에서 ⌥→ 는 세 단계")
+
 // MARK: - 되돌리기 토스트
 
 expectEqual(UndoToast.duration, 6, "토스트: 6초")

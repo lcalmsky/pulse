@@ -91,6 +91,9 @@ struct PopoverView: View {
             .onChange(of: state.selectedIndex) { _ in
                 scrollToSelection(proxy)
             }
+            .onChange(of: state.revealRequest) { _ in
+                revealSelection(proxy)
+            }
         }
     }
 
@@ -107,6 +110,17 @@ struct PopoverView: View {
         guard items.indices.contains(index) else { return }
         withAnimation(.easeOut(duration: 0.12)) {
             proxy.scrollTo(items[index].rowID, anchor: .center)
+        }
+    }
+
+    /// 펼침이 바뀌어 행 높이가 달라진 뒤에 최소한으로 스크롤한다.
+    private func revealSelection(_ proxy: ScrollViewProxy) {
+        guard let index = state.selectedIndex else { return }
+        let items = state.filter.selectableItems(in: model.groups)
+        guard items.indices.contains(index) else { return }
+        let rowID = items[index].rowID
+        DispatchQueue.main.async {
+            proxy.scrollTo(rowID, anchor: nil)
         }
     }
 

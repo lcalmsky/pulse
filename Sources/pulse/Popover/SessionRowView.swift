@@ -219,27 +219,31 @@ struct SessionRowView: View {
             counts: item.counts,
             total: item.progress?.total
         )
-        if !segments.isEmpty {
-            if item.dataPath != nil {
-                Button {
-                    model.toggleSteps(item)
-                } label: {
-                    // plain 스타일은 그려진 획만 클릭되므로 줄 전체를 클릭 영역으로 잡는다.
-                    stepperContent(segments)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7)
-                                .fill(stepHovering ? PopoverPalette.rowHover : Color.clear)
-                                .padding(.leading, 9)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .onHover { stepHovering = $0 }
-                .help(expanded ? L10n.collapseSteps : L10n.expandSteps)
-            } else {
+        if item.showsStepLine {
+            Button {
+                model.toggleSteps(item)
+            } label: {
+                // plain 스타일은 그려진 획만 클릭되므로 줄 전체를 클릭 영역으로 잡는다.
                 stepperContent(segments)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(stepHovering ? PopoverPalette.rowHover : Color.clear)
+                            .padding(.leading, 9)
+                    )
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .onHover { stepHovering = $0 }
+            .help(expanded ? L10n.collapseSteps : L10n.expandSteps)
+            .accessibilityValue(stepDisclosureText)
+        } else if !segments.isEmpty {
+            stepperContent(segments)
         }
+    }
+
+    private var stepDisclosureText: String {
+        guard expanded else { return L10n.stepsCollapsed }
+        return model.fullSteps.contains(item.sessionId) ? L10n.stepsAll : L10n.stepsThree
     }
 
     private func stepperContent(_ segments: [StepSegment]) -> some View {
@@ -270,7 +274,7 @@ struct SessionRowView: View {
             if item.dataPath != nil {
                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(expanded || stepHovering ? PopoverPalette.text : PopoverPalette.secondary)
+                    .foregroundColor(expanded || stepHovering || selected ? PopoverPalette.text : PopoverPalette.secondary)
                     .frame(width: 22, height: 22)
             }
         }

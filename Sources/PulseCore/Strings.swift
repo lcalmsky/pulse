@@ -145,12 +145,15 @@ public enum L10n {
     public static func allStepsCollapse(_ total: Int) -> String {
         pick("전체 \(total)단계 · 접기", "All \(plural(total, "step", "steps")) · collapse")
     }
-    public static var showThreeSteps: String { pick("세 단계만 보기", "Show only three steps") }
-    public static var showAllStepsHelp: String { pick("전체 단계 보기", "Show all steps") }
+    public static var showThreeSteps: String { pick("세 단계만 보기 (←)", "Show only three steps (←)") }
+    public static var showAllStepsHelp: String { pick("전체 단계 보기 (→)", "Show all steps (→)") }
     public static var noStepsYet: String { pick("단계가 아직 없어요", "No steps yet") }
     public static var stepsUnreadable: String { pick("단계 목록을 읽지 못했어요", "Couldn't read the step list") }
-    public static var collapseSteps: String { pick("단계 접기", "Collapse steps") }
-    public static var expandSteps: String { pick("단계 펼치기", "Expand steps") }
+    public static var collapseSteps: String { pick("단계 접기 (←)", "Collapse steps (←)") }
+    public static var expandSteps: String { pick("단계 펼치기 (→)", "Expand steps (→)") }
+    public static var stepsCollapsed: String { pick("접힘", "Collapsed") }
+    public static var stepsThree: String { pick("세 단계", "Three steps") }
+    public static var stepsAll: String { pick("전체 단계", "All steps") }
     public static func deadhdUpdated(_ time: String) -> String {
         pick("deadhd · \(time) 갱신", "deadhd · updated \(time)")
     }
