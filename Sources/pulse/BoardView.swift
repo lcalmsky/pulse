@@ -9,45 +9,82 @@ struct BoardView: View {
     @ObservedObject var panelHeight: PanelContentHeight
     var onContentHeightChange: (() -> Void)?
 
-    @State private var naturalHeight: CGFloat = 0
+    @State private var fixedHeight: CGFloat = 0
+    @State private var contentHeight: CGFloat = 0
+
+    private let boardSpacing: CGFloat = 10
 
     var body: some View {
-        Group {
-            if naturalHeight > scrollLimit {
-                ScrollViewReader { proxy in
-                    SlimScrollView {
-                        board
-                    }
-                    .frame(height: scrollLimit)
-                    .onChange(of: state.selectedIndex) { _ in
-                        scrollToSelection(proxy)
-                    }
-                    .onChange(of: state.revealRequest) { _ in
-                        revealSelection(proxy)
-                    }
-                }
-            } else {
-                board
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
+        board
+            .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    /// 스크롤 뷰 높이. 사용자가 잡아 둔 창 높이가 있으면 그 높이와 화면 높이 70% 중 작은 쪽을 쓴다.
-    /// 창이 내용에 맞춰 커지는 중에는 창 높이를 읽지 않는다. 읽으면 지금 창 높이에 스크롤이 붙어 창이 자라지 못한다.
+    /// 창이 내용에 맞춰 자랄 때 기준이 되는 전체 높이.
+    private var naturalHeight: CGFloat {
+        guard !model.collapsed else { return fixedHeight }
+        return fixedHeight + boardSpacing + contentHeight
+    }
+
+    /// 고정 영역은 그대로 두고 목록만 스크롤할지.
+    private var listScrolls: Bool {
+        naturalHeight > scrollLimit
+    }
+
+    /// 사용자가 직접 잡아 둔 창 높이가 있으면 그 높이를 그대로 쓴다. 창이 내용에 맞춰 커지는 중에는
+    /// 창 높이를 읽지 않는다. 읽으면 지금 창 높이에 스크롤이 붙어 창이 자라지 못한다.
     private var scrollLimit: CGFloat {
-        guard let available = panelHeight.available else { return maximumHeight }
-        return min(maximumHeight, available)
+        panelHeight.available ?? maximumHeight
     }
 
-    /// 패널 높이는 내용에 맞추되 화면의 70% 를 넘으면 그 안에서 스크롤한다.
+    /// 자동 크기일 때의 높이 상한. 패널 높이는 내용에 맞추되 화면의 70% 를 넘으면 목록이 그 안에서 스크롤한다.
     private var maximumHeight: CGFloat {
         guard let screen = NSScreen.main else { return .greatestFiniteMagnitude }
         return floor(screen.visibleFrame.height * 0.7)
     }
 
+    private var listHeight: CGFloat {
+        max(0, scrollLimit - fixedHeight - boardSpacing)
+    }
+
     private var board: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: boardSpacing) {
+            fixed
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: BoardFixedHeightKey.self, value: proxy.size.height)
+                    }
+                )
+                .onPreferenceChange(BoardFixedHeightKey.self) { height in
+                    guard abs(height - fixedHeight) > 0.5 else { return }
+                    fixedHeight = height
+                    onContentHeightChange?()
+                }
+
+            if !model.collapsed {
+                if listScrolls {
+                    ScrollViewReader { proxy in
+                        SlimScrollView {
+                            measuredContent
+                        }
+                        .frame(height: listHeight)
+                        .onChange(of: state.selectedIndex) { _ in
+                            scrollToSelection(proxy)
+                        }
+                        .onChange(of: state.revealRequest) { _ in
+                            revealSelection(proxy)
+                        }
+                    }
+                } else {
+                    measuredContent
+                }
+            }
+        }
+        .frame(minWidth: 340, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 머리글·검색 줄·되돌리기·오류 문구. 목록을 스크롤해도 창에 남는다.
+    private var fixed: some View {
+        VStack(alignment: .leading, spacing: boardSpacing) {
             PopoverHeader(model: model, onClose: { model.hidePanel() })
 
             if !state.query.isEmpty || state.searchFocused {
@@ -80,22 +117,22 @@ struct BoardView: View {
                     .foregroundColor(PopoverPalette.secondary)
                     .padding(.horizontal, 14)
             }
+        }
+    }
 
-            if !model.collapsed {
-                content
+    /// 스크롤 여부와 상관없이 목록의 자연 높이를 잰다. 한쪽 경로에서만 재면 스크롤로 바뀔 때 높이가 0 이 되어 되돌아간다.
+    private var measuredContent: some View {
+        content
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: BoardContentHeightKey.self, value: proxy.size.height)
+                }
+            )
+            .onPreferenceChange(BoardContentHeightKey.self) { height in
+                guard abs(height - contentHeight) > 0.5 else { return }
+                contentHeight = height
+                onContentHeightChange?()
             }
-        }
-        .frame(minWidth: 340, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
-        .background(
-            GeometryReader { proxy in
-                Color.clear.preference(key: BoardHeightKey.self, value: proxy.size.height)
-            }
-        )
-        .onPreferenceChange(BoardHeightKey.self) { height in
-            guard abs(height - naturalHeight) > 0.5 else { return }
-            naturalHeight = height
-            onContentHeightChange?()
-        }
     }
 
     private var content: some View {
@@ -177,7 +214,15 @@ struct BoardView: View {
     }
 }
 
-private struct BoardHeightKey: PreferenceKey {
+private struct BoardFixedHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct BoardContentHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
