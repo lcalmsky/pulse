@@ -52,17 +52,24 @@ public enum SessionFilter: Int, CaseIterable, Identifiable, Equatable {
     }
 
     /// 칩에 맞는 그룹만, 화면에 그리는 개수만큼 잘라 돌려준다. 빈 그룹은 빼 둔다.
-    public func sections(in groups: GroupedSessions) -> [SessionSection] {
-        DisplayGroup.allCases.compactMap { candidate in
+    /// 검색어가 있으면 칩 안의 잘리지 않은 전체 항목에서 일치하는 행만 돌려준다.
+    public func sections(in groups: GroupedSessions, query: String = "") -> [SessionSection] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return DisplayGroup.allCases.compactMap { candidate in
             guard group == nil || group == candidate else { return nil }
-            let items = groups.visibleItems(for: candidate)
+            let items: [DisplayItem]
+            if trimmed.isEmpty {
+                items = groups.visibleItems(for: candidate)
+            } else {
+                items = groups.items(for: candidate).filter { SessionSearch.matches($0, query: trimmed) }
+            }
             return items.isEmpty ? nil : SessionSection(group: candidate, items: items)
         }
     }
 
     /// 키보드로 고를 수 있는 행. 이동 대상이 없는 행은 건너뛴다.
-    public func selectableItems(in groups: GroupedSessions) -> [DisplayItem] {
-        sections(in: groups).flatMap(\.items).filter(\.isActionable)
+    public func selectableItems(in groups: GroupedSessions, query: String = "") -> [DisplayItem] {
+        sections(in: groups, query: query).flatMap(\.items).filter(\.isActionable)
     }
 }
 

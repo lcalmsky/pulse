@@ -79,6 +79,12 @@ public enum L10n {
     public static var untitledSession: String { pick("제목 없는 세션", "Untitled session") }
     public static func moreHidden(_ count: Int) -> String { pick("그 밖에 \(count)개", "\(count) more") }
 
+    // MARK: - 검색
+
+    public static var searchSessions: String { pick("세션 검색", "Search sessions") }
+    public static var noSearchResults: String { pick("일치하는 세션이 없어요", "No matching sessions") }
+    public static var clearSearch: String { pick("검색 지우기", "Clear search") }
+
     // MARK: - 상태 문구
 
     public static var grantPermission: String { pick("권한을 허락해 주세요", "Please grant permission") }

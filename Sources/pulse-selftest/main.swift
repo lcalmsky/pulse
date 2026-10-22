@@ -1797,6 +1797,63 @@ let selectableItems = SessionFilter.all.selectableItems(in: clickGrouped)
 expectEqual(selectableItems.count, 3, "필터: 이동 대상이 없는 행은 빼고 고른다")
 expect(!selectableItems.contains { $0.sessionId == "none" }, "필터: 비활성 행은 고를 수 없다")
 
+// MARK: - 검색
+
+let searchItem = DisplayItem(
+    session: Session(
+        sessionId: "search",
+        bucket: "working",
+        title: "결제 API 리팩터링",
+        key: "API-120",
+        since: now.addingTimeInterval(-120),
+        place: Place(label: "web-dashboard", branch: "feature/checkout"),
+        cwd: "/Users/dev/projects/api-server",
+        orcaTerminal: "term-search",
+        pr: PullRequestLink(number: 42, url: "https://example.com/pr/42", label: "#42"),
+        extraPRs: [PullRequestLink(number: 43, url: "https://example.com/pr/43", label: "hotfix-43")],
+        jiraKey: "PROJ-120",
+        jiraHref: "https://example.com/PROJ-120"
+    ),
+    group: .working,
+    now: now
+)
+expect(SessionSearch.matches(searchItem, query: "결제"), "검색: 제목 일치")
+expect(SessionSearch.matches(searchItem, query: "web-dashboard"), "검색: 워크트리 일치")
+expect(SessionSearch.matches(searchItem, query: "api-server"), "검색: cwd 마지막 요소 일치")
+expect(!SessionSearch.matches(searchItem, query: "projects"), "검색: cwd 중간 요소는 보지 않는다")
+expect(SessionSearch.matches(searchItem, query: "api-120"), "검색: 키 일치, 대소문자 무시")
+expect(SessionSearch.matches(searchItem, query: "WEB"), "검색: 대소문자 무시")
+expect(SessionSearch.matches(searchItem, query: "proj-120"), "검색: 지라 키 일치")
+expect(SessionSearch.matches(searchItem, query: "#42"), "검색: PR 태그 일치")
+expect(SessionSearch.matches(searchItem, query: "hotfix"), "검색: 추가 PR 라벨 일치")
+expect(SessionSearch.matches(searchItem, query: "결제 api"), "검색: 두 낱말이 모두 있으면 일치")
+expect(!SessionSearch.matches(searchItem, query: "결제 없는낱말"), "검색: 한 낱말이라도 없으면 불일치")
+expect(SessionSearch.matches(searchItem, query: ""), "검색: 빈 검색어는 모두 일치")
+expect(SessionSearch.matches(searchItem, query: "   "), "검색: 공백만 있는 검색어는 모두 일치")
+
+let searchGrouped = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "checkout", bucket: "working", title: "결제 화면",
+                since: now.addingTimeInterval(-60), orcaTerminal: "t1"),
+        Session(sessionId: "billing", bucket: "done", title: "정산 배치",
+                since: now.addingTimeInterval(-120), orcaTerminal: "t2"),
+        Session(sessionId: "unrelated", bucket: "working", title: "문서 정리",
+                since: now.addingTimeInterval(-180), orcaTerminal: "t3"),
+    ]),
+    now: now
+)
+let searchSections = SessionFilter.all.sections(in: searchGrouped, query: "결제")
+expectEqual(searchSections.flatMap { $0.items.map(\.sessionId) }, ["checkout"], "검색: 일치하는 행만 남는다")
+expectEqual(searchSections.map(\.group), [.working], "검색: 일치가 없는 섹션은 빼 둔다")
+expectEqual(SessionFilter.all.selectableItems(in: searchGrouped, query: "결제").map(\.sessionId), ["checkout"],
+            "검색: 키 이동 대상도 화면과 같은 목록")
+expect(SessionFilter.done.sections(in: searchGrouped, query: "결제").isEmpty,
+       "검색: 칩 필터 밖은 찾지 않는다")
+expectEqual(SessionFilter.done.sections(in: manyDone, query: "done6").first?.items.map(\.sessionId), ["done6"],
+            "검색: 화면에 잘린 뒤쪽 항목도 찾는다")
+expectEqual(SessionFilter.done.sections(in: manyDone, query: "done").first?.items.count, 7,
+            "검색: 완료도 5개로 자르지 않는다")
+
 // MARK: - 행 동작
 
 expectEqual(PopoverRowAction.resolve(byId["done"]!), .hideDone, "행 동작: 완료는 숨긴다")

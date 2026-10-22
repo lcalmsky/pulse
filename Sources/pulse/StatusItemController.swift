@@ -172,7 +172,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 self.state.optionDown = event.modifierFlags.contains(.option)
                 return event
             }
-            return self.handleKey(event) ? nil : event
+            guard self.popover.isShown else { return event }
+            return self.keyboard.handle(event) ? nil : event
         }
     }
 
@@ -184,74 +185,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         state.optionDown = false
     }
 
-    private func handleKey(_ event: NSEvent) -> Bool {
-        guard popover.isShown else { return false }
-        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "," {
-            state.settingsOpen.toggle()
-            return true
-        }
-
-        switch event.keyCode {
-        case 53:
-            if state.settingsOpen {
-                state.settingsOpen = false
-            } else {
-                popover.performClose(nil)
-            }
-            return true
-        case 126, 125, 36, 76, 51, 117, 123, 124:
-            // 설정 시트가 열려 있는 동안에는 목록 단축키를 넘기지 않는다.
-            if state.settingsOpen { return true }
-        default:
-            break
-        }
-        if state.settingsOpen {
-            return false
-        }
-
-        let items = state.filter.selectableItems(in: model.groups)
-        switch event.keyCode {
-        case 126, 125:
-            if event.modifierFlags.contains(.option) {
-                state.selectedIndex = KeyboardSelection.edge(up: event.keyCode == 126, count: items.count)
-            } else {
-                let step = event.keyCode == 126 ? -1 : 1
-                state.selectedIndex = KeyboardSelection.move(
-                    from: state.selectedIndex, by: step, count: items.count
-                )
-            }
-            return true
-        case 36, 76:
-            guard let item = selectedItem(in: items) else { return true }
-            let hasOrca = item.orcaTerminal != nil || item.cwd != nil
-            if event.modifierFlags.contains(.option), hasOrca {
-                model.openInOrca(item)
-            } else {
-                model.open(item)
-            }
-            return true
-        case 51, 117:
-            // 키를 누르고 있어 생기는 반복은 삼킨다. 검색 입력을 붙이면 지우기 반복이 확인 처리로 새지 않게.
-            if event.isARepeat { return true }
-            guard let item = selectedItem(in: items) else { return true }
-            model.acknowledge(item)
-            return true
-        case 123, 124:
-            guard let item = selectedItem(in: items), item.showsStepLine else { return true }
-            let changed = model.stepDisclosure(
-                item,
-                by: event.keyCode == 124 ? 1 : -1,
-                toEnd: event.modifierFlags.contains(.option)
-            )
-            if changed { state.revealRequest += 1 }
-            return true
-        default:
-            return false
-        }
-    }
-
-    private func selectedItem(in items: [DisplayItem]) -> DisplayItem? {
-        guard let index = state.selectedIndex, items.indices.contains(index) else { return nil }
-        return items[index]
-    }
+    private lazy var keyboard = ListKeyboard(
+        model: model,
+        state: state,
+        handlesSettings: true,
+        close: { [weak self] in self?.popover.performClose(nil) }
+    )
 }

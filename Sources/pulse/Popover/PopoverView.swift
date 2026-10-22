@@ -9,6 +9,10 @@ struct PopoverView: View {
     var body: some View {
         VStack(spacing: 0) {
             PopoverHeader(model: model, onClose: onClose)
+            if !state.query.isEmpty || state.searchFocused {
+                SessionSearchBar(model: model, state: state)
+                    .padding(.bottom, 8)
+            }
             banners
 
             if !model.collapsed {
@@ -44,7 +48,7 @@ struct PopoverView: View {
     }
 
     private var sections: [SessionSection] {
-        state.filter.sections(in: model.groups)
+        state.filter.sections(in: model.groups, query: state.query)
     }
 
     private var list: some View {
@@ -52,6 +56,13 @@ struct PopoverView: View {
             SlimScrollView {
                 // LazyVStack 은 행 높이 추정과 스크롤 위치 보정이 맞물려 배치를 끝없이 되풀이한 적이 있다. 행 수가 적어 전부 그린다.
                 VStack(alignment: .leading, spacing: 0) {
+                    if sections.isEmpty, !state.query.isEmpty {
+                        Text(L10n.noSearchResults)
+                            .font(.system(size: 11))
+                            .foregroundColor(PopoverPalette.secondary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                    }
                     ForEach(Array(sections.enumerated()), id: \.element.group.rawValue) { index, section in
                         Section {
                             ForEach(section.items, id: \.rowID) { item in
@@ -67,6 +78,7 @@ struct PopoverView: View {
                                 .id(item.rowID)
                             }
                             if section.group == .done,
+                               state.query.isEmpty,
                                let overflow = model.groups.doneOverflowText {
                                 Text(overflow)
                                     .font(.system(size: 11))
@@ -99,14 +111,14 @@ struct PopoverView: View {
 
     private func isSelected(_ item: DisplayItem) -> Bool {
         guard let index = state.selectedIndex else { return false }
-        let items = state.filter.selectableItems(in: model.groups)
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
         guard items.indices.contains(index) else { return false }
         return items[index].id == item.id
     }
 
     private func scrollToSelection(_ proxy: ScrollViewProxy) {
         guard let index = state.selectedIndex else { return }
-        let items = state.filter.selectableItems(in: model.groups)
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
         guard items.indices.contains(index) else { return }
         withAnimation(.easeOut(duration: 0.12)) {
             proxy.scrollTo(items[index].rowID, anchor: .center)
@@ -116,7 +128,7 @@ struct PopoverView: View {
     /// 펼침이 바뀌어 행 높이가 달라진 뒤에 최소한으로 스크롤한다.
     private func revealSelection(_ proxy: ScrollViewProxy) {
         guard let index = state.selectedIndex else { return }
-        let items = state.filter.selectableItems(in: model.groups)
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
         guard items.indices.contains(index) else { return }
         let rowID = items[index].rowID
         DispatchQueue.main.async {
