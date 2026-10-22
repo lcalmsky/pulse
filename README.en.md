@@ -20,7 +20,7 @@ A small ring with a heartbeat line appears in the menu bar. The ring divides its
 
 ### Menu bar icon
 
-<img src="docs/images/menubar.en.png" alt="Menu bar icon" width="240">
+<img src="docs/images/menubar.en.png" alt="Menu bar icon" width="116">
 
 - The ring paints an orange segment for attention, blue for working, and green for done, proportional to the session counts. Empty shares leave only the track.
 - A heartbeat line is drawn over the ring.

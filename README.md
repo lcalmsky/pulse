@@ -20,7 +20,7 @@ brew services start pulse
 
 ### 메뉴 막대 아이콘
 
-<img src="docs/images/menubar.png" alt="메뉴 막대 아이콘" width="240">
+<img src="docs/images/menubar.png" alt="메뉴 막대 아이콘" width="116">
 
 - 링은 세션 수에 따라 확인 필요는 주황, 진행 중은 파랑, 완료는 초록 조각을 칠합니다. 비어 있는 칸이 있으면 그만큼 트랙만 남습니다.
 - 링 위에는 심전도 파형을 그립니다.
