@@ -174,7 +174,7 @@ scripts/bundle.sh
 
 - `swift run pulse-selftest` checks PulseCore logic such as wording, grouping, and settings migration. Pulse does not use XCTest.
 - Demo sessions start with `scripts/demo.sh start`, fire cards with `scripts/demo.sh fire done|attention|both`, and stop with `scripts/demo.sh stop`. `start --many` launches fifteen sessions for the floating panel image. Every example image is captured from these demos, so the project names and text on screen are made up.
-- Release with `scripts/release.sh X.Y.Z -m "<summary of changes>"`. It bumps the version, builds, runs the checks, tags, creates the GitHub release, and updates the Homebrew formula in one go.
+- Release with `scripts/release.sh X.Y.Z -m "<summary of changes>"`. It bumps the version, builds, runs the checks, tags, creates the GitHub release, and updates the Homebrew formula in one go. If it stops at the tarball download after the tag and the GitHub release exist, `scripts/release.sh --formula-only X.Y.Z` redoes only the tarball checksum and the formula update. `scripts/release-selftest.sh` checks this script.
 - Repository rules are in [CLAUDE.md](CLAUDE.md).
 
 ## License

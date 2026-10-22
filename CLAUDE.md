@@ -63,6 +63,8 @@
 8. `Formula/pulse.rb` 의 url 과 sha256 을 새 값으로 바꿔 `chore: Formula vX.Y.Z` 로 커밋하고 푸시한다.
 9. 릴리즈 URL 과 `brew upgrade pulse` 를 안내한다.
 
+스크립트가 7단계 이후에서 멈췄다면(태그와 Release 는 이미 있는 상태) `scripts/release.sh --formula-only X.Y.Z` 로 7~9단계만 다시 한다. 이 옵션은 `-m` 과 `--notes-file` 을 받지 않고, 1단계에서 태그 `vX.Y.Z` 가 로컬과 원격에 있는지 검사하며 버전 증가 검사와 2~6단계는 건너뛴다.
+
 릴리즈 전에 `gh auth switch -u lcalmsky` 로 활성 계정을 맞추고, origin 이 `git@github-lcalmsky:lcalmsky/pulse.git` 인지 확인한다.
 
 Homebrew 는 같은 저장소를 tap 으로 쓴다(`Formula/pulse.rb`). 릴리즈마다 스크립트가 태그 tarball 의 sha256 으로 formula 를 갱신해 두 번째 커밋을 만든다. formula 를 갱신하지 않으면 `brew upgrade pulse` 가 새 버전을 모른다. 첫 릴리즈 전에는 formula 의 `url` 과 `sha256` 이 자리표시자라 `brew install pulse` 가 실패하고 `--HEAD` 설치만 된다. 첫 `scripts/release.sh` 가 둘을 실제 값으로 바꾼다.
@@ -85,10 +87,12 @@ Homebrew 는 같은 저장소를 tap 으로 쓴다(`Formula/pulse.rb`). 릴리�
 ```bash
 swift build                                 # 디버그
 swift run pulse-selftest                    # 실패 0 이어야 하고 검사 수는 줄어들면 안 된다
+scripts/release-selftest.sh                 # release.sh 검사. 실패 0 이어야 한다
 scripts/bundle.sh && open build/Pulse.app   # 번들
 ```
 
 - XCTest 를 쓰지 않는다. 검사는 `Sources/pulse-selftest/main.swift` 의 `expectEqual` 로 쓴다. 검사 수는 줄어들면 안 된다. PulseCore 의 로직(문구, 그룹 판정, 설정 이행)을 바꾸면 거기에 검사를 더한다. SwiftUI 뷰는 검사 대상이 아니다.
+- `scripts/release.sh` 를 바꾸면 `scripts/release-selftest.sh` 에 검사를 더하고 돌린다. 이 검사는 `gh`·`git`·`curl`·`swift` 를 가짜로 바꿔 네트워크 없이 돌며, 검사 수는 줄어들면 안 된다.
 - `CLAUDE_CONFIG_DIR` 이 셸에 잡혀 있으면 Pulse 가 그 디렉터리를 읽는다. 자기 세션을 보려면 그 변수를 비우고 띄운다.
 
 ## 예시 그림

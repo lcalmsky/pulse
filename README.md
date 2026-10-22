@@ -174,7 +174,7 @@ scripts/bundle.sh
 
 - `swift run pulse-selftest` 는 문구, 그룹 판정, 설정 이행 같은 PulseCore 로직을 검사합니다. XCTest 는 쓰지 않습니다.
 - 데모 세션은 `scripts/demo.sh start` 로 띄우고 `scripts/demo.sh fire done|attention|both` 로 카드를 띄우며 `scripts/demo.sh stop` 으로 내립니다. `start --many` 는 플로팅 패널 그림용으로 세션 15개를 띄웁니다. 예시 그림은 모두 이 데모로 찍은 것이라 화면의 프로젝트 이름과 문구는 가짜입니다.
-- 릴리즈는 `scripts/release.sh X.Y.Z -m "<바뀐 기능 요약>"` 로 합니다. 버전, 빌드, 검사, 태그, GitHub Release, Homebrew formula 갱신을 한 번에 합니다.
+- 릴리즈는 `scripts/release.sh X.Y.Z -m "<바뀐 기능 요약>"` 로 합니다. 버전, 빌드, 검사, 태그, GitHub Release, Homebrew formula 갱신을 한 번에 합니다. 태그와 GitHub Release 를 만든 뒤 tarball 을 받는 단계에서 멈췄다면 `scripts/release.sh --formula-only X.Y.Z` 로 tarball sha256 계산과 formula 갱신만 다시 합니다. `scripts/release-selftest.sh` 는 이 스크립트를 검사합니다.
 - 저장소 규칙은 [CLAUDE.md](CLAUDE.md) 에 있습니다.
 
 ## 라이선스
