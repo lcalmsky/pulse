@@ -241,7 +241,7 @@ Pulse does not use system notifications, so it never asks for notification permi
 
 ## How it works
 
-Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention.
+Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A `shell` session with an unfinished background task is treated as waiting on that task, so the limit is extended to 60 minutes and the card reads `Background task for N minutes`.
 
 <details>
 <summary>Where it reads and the rules</summary>
