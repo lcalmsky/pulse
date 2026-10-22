@@ -5,18 +5,20 @@ import PulseCore
 struct BoardView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: PopoverState
+    /// 패널 창이 실제로 내어 주는 높이. 창이 내용에 맞춰 커지는 동안은 값이 없다.
+    @ObservedObject var panelHeight: PanelContentHeight
     var onContentHeightChange: (() -> Void)?
 
     @State private var naturalHeight: CGFloat = 0
 
     var body: some View {
         Group {
-            if naturalHeight > maximumHeight {
+            if naturalHeight > scrollLimit {
                 ScrollViewReader { proxy in
                     SlimScrollView {
                         board
                     }
-                    .frame(height: maximumHeight)
+                    .frame(height: scrollLimit)
                     .onChange(of: state.selectedIndex) { _ in
                         scrollToSelection(proxy)
                     }
@@ -29,6 +31,13 @@ struct BoardView: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// 스크롤 뷰 높이. 사용자가 잡아 둔 창 높이가 있으면 그 높이와 화면 높이 70% 중 작은 쪽을 쓴다.
+    /// 창이 내용에 맞춰 커지는 중에는 창 높이를 읽지 않는다. 읽으면 지금 창 높이에 스크롤이 붙어 창이 자라지 못한다.
+    private var scrollLimit: CGFloat {
+        guard let available = panelHeight.available else { return maximumHeight }
+        return min(maximumHeight, available)
     }
 
     /// 패널 높이는 내용에 맞추되 화면의 70% 를 넘으면 그 안에서 스크롤한다.

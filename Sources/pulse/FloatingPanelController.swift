@@ -24,6 +24,7 @@ final class FloatingPanelController: NSObject {
     private var manualSize = false
     private var programmaticSize: NSSize?
     private var listState: PopoverState?
+    private var panelHeight: PanelContentHeight?
     private var keyMonitor: Any?
 
     var onHover: ((Bool) -> Void)? {
@@ -115,6 +116,7 @@ final class FloatingPanelController: NSObject {
             model.$recentAcknowledgedCount.map { _ in () }.eraseToAnyPublisher(),
         ]).eraseToAnyPublisher()
         let state = PopoverState()
+        let height = PanelContentHeight()
         let controller = FloatingPanelController(
             options: Options(
                 defaultWidth: 440,
@@ -128,8 +130,12 @@ final class FloatingPanelController: NSObject {
             visible: model.$panelVisible.eraseToAnyPublisher(),
             resizeTriggers: triggers
         ) { updateSize in
-            AnyView(BoardView(model: model, state: state, onContentHeightChange: updateSize))
+            AnyView(
+                BoardView(model: model, state: state, panelHeight: height, onContentHeightChange: updateSize)
+            )
         }
+        controller.panelHeight = height
+        controller.syncPanelHeight()
         controller.installListKeyboard(model: model, state: state)
         return controller
     }
@@ -249,6 +255,15 @@ final class FloatingPanelController: NSObject {
         return floor(screen.visibleFrame.height * 0.7)
     }
 
+    /// 사용자가 잡아 둔 창 높이를 뷰에 알린다. 자동 크기일 때는 nil 이라 뷰가 창 높이에 기대지 않는다.
+    private func syncPanelHeight() {
+        guard let panelHeight else { return }
+        let value = manualSize ? panel.contentLayoutRect.height : nil
+        if panelHeight.available != value {
+            panelHeight.available = value
+        }
+    }
+
     private func restoreSize() {
         guard options.remembersFrame else { return }
         panel.contentMinSize = NSSize(width: options.minimumWidth, height: 44)
@@ -314,7 +329,13 @@ final class FloatingPanelController: NSObject {
         manualSize = true
         defaults.set(Double(panel.frame.width), forKey: "panelWidth")
         defaults.set(Double(panel.frame.height), forKey: "panelHeight")
+        syncPanelHeight()
     }
+}
+
+/// 목록 패널이 내용에 내어 주는 높이. 사용자가 창 크기를 잡아 둔 동안만 값이 있다.
+final class PanelContentHeight: ObservableObject {
+    @Published var available: CGFloat?
 }
 
 /// borderless NSPanel 은 기본적으로 키 창이 되지 않는다. 목록 패널만 키 입력을 받는다.
