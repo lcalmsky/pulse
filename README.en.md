@@ -182,7 +182,7 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 | `↩` | Open the selected item |
 | `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca` |
 | `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes. When the search line is open it deletes search text |
-| `Esc` | Close settings if they are open, close the search first if it is open, otherwise close the popover |
+| `Esc` | Close the search first if it is open, then settings if they are open, otherwise close the popover |
 | `⌘,` | Open and close settings |
 
 A floating panel takes the same keys after a single click, without bringing another app forward. In the panel, `Esc` clears only the search and the selection and does not hide the panel.
