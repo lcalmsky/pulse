@@ -101,9 +101,20 @@ public enum RowText {
         return nowLine
     }
 
+    /// `mcp__<서버>__<도구>` 이름은 마지막 `__` 뒤 도구 이름만 남긴다. 도구 부분이 비어 있으면 원문을 둔다.
+    public static func toolLabel(_ name: String) -> String {
+        let prefix = "mcp__"
+        guard name.hasPrefix(prefix),
+              let separator = name.dropFirst(prefix.count).range(of: "__", options: .backwards) else {
+            return name
+        }
+        let tool = name[separator.upperBound...]
+        return tool.isEmpty ? name : String(tool)
+    }
+
     public static func trail(backgroundTasks: Int?, lastTool: String?) -> String? {
         let background = backgroundTasks.flatMap { $0 > 0 ? "bg \($0)" : nil }
-        switch (background, lastTool) {
+        switch (background, lastTool.map(toolLabel)) {
         case let (background?, tool?):
             return "\(background) · \(tool)"
         case let (background?, nil):

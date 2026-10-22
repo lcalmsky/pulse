@@ -2499,6 +2499,21 @@ expectEqual(RowText.trail(backgroundTasks: 2, lastTool: "Bash"), "bg 2 · Bash",
 expectEqual(RowText.trail(backgroundTasks: 2, lastTool: nil), "bg 2", "행 문구: 꼬리 bg 만")
 expectEqual(RowText.trail(backgroundTasks: 0, lastTool: "Bash"), "Bash", "행 문구: bg 0 은 빼고")
 expectEqual(RowText.trail(backgroundTasks: nil, lastTool: nil), nil, "행 문구: 꼬리 없음")
+expectEqual(RowText.toolLabel("mcp__example_server__read_thread"), "read_thread",
+            "행 문구: mcp 도구는 도구 이름만 남긴다")
+expectEqual(RowText.toolLabel("Bash"), "Bash", "행 문구: mcp 가 아닌 도구는 그대로")
+expectEqual(RowText.toolLabel("mcp__example_server"), "mcp__example_server",
+            "행 문구: 구분자가 하나뿐이면 원문 유지")
+expectEqual(RowText.toolLabel("mcp__example_server__"), "mcp__example_server__",
+            "행 문구: 도구 부분이 비면 원문 유지")
+expectEqual(RowText.trail(backgroundTasks: 2, lastTool: "mcp__example_server__read_thread"),
+            "bg 2 · read_thread", "행 문구: 긴 mcp 도구 이름도 도구 이름만")
+expectEqual(
+    SessionActivity(backgroundTasks: 1,
+                    lastTool: LastTool(name: "mcp__example_server__read_thread")).line(now: now),
+    "백그라운드 1 · read_thread",
+    "행 문구: 활동 줄의 mcp 도구도 도구 이름만"
+)
 
 // MARK: - 행 표시 값
 

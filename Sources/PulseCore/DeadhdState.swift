@@ -231,10 +231,11 @@ public struct SessionActivity: Equatable {
             parts.append(L10n.backgroundTasks(backgroundTasks))
         }
         if let lastTool, let name = lastTool.name {
+            let label = RowText.toolLabel(name)
             if let at = lastTool.at, let ago = TimePhrase.ago(from: at, to: now) {
-                parts.append("\(name) \(ago)")
+                parts.append("\(label) \(ago)")
             } else {
-                parts.append(name)
+                parts.append(label)
             }
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")

@@ -227,6 +227,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             }
             return true
         case 51, 117:
+            // 키를 누르고 있어 생기는 반복은 삼킨다. 검색 입력을 붙이면 지우기 반복이 확인 처리로 새지 않게.
+            if event.isARepeat { return true }
             guard let item = selectedItem(in: items) else { return true }
             model.acknowledge(item)
             return true

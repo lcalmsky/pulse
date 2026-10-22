@@ -327,7 +327,8 @@ struct SessionRowView: View {
                 }
                 if let keyTag = item.keyTag, keyTag != item.jiraKey {
                     Text(keyTag)
-                        .fixedSize()
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 jiraKeyView
                 prView
@@ -343,7 +344,9 @@ struct SessionRowView: View {
                     lastTool: item.lastToolName
                 ) {
                     Text(trail)
-                        .fixedSize()
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(1)
                 }
                 if !item.isActionable {
                     Text(L10n.noTerminal)
@@ -377,7 +380,8 @@ struct SessionRowView: View {
                 }
             } else {
                 Text(key)
-                    .fixedSize()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
     }
@@ -627,7 +631,8 @@ private struct StepPanel: View {
                 Text(trailing)
                     .font(.system(size: 11, weight: step.state == .now ? .medium : .regular))
                     .foregroundColor(trailingColor(step.state))
-                    .fixedSize()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
         .frame(height: step.state == .now ? 22 : 20)
@@ -717,7 +722,7 @@ private struct MetaLink: View {
                 .foregroundColor(hovering ? PopoverPalette.text : PopoverPalette.link)
                 .underline(hovering)
                 .lineLimit(1)
-                .fixedSize()
+                .truncationMode(.tail)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
