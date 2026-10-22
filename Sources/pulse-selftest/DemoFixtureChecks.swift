@@ -92,7 +92,7 @@ func runDemoFixtureChecks() {
     expect(englishApi != nil, "데모: 영어 묶음에서 api-server 가 진행 중")
     expectEqual(englishApi?.stepStates?.count, 6, "데모: 영어 묶음 api-server 단계 수")
     expectEqual(englishApi?.counts?.done, 3, "데모: 영어 묶음 api-server 완료 단계")
-    expectEqual(englishApi?.nowLabel, "Write integration tests", "데모: 영어 묶음 api-server 현재 단계")
+    expectEqual(englishApi?.nowLabel, "Write tests", "데모: 영어 묶음 api-server 현재 단계")
     let englishDataSteps = englishApi?.dataPath
         .flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
         .flatMap(Checklist.parse)

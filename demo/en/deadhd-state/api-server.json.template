@@ -1,12 +1,12 @@
 {
   "sessionId": "__SESSION_ID__",
   "summary": {
-    "title": "Retry queue backoff cleanup and integration tests",
+    "title": "Retry queue backoff and tests",
     "lang": "en",
     "counts": {"done": 3, "left": 2, "now": 1, "blocked": 0},
     "total": 6,
     "states": ["done", "done", "done", "now", "left", "left"],
-    "nowLabel": "Write integration tests",
+    "nowLabel": "Write tests",
     "key": "APP-128",
     "keyHref": "https://example.com/browse/APP-128",
     "pr": {"href": "https://example.com/pulse-demo/api-server/pull/42", "text": "PR #42"},

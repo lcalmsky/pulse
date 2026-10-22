@@ -4,7 +4,7 @@
     {"label": "Requirements", "state": "done", "sub": "Done", "doneAt": "__ISO_M22__"},
     {"label": "Retry queue design", "state": "done", "sub": "Done", "doneAt": "__ISO_M12__"},
     {"label": "Backoff function", "state": "done", "sub": "Shared helper", "doneAt": "__ISO_M3__"},
-    {"label": "Write integration tests", "state": "now", "sub": "DeepSeek"},
+    {"label": "Write tests", "state": "now", "sub": "DeepSeek"},
     {"label": "Update docs", "state": "left", "sub": "README"},
     {"label": "Open PR", "state": "left", "sub": "Request review"}
   ]
