@@ -74,10 +74,10 @@ When there are no sessions it shows an empty state, and when sessions cannot be 
 
 Keeps the same list as the popover **in a separate window.** You can drag it and resize it, and it remembers its position and size.
 
-- Its height follows the content and scrolls inside once it exceeds 70 percent of the screen height
+- Its height follows the content and scrolls inside once the content exceeds 70 percent of the screen height or the window height you set
 - Appears on every Space
 - Hide it with the close button in the header or `⌃⌥P`
-- A single click lets you drive it from the keyboard without bringing another app forward, using the same keys as the popover
+- A single click or `⌃⌥P` lets you drive it from the keyboard without bringing another app forward, using the same keys as the popover. When there is no search or selection left to clear, `Esc` returns keyboard focus to the app you came from
 
 </td>
 </tr>
@@ -171,7 +171,7 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 
 | Key | Action |
 |---|---|
-| `⌃⌥P` | Global hotkey. Opens the popover, pressing it again while open shows the floating panel, and when only the panel is visible it hides it |
+| `⌃⌥P` | Global hotkey. Opens the popover. Pressing it again while the popover is open closes it and gives the floating panel keyboard focus. When only the panel is visible it gives the panel focus, and when the panel already has the keyboard it hides the panel |
 | `↑` `↓` | Move through items. Pressing past either end wraps around to the other side |
 | `⌥↑` `⌥↓` | Jump to the first or last item |
 | Typed characters | Typing a character without `⌘` or `⌃` in the popover or a floating panel that takes the keyboard opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels |
@@ -185,7 +185,7 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 | `Esc` | Close the search first if it is open, then settings if they are open, otherwise close the popover |
 | `⌘,` | Open and close settings |
 
-A floating panel takes the same keys after a single click, without bringing another app forward. In the panel, `Esc` clears only the search and the selection and does not hide the panel.
+A floating panel takes the same keys after a single click or `⌃⌥P`, without bringing another app forward. In the panel, `Esc` clears the search first, then the selection, and then returns keyboard focus to the app you came from; it does not hide the panel.
 
 ### Opening sessions
 
