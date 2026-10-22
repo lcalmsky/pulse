@@ -1814,6 +1814,9 @@ expectEqual(KeyboardSelection.move(from: 2, by: 1, count: 3), 0, "키보드: 마
 expectEqual(KeyboardSelection.move(from: 0, by: -1, count: 3), 2, "키보드: 처음에서 위는 마지막")
 expectEqual(KeyboardSelection.move(from: 9, by: 1, count: 3), 0, "키보드: 범위를 벗어난 선택은 처음으로")
 expectEqual(KeyboardSelection.move(from: nil, by: 1, count: 0), nil, "키보드: 고를 행이 없으면 없음")
+expectEqual(KeyboardSelection.edge(up: true, count: 3), 0, "키보드: 처음으로는 첫 행")
+expectEqual(KeyboardSelection.edge(up: false, count: 3), 2, "키보드: 끝으로는 마지막 행")
+expectEqual(KeyboardSelection.edge(up: true, count: 0), nil, "키보드: 끝 이동도 행이 없으면 없음")
 
 // MARK: - 단계 펼침 키
 

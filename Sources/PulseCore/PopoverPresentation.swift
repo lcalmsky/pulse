@@ -92,6 +92,12 @@ public enum KeyboardSelection {
         }
         return ((index + step) % count + count) % count
     }
+
+    /// 처음(위) 또는 마지막(아래) 행. 고를 행이 없으면 nil.
+    public static func edge(up: Bool, count: Int) -> Int? {
+        guard count > 0 else { return nil }
+        return up ? 0 : count - 1
+    }
 }
 
 /// 단계 목록을 펼친 정도. 접힘 → 세 단계 창 → 전체 순서다.

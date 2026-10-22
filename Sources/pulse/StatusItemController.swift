@@ -212,10 +212,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let items = state.filter.selectableItems(in: model.groups)
         switch event.keyCode {
         case 126, 125:
-            let step = event.keyCode == 126 ? -1 : 1
-            state.selectedIndex = KeyboardSelection.move(
-                from: state.selectedIndex, by: step, count: items.count
-            )
+            if event.modifierFlags.contains(.option) {
+                state.selectedIndex = KeyboardSelection.edge(up: event.keyCode == 126, count: items.count)
+            } else {
+                let step = event.keyCode == 126 ? -1 : 1
+                state.selectedIndex = KeyboardSelection.move(
+                    from: state.selectedIndex, by: step, count: items.count
+                )
+            }
             return true
         case 36, 76:
             guard let item = selectedItem(in: items) else { return true }
