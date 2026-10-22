@@ -45,20 +45,19 @@ A heartbeat line is drawn over the ring, and it is refreshed from a poll every t
 
 ### Popover
 
-<table>
+<table width="100%">
 <tr>
-<td width="46%" valign="top"><img src="docs/images/popover.en.png" alt="Popover" width="400"></td>
+<td width="42%" valign="top"><img src="docs/images/popover.en.png" alt="Popover" width="360"></td>
 <td valign="top">
 
-The list is ordered **attention → working → done**. Done shows the latest five entries only and folds the rest into `N more`.
+The list is ordered **attention → working → done**.
 
-- **Attention** an orange dot, `Waiting for N minutes`, the last answer in quotes, and the location. The buttons on the right offer wait 10 more minutes (stall only), open, and reply
-- **Working** a step bar and `3/9`, `~N min left`, what it is doing now, the location, ticket, PR, background tasks, and last tool. On hover, the progress page and go to Orca buttons
-- **Done** a check mark, title, location, PR, and relative time. On hover, open and dismiss buttons
-- **Header** the logo, attention, working, and done badges, and collapse and close
-- **Footer** the last refresh time, `⌃⌥P`, the floating panel, settings, and quit
+- **Attention** shows how long it has been waiting and the last answer. The buttons are wait 10 more minutes, open, and reply
+- **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
+- **Done** shows the latest five only and folds the rest into `N more`
+- **Header and footer** the header has the three group counts and a collapse button, and the footer has the refresh time and the floating panel, settings, and quit buttons
 
-When there are no sessions, an empty state with a turning orb is drawn, and when sessions cannot be read, a `Retry now` banner appears.
+When there are no sessions it shows an empty state, and when sessions cannot be read it shows a `Retry now` banner.
 
 </td>
 </tr>
@@ -66,29 +65,41 @@ When there are no sessions, an empty state with a turning orb is drawn, and when
 
 ### Floating panel
 
-Keeps the same list as the popover **in a separate window.** You can drag it and resize it, and it remembers its position and size. Its height follows the content, scrolls inside once it exceeds 70 percent of the screen height, and the window appears on every Space. Hide it with the close button in the header or `⌃⌥P`.
+<table width="100%">
+<tr>
+<td width="42%" valign="top"><img src="docs/images/panel.en.png" alt="Floating panel" width="300"></td>
+<td valign="top">
 
-<p align="center"><img src="docs/images/panel.en.png" alt="Floating panel" width="360"></p>
+Keeps the same list as the popover **in a separate window.**
+
+- Drag to move and resize it, and it remembers its position and size
+- Scrolls inside once it exceeds 70 percent of the screen height
+- Appears on every Space
+- Hide it with the close button in the header or `⌃⌥P`
+
+</td>
+</tr>
+</table>
 
 ### Notification cards
 
-<table>
+<table width="100%">
 <tr>
-<td width="46%" valign="top">
-<img src="docs/images/card-attention.en.png" alt="Attention card" width="400"><br>
-<img src="docs/images/card-done.en.png" alt="Done card" width="400"><br>
-<img src="docs/images/card-stack.en.png" alt="Multiple cards" width="400">
+<td width="42%" valign="top">
+<img src="docs/images/card-attention.en.png" alt="Attention card" width="360"><br>
+<img src="docs/images/card-done.en.png" alt="Done card" width="360"><br>
+<img src="docs/images/card-stack.en.png" alt="Multiple cards" width="360">
 </td>
 <td valign="top">
 
-Instead of macOS notification banners, **the app draws the cards itself.** On macOS 26 and later it uses Liquid Glass, and on earlier versions a blur background.
+Instead of macOS notification banners, **the app draws the cards itself.**
 
-- **Attention card** the first sentence of the last answer in quotes, plus the location and how long it has been waiting. Pressing `Reply` opens the Orca terminal, and the card stays until the session leaves attention
-- **Done card** a one-line summary and `{session} · Finished · took N minutes`. The ring around the icon shrinks for 8 seconds and disappears, and hovering pauses it
+- **Attention card** shows the last answer and how long it has been waiting. Pressing `Reply` opens the Orca terminal
+- **Done card** shows a one-line summary and disappears after 8 seconds. Hovering pauses it
 - **Multiple cards** the header shows `N waiting · M done` and a `Dismiss all` button
-- **Away** cards created while the screen is locked are bundled into one `N sessions are waiting` card when you return
+- **Away** notifications from while the screen was locked are bundled into one card when you return
 
-Cards are not shown while the popover or the floating panel is open.
+On macOS 26 and later it uses Liquid Glass, and on earlier versions a blur background. Cards are not shown while the popover or panel is open.
 
 </td>
 </tr>
@@ -96,9 +107,9 @@ Cards are not shown while the popover or the floating panel is open.
 
 ### Settings
 
-<table>
+<table width="100%">
 <tr>
-<td width="40%" valign="top"><img src="docs/images/settings.en.png" alt="Settings sheet" width="340"></td>
+<td width="42%" valign="top"><img src="docs/images/settings.en.png" alt="Settings sheet" width="360"></td>
 <td valign="top">
 
 Open it with the gear button or `⌘,`.
@@ -131,20 +142,20 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 
 ## Using it with deadhd
 
-<table>
+<table width="100%">
 <tr>
-<td width="46%" valign="top"><img src="docs/images/deadhd-steps.en.png" alt="Expanded deadhd steps" width="400"></td>
+<td width="42%" valign="top"><img src="docs/images/deadhd-steps.en.png" alt="Expanded deadhd steps" width="360"></td>
 <td valign="top">
 
-[deadhd](https://github.com/lcalmsky/deadhd) is a skill that draws a checklist for a Claude Code session. Pulse reads the state file deadhd leaves and **adds steps to working rows.**
+[deadhd](https://github.com/lcalmsky/deadhd) is a skill that draws a checklist for a Claude Code session. Pulse reads the state file it leaves and **adds steps to working rows.**
 
-- **Progress** `5/9` and a step bar. A blocked step is painted orange, and a step that has not been updated for more than 30 minutes is dimmed
-- **Current step** `▶ <step name>` and `~N min left`
-- **Steps** clicking the step line expands the previous, current, and next steps inside the row. Clicking `N earlier steps · M done` shows every step
-- **Progress page** the document button that appears on hover opens the deadhd progress page in a browser
+- **Progress** draws `5/9` and a step bar. A blocked step is painted orange
+- **Current step** shows the step name and `~N min left`
+- **Steps** clicking the step line expands the previous, current, and next steps inside the row
+- **Progress page** the document button opens the deadhd progress page in a browser
 - **Activity** an activity line such as `1 compaction · 2 in background · Bash 12 seconds ago`
 
-Sessions that do not use deadhd still show the title, last answer, and the tool currently running. Only the checklist and step expansion are missing.
+Sessions that do not use deadhd are missing only the checklist and step expansion.
 
 </td>
 </tr>

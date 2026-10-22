@@ -45,20 +45,19 @@ brew services start pulse
 
 ### 팝오버
 
-<table>
+<table width="100%">
 <tr>
-<td width="46%" valign="top"><img src="docs/images/popover.png" alt="팝오버" width="400"></td>
+<td width="42%" valign="top"><img src="docs/images/popover.png" alt="팝오버" width="360"></td>
 <td valign="top">
 
-목록은 **확인 필요 → 진행 중 → 완료** 순서입니다. 완료는 최근 5개만 보이고 나머지는 `그 밖에 N개` 로 접힙니다.
+목록은 **확인 필요 → 진행 중 → 완료** 순서입니다.
 
-- **확인 필요** 주황 점, `N분째 기다림`, 마지막 답 인용, 위치. 오른쪽 버튼은 10분 더 기다리기(stall 만), 열기, 답하기
-- **진행 중** 단계 막대와 `3/9`, `약 N분 남음`, 지금 하는 일, 위치·티켓·PR·백그라운드 작업·마지막 도구. 마우스를 올리면 진행 페이지와 Orca 이동 버튼
-- **완료** 체크 표시, 제목, 위치, PR, 상대 시간. 마우스를 올리면 열기와 확인 버튼
-- **머리글** 로고, 확인·진행·완료 뱃지, 접기와 닫기
-- **바닥글** 마지막 갱신 시각, `⌃⌥P`, 플로팅 패널, 설정, 종료
+- **확인 필요** 기다린 시간과 마지막 답을 보여 줍니다. 버튼은 10분 더 기다리기, 열기, 답하기입니다
+- **진행 중** 단계 막대와 남은 시간, 지금 하는 일을 보여 줍니다. 마우스를 올리면 진행 페이지와 Orca 버튼이 나옵니다
+- **완료** 최근 5개만 보이고 나머지는 `그 밖에 N개` 로 접힙니다
+- **머리글과 바닥글** 위에는 세 그룹의 수와 접기 버튼, 아래에는 갱신 시각과 플로팅 패널·설정·종료 버튼이 있습니다
 
-세션이 없으면 점이 도는 빈 화면을 그리고, 읽지 못하면 `지금 재시도` 배너가 붙습니다.
+세션이 없으면 빈 화면을, 읽지 못하면 `지금 재시도` 배너를 보여 줍니다.
 
 </td>
 </tr>
@@ -66,29 +65,41 @@ brew services start pulse
 
 ### 플로팅 패널
 
-팝오버와 같은 목록을 **별도 창에 계속 띄워 둡니다.** 끌어 옮기고 크기를 바꿀 수 있고, 위치와 크기를 기억합니다. 높이는 내용에 맞추고 화면 높이의 70% 를 넘으면 안에서 스크롤하며, 모든 Space 에서 보입니다. 머리글의 닫기 버튼이나 `⌃⌥P` 로 숨깁니다.
+<table width="100%">
+<tr>
+<td width="42%" valign="top"><img src="docs/images/panel.png" alt="플로팅 패널" width="300"></td>
+<td valign="top">
 
-<p align="center"><img src="docs/images/panel.png" alt="플로팅 패널" width="360"></p>
+팝오버와 같은 목록을 **별도 창에 계속 띄워 둡니다.**
+
+- 끌어 옮기고 크기를 바꿀 수 있고, 위치와 크기를 기억합니다
+- 화면 높이의 70% 를 넘으면 안에서 스크롤합니다
+- 모든 Space 에서 보입니다
+- 머리글의 닫기 버튼이나 `⌃⌥P` 로 숨깁니다
+
+</td>
+</tr>
+</table>
 
 ### 알림 카드
 
-<table>
+<table width="100%">
 <tr>
-<td width="46%" valign="top">
-<img src="docs/images/card-attention.png" alt="확인 필요 카드" width="400"><br>
-<img src="docs/images/card-done.png" alt="끝남 카드" width="400"><br>
-<img src="docs/images/card-stack.png" alt="여러 장의 카드" width="400">
+<td width="42%" valign="top">
+<img src="docs/images/card-attention.png" alt="확인 필요 카드" width="360"><br>
+<img src="docs/images/card-done.png" alt="끝남 카드" width="360"><br>
+<img src="docs/images/card-stack.png" alt="여러 장의 카드" width="360">
 </td>
 <td valign="top">
 
-macOS 알림 배너 대신 **앱이 직접 카드를 그립니다.** macOS 26 이상에서는 Liquid Glass, 그 아래에서는 블러 배경입니다.
+macOS 알림 배너 대신 **앱이 직접 카드를 그립니다.**
 
-- **확인 필요 카드** 마지막 답의 첫 문장을 따옴표로, 위치와 기다린 시간을 함께. `답하기` 를 누르면 Orca 터미널이 열리고, 세션이 확인 필요에서 벗어날 때까지 남습니다
-- **끝남 카드** 요약 한 줄과 `{세션} · 끝남 · N분 걸림`. 아이콘을 두른 링이 8초 동안 줄어들며 사라지고, 마우스를 올리면 멈춥니다
+- **확인 필요 카드** 마지막 답과 기다린 시간을 보여 줍니다. `답하기` 를 누르면 Orca 터미널이 열립니다
+- **끝남 카드** 요약 한 줄을 보여 주고 8초 뒤 사라집니다. 마우스를 올리면 멈춥니다
 - **여러 장** 머리글에 `확인 N · 끝남 M` 과 `모두 확인` 버튼이 붙습니다
-- **자리 비움** 화면이 잠긴 동안 생긴 카드는 돌아왔을 때 `세션 N개가 기다려요` 한 장으로 묶입니다
+- **자리 비움** 화면이 잠긴 동안의 알림은 돌아왔을 때 한 장으로 묶입니다
 
-팝오버나 플로팅 패널을 보고 있는 동안에는 카드를 띄우지 않습니다.
+macOS 26 이상에서는 Liquid Glass, 그 아래에서는 블러 배경입니다. 팝오버나 패널을 보고 있는 동안에는 카드를 띄우지 않습니다.
 
 </td>
 </tr>
@@ -96,9 +107,9 @@ macOS 알림 배너 대신 **앱이 직접 카드를 그립니다.** macOS 26 �
 
 ### 설정
 
-<table>
+<table width="100%">
 <tr>
-<td width="40%" valign="top"><img src="docs/images/settings.png" alt="설정 시트" width="340"></td>
+<td width="42%" valign="top"><img src="docs/images/settings.png" alt="설정 시트" width="360"></td>
 <td valign="top">
 
 톱니 버튼이나 `⌘,` 로 엽니다.
@@ -131,20 +142,20 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 
 ## deadhd 와 함께 쓰기
 
-<table>
+<table width="100%">
 <tr>
-<td width="46%" valign="top"><img src="docs/images/deadhd-steps.png" alt="deadhd 단계 펼침" width="400"></td>
+<td width="42%" valign="top"><img src="docs/images/deadhd-steps.png" alt="deadhd 단계 펼침" width="360"></td>
 <td valign="top">
 
-[deadhd](https://github.com/lcalmsky/deadhd) 는 Claude Code 세션의 체크리스트를 그리는 스킬입니다. Pulse 는 deadhd 가 남긴 상태 파일을 읽어 **진행 행에 단계를 덧붙입니다.**
+[deadhd](https://github.com/lcalmsky/deadhd) 는 Claude Code 세션의 체크리스트를 그리는 스킬입니다. Pulse 는 그 상태 파일을 읽어 **진행 행에 단계를 덧붙입니다.**
 
-- **진행률** `5/9` 와 단계 막대. 막힌 단계는 주황으로 칠하고, 30분 넘게 갱신이 없으면 흐리게 그립니다
-- **지금 단계** `▶ 지금 단계` 와 `약 N분 남음`
-- **단계 펼침** 단계 줄을 누르면 직전·지금·다음 단계가 행 안에 펼쳐집니다. `앞 N단계` 를 누르면 전체를 봅니다
-- **진행 페이지** 마우스를 올렸을 때 나오는 문서 버튼으로 deadhd 진행 페이지를 브라우저에서 엽니다
-- **활동** `압축 1 · 백그라운드 2 · Bash 12초 전` 같은 활동 줄
+- **진행률** `5/9` 와 단계 막대를 그립니다. 막힌 단계는 주황으로 칠합니다
+- **지금 단계** 단계 이름과 `약 N분 남음` 을 보여 줍니다
+- **단계 펼침** 단계 줄을 누르면 직전·지금·다음 단계가 행 안에 펼쳐집니다
+- **진행 페이지** 문서 버튼으로 deadhd 진행 페이지를 브라우저에서 엽니다
+- **활동** `압축 1 · 백그라운드 2 · Bash 12초 전` 같은 활동 줄을 만듭니다
 
-deadhd 를 쓰지 않는 세션도 제목, 마지막 답, 실행 중인 도구는 보입니다. 체크리스트와 단계 펼침만 없습니다.
+deadhd 를 쓰지 않는 세션은 체크리스트와 단계 펼침만 없습니다.
 
 </td>
 </tr>
