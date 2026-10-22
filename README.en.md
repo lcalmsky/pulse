@@ -35,7 +35,7 @@ A small ring with a heartbeat line appears in the menu bar. The ring divides its
 The header holds the Pulse logo, attention, working, and done badges, and buttons to collapse and close. The list is ordered attention, working, done. Done shows the latest five entries and folds the rest into `N more`.
 
 - Attention rows: an orange dot and the title, how long it has been waiting (`Waiting for N minutes`), the last answer in quotes (or the status text when there is none), and the location plus the background task count. The buttons on the right offer `Wait 10 more minutes` (stall only), `Open`, and `Reply`.
-- Working rows: a step bar with the current step, the `3/9` position, and `About N minutes left`, followed by a one-line description of what the session is doing now, the location, ticket key, PR, background tasks, and last tool. On hover, the time slot on the right turns into buttons for the progress page and for jumping to Orca.
+- Working rows: a step bar with the current step, the `3/9` position, and `~N min left`, followed by a one-line description of what the session is doing now, the location, ticket key, PR, background tasks, and last tool. On hover, the time slot on the right turns into buttons for the progress page and for jumping to Orca.
 - Done rows: a check mark and the title, location, PR, and relative time. On hover, open and dismiss buttons appear.
 - Collapsing the middle leaves only the header and footer.
 - The footer shows the last refresh time, `⌃⌥P`, the floating panel button, the settings button, and quit.
@@ -85,7 +85,7 @@ Pulse follows the system preferred language for its on-screen text: English when
 [deadhd](https://github.com/lcalmsky/deadhd) is a Claude Code skill that draws a checklist for a session. Pulse reads the state file deadhd leaves for each session and adds step information to working rows.
 
 - Progress: Pulse draws `5/9` and a step bar. A blocked step is painted in the attention color, and a state file that has not been updated for 30 minutes is dimmed.
-- Current step: `▶ <step name>` and `About N minutes left`.
+- Current step: `▶ <step name>` and `~N min left`.
 - Steps: clicking the step line of a working row expands the previous, current, and next steps inside the row. A blocked step outside the window is brought into it, and `N earlier steps · M done` shows every step.
 - Progress page: the document button that appears on hover opens the deadhd progress page in a browser. Pulse uses the local address from deadhd's `serve.py` when the server is running, and falls back to `file://` otherwise. If the HTML does not exist yet, it renders it once with `render.py`.
 - Activity: a line such as `1 compaction · 2 in background · Bash 12 seconds ago` is built from the state file and the transcript.
