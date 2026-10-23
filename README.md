@@ -269,6 +269,7 @@ scripts/bundle.sh
 ```
 
 - **데모** `scripts/demo.sh start` 로 세션을 띄우고 `fire done|attention|both` 로 카드를 띄우며 `stop` 으로 내립니다. `start --many` 는 세션 15개를 띄웁니다. 예시 그림은 모두 이 데모로 찍어서 프로젝트 이름과 문구가 가짜입니다.
+- **앱 아이콘** `swift scripts/make-icon.swift` 가 머리글 로고와 같은 링과 파형으로 `assets/AppIcon.icns` 를 다시 만들고, `scripts/bundle.sh` 가 그 파일을 번들에 넣습니다.
 - **릴리즈** `scripts/release.sh X.Y.Z -m "<바뀐 기능 요약>"` 하나로 버전, 빌드, 검사, 태그, GitHub Release, Homebrew formula 갱신을 합니다. tarball 을 받는 단계에서 멈췄다면 `scripts/release.sh --formula-only X.Y.Z` 로 formula 갱신만 다시 합니다. `scripts/release-selftest.sh` 가 이 스크립트를 검사합니다.
 - 저장소 규칙은 [CLAUDE.md](CLAUDE.md) 에 있습니다.
 

@@ -269,6 +269,7 @@ scripts/bundle.sh
 ```
 
 - **Demos** `scripts/demo.sh start` launches sessions, `fire done|attention|both` shows cards, and `stop` takes them down. `start --many` launches 15 sessions. Every example image is captured from these demos, so the project names and text on screen are made up.
+- **App icon** `swift scripts/make-icon.swift` regenerates `assets/AppIcon.icns` with the same ring and waveform as the header logo, and `scripts/bundle.sh` copies it into the bundle.
 - **Release** `scripts/release.sh X.Y.Z -m "<summary of changed features>"` does the version, build, checks, tag, GitHub release, and Homebrew formula update in one go. If it stopped at the step that downloads the tarball, `scripts/release.sh --formula-only X.Y.Z` redoes only the formula update. `scripts/release-selftest.sh` checks this script.
 - Repository rules are in [CLAUDE.md](CLAUDE.md).
 
