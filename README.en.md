@@ -56,7 +56,7 @@ The list is ordered **attention → working → done**.
 - **Attention** shows how long it has been waiting and the last answer. The buttons are wait 10 more minutes, open, and reply
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
 - **Done** shows the latest five only and folds the rest into `N more`
-- **Header and footer** the header has the three group counts and a collapse button, and the footer has the refresh time and the floating panel, settings, and quit buttons
+- **Header and footer** the header has the three group counts and the GitHub star and collapse buttons, and the footer has the refresh time and the floating panel, settings, and quit buttons
 - **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
 When there are no sessions it shows an empty state, and when sessions cannot be read it shows a `Retry now` banner.
