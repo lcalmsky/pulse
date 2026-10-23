@@ -70,7 +70,8 @@ extension OrcaTerminalList: Decodable {
 
 public enum OrcaTerminalMatch {
     /// 핸들이 없는 세션의 cwd 로 터미널을 찾는다. 정확히 같은 경로와 그 하위 경로가 대상이고,
-    /// 같은 폴더에 여럿이면 세션 이름과 제목이 같은 터미널을, 그래도 없으면 가장 최근에 출력이 있던 것을 쓴다.
+    /// 세션 이름과 제목이 같은 터미널이 여럿이면 그중 가장 최근에 출력이 있던 것을 쓴다.
+    /// 맞는 이름이 없으면 후보가 하나뿐일 때만 그 터미널을 쓰고, 여럿이면 nil 이다.
     public static func bestHandle(
         for cwd: String,
         name: String? = nil,
@@ -95,7 +96,7 @@ public enum OrcaTerminalMatch {
                 return handle
             }
         }
-        return mostRecent(matched)
+        return matched.count == 1 ? matched[0].handle : nil
     }
 
     /// Orca 터미널 제목 앞의 상태 기호(✳ ◐ 등)와 공백을 떼고 세션 이름만 남긴다.

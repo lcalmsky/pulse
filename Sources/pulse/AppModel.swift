@@ -487,7 +487,9 @@ final class AppModel: ObservableObject {
         case .orca(let handle):
             switchTerminal(handle)
         case .cwd(let cwd):
-            switchToCwd(cwd, name: item.title)
+            switchToCwd(cwd, name: item.key ?? item.title)
+        case .ended:
+            showError(L10n.sessionEnded)
         case .none:
             break
         }
@@ -637,10 +639,15 @@ final class AppModel: ObservableObject {
     }
 
     func openInOrca(_ item: DisplayItem) {
-        if let handle = item.orcaTerminal, !handle.isEmpty {
+        switch item.clickAction {
+        case .orca(let handle):
             switchTerminal(handle)
-        } else if let cwd = item.cwd, !cwd.isEmpty {
-            switchToCwd(cwd, name: item.title)
+        case .cwd(let cwd):
+            switchToCwd(cwd, name: item.key ?? item.title)
+        case .ended:
+            showError(L10n.sessionEnded)
+        case .none:
+            break
         }
     }
 

@@ -448,6 +448,12 @@ expectEqual(SessionClick.resolve(orcaTerminal: "term-1", cwd: "/a/b"), .orca("te
             "클릭 규칙: cwd 보다 핸들")
 expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
             "클릭 규칙: 공백뿐인 cwd 는 없는 것으로 본다")
+expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: "/a/b", ended: true), .ended,
+            "클릭 규칙: 끝난 세션은 cwd 가 있어도 터미널로 가지 않는다")
+expectEqual(SessionClick.resolve(orcaTerminal: "term-1", ended: true), .ended,
+            "클릭 규칙: 끝난 세션은 핸들이 있어도 터미널로 가지 않는다")
+expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: nil, ended: true), SessionClickAction.none,
+            "클릭 규칙: 끝난 세션도 터미널 정보가 없으면 비활성")
 
 let clickGrouped = Grouping.group(
     SessionsResponse(sessions: [
@@ -473,6 +479,22 @@ expectEqual(clickItems["pageOnly"]?.clickAction, SessionClickAction.none,
 expectEqual(clickItems["pageOnly"]?.isActionable, false, "클릭 규칙: 터미널이 없으면 페이지가 있어도 행 탭 동작은 없다")
 expectEqual(clickItems["dataOnly"]?.isActionable, false, "클릭 규칙: 단계만 있는 행도 행 탭 동작은 없다")
 expectEqual(clickItems["none"]?.isActionable, false, "클릭 규칙: 대상 없는 항목은 비활성")
+
+let endedClickItem = DisplayItem(
+    session: Session(sessionId: "ended", bucket: "ended", cwd: "/a/b"),
+    group: .done,
+    now: now
+)
+expectEqual(endedClickItem.isEnded, true, "클릭 규칙: 끝난 세션은 isEnded")
+expectEqual(endedClickItem.clickAction, .ended, "클릭 규칙: 끝난 세션은 터미널을 찾지 않는다")
+expectEqual(endedClickItem.isActionable, true, "클릭 규칙: 끝난 세션도 눌러서 안내를 띄운다")
+let doneClickItem = DisplayItem(
+    session: Session(sessionId: "done", bucket: "done", cwd: "/a/b"),
+    group: .done,
+    now: now
+)
+expectEqual(doneClickItem.isEnded, false, "클릭 규칙: 끝났지만 닫히지 않은 세션은 isEnded 아님")
+expectEqual(doneClickItem.clickAction, .cwd("/a/b"), "클릭 규칙: 끝난 턴은 터미널로 간다")
 
 // MARK: - Orca 터미널 cwd 매칭
 
@@ -510,10 +532,10 @@ let manyTerminals = [
     terminal("recent", "/a/b", lastOutputAt: 200),
     terminal("child", "/a/b/sub", lastOutputAt: 300),
 ]
-expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: manyTerminals), "recent",
-            "터미널 매칭: 여럿이면 가장 최근 출력")
-expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b/sub", among: manyTerminals), "child",
-            "터미널 매칭: 정확히 일치하는 터미널도 후보")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b", among: manyTerminals), nil,
+            "터미널 매칭: 이름이 없고 후보가 여럿이면 고르지 않는다")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/a/b/sub", among: manyTerminals), nil,
+            "터미널 매칭: 하위 경로라도 후보가 여럿이면 고르지 않는다")
 
 let disconnected = [
     terminal("gone", "/a/b", connected: false, lastOutputAt: 300),
@@ -543,10 +565,20 @@ expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "app1256demo3", am
             "터미널 매칭: 같은 폴더에서 세션 이름이 맞는 터미널")
 expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "APP1256DEMO2", among: sameCwdTerminals), "app2",
             "터미널 매칭: 세션 이름 대소문자 무시")
-expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "없는이름", among: sameCwdTerminals), "app2",
-            "터미널 매칭: 이름이 안 맞으면 가장 최근 출력")
-expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", among: sameCwdTerminals), "app2",
-            "터미널 매칭: 이름이 없으면 가장 최근 출력")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "없는이름", among: sameCwdTerminals), nil,
+            "터미널 매칭: 이름이 안 맞고 후보가 여럿이면 고르지 않는다")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", among: sameCwdTerminals), nil,
+            "터미널 매칭: 이름이 없고 후보가 여럿이면 고르지 않는다")
+
+let singleMismatchedName = [terminal("solo", "/w/solo", title: "✳ 다른 이름")]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/solo", name: "없는이름", among: singleMismatchedName), "solo",
+            "터미널 매칭: 후보가 하나면 이름이 안 맞아도 그 터미널")
+let reusedNames = [
+    terminal("vault2", "/w/vault", title: "✳ vault2", lastOutputAt: 200),
+    terminal("vault3", "/w/vault", title: "✳ vault3", lastOutputAt: 100),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/vault", name: "vault", among: reusedNames), nil,
+            "터미널 매칭: 이름이 겹치면 가장 최근 터미널로 대신 가지 않는다")
 
 let otherFolderSameName = [
     terminal("other", "/elsewhere", title: "✳ target", lastOutputAt: 900),
@@ -3507,6 +3539,7 @@ expectEqual(L10n.reduceTransparencyOn, "Reduce transparency is on, so Pulse uses
 expectEqual(L10n.openDisplaySettings, "Open Settings", "영어 문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "영어 문구: GitHub 별 버튼")
 expectEqual(L10n.progressPageNotOpened, "Could not open the progress page", "영어 문구: 진행 페이지 열기 실패")
+expectEqual(L10n.sessionEnded, "This session has ended", "영어 문구: 끝난 세션")
 expectEqual(L10n.unknownOption("--x"), "pulse: unknown option --x", "영어 문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.hasPrefix("Usage: pulse [option]"), true, "영어 문구: 도움말 첫 줄")
 let enEmptyTitled = DisplayItem(session: Session(sessionId: "untitled", bucket: "working"), group: .working, now: now)
@@ -3607,6 +3640,7 @@ expectEqual(L10n.openDisplaySettings, "설정 열기", "문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "문구: GitHub 별 버튼은 한국어 화면에서도 영어")
 expectEqual(L10n.progressPageNotCreated.hasPrefix("진행 페이지를 만들지 못했어요"), true, "문구: 진행 페이지 생성 실패")
 expectEqual(L10n.progressPageNotOpened, "진행 페이지를 열지 못했어요", "문구: 진행 페이지 열기 실패")
+expectEqual(L10n.sessionEnded, "이 세션은 닫혔어요", "문구: 끝난 세션")
 expectEqual(L10n.unknownOption("--x"), "pulse: 알 수 없는 옵션 --x", "문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.contains("--help"), true, "문구: 도움말에 --help")
 
