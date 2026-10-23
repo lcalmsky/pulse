@@ -55,7 +55,7 @@ The list is ordered **attention → working → done**.
 
 - **Attention** shows how long it has been waiting and the last answer. The buttons are wait 10 more minutes, open, and reply
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
-- **Done** shows the latest five only and folds the rest into `N more`. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
+- **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
 - **Header and footer** the header has the three group counts and the GitHub star and collapse buttons, and the footer has the refresh time and the floating panel, settings, and quit buttons
 - **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
