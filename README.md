@@ -157,7 +157,7 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 - **진행률** `5/9` 와 단계 막대를 그립니다. 막힌 단계는 주황으로 칠합니다
 - **지금 단계** 단계 이름과 `약 N분 남음` 을 보여 줍니다
 - **단계 펼침** 단계 줄을 누르면 직전·지금·다음 단계가 행 안에 펼쳐집니다. 선택한 행에서 `→` 로 펼치고 한 번 더 누르면 전체 단계, `←` 로 한 단계씩 접습니다
-- **진행 페이지** 문서 버튼으로 deadhd 진행 페이지를 브라우저에서 엽니다. deadhd 를 `~/.claude/skills/deadhd` 에 직접 설치했으면 그곳을, 플러그인으로 설치했으면 `~/.claude/plugins/installed_plugins.json` 에 적힌 설치 경로를 찾아 `render.py`·`serve.py` 를 씁니다
+- **진행 페이지** 문서 버튼으로 deadhd 진행 페이지를 브라우저에서 엽니다. deadhd 를 `~/.claude/skills/deadhd` 에 직접 설치했으면 그곳을, 플러그인으로 설치했으면 `~/.claude/plugins/installed_plugins.json` 에 적힌 설치 경로를 찾아 `render.py`·`serve.py` 를 씁니다. 페이지를 만들거나 열지 못하면 팝오버와 패널 아래에 실패 안내가 잠깐 뜹니다
 - **활동** `압축 1 · 백그라운드 2 · Bash 12초 전` 같은 활동 줄을 만듭니다
 
 deadhd 를 쓰지 않는 세션은 체크리스트와 단계 펼침만 없습니다.
@@ -230,7 +230,7 @@ scripts/bundle.sh           # scripts/bundle.sh [출력 디렉터리]
 open build/Pulse.app
 ```
 
-Pulse 는 시스템 알림을 쓰지 않아 알림 권한을 묻지 않습니다. 확인 필요 카드 소리(Tink)는 번들로 띄우든 `.build/debug/pulse` 를 그대로 띄우든 울리고, `.build/debug/pulse --version` 으로 버전만 확인할 수도 있습니다.
+Pulse 는 시스템 알림을 쓰지 않아 알림 권한을 묻지 않습니다. 확인 필요 카드 소리(Tink)는 번들로 띄우든 `.build/debug/pulse` 를 그대로 띄우든 울리고, `.build/debug/pulse --version` 으로 버전만 확인할 수도 있습니다. `--help` 는 도움말을 출력하고, 모르는 `--` 옵션은 앱을 띄우지 않고 오류로 끝납니다.
 
 ### 필요 조건
 

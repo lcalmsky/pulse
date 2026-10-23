@@ -157,7 +157,7 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 - **Progress** draws `5/9` and a step bar. A blocked step is painted orange
 - **Current step** shows the step name and `~N min left`
 - **Steps** clicking the step line expands the previous, current, and next steps inside the row. On the selected row, `→` expands and pressing it again shows all steps, while `←` collapses them one at a time
-- **Progress page** the document button opens the deadhd progress page in a browser. Pulse uses `render.py` and `serve.py` from `~/.claude/skills/deadhd` when deadhd is installed there, and otherwise from the install path recorded in `~/.claude/plugins/installed_plugins.json` for the deadhd plugin
+- **Progress page** the document button opens the deadhd progress page in a browser. Pulse uses `render.py` and `serve.py` from `~/.claude/skills/deadhd` when deadhd is installed there, and otherwise from the install path recorded in `~/.claude/plugins/installed_plugins.json` for the deadhd plugin. If the page cannot be created or opened, a short failure notice appears at the bottom of the popover and panel
 - **Activity** an activity line such as `1 compaction · 2 in background · Bash 12 seconds ago`
 
 Sessions that do not use deadhd are missing only the checklist and step expansion.
@@ -230,7 +230,7 @@ scripts/bundle.sh           # scripts/bundle.sh [output directory]
 open build/Pulse.app
 ```
 
-Pulse does not use system notifications, so it never asks for notification permission. The attention card sound (Tink) plays whether you launch the app bundle or run `.build/debug/pulse` directly, and `.build/debug/pulse --version` prints just the version.
+Pulse does not use system notifications, so it never asks for notification permission. The attention card sound (Tink) plays whether you launch the app bundle or run `.build/debug/pulse` directly, and `.build/debug/pulse --version` prints just the version. `--help` prints usage, and an unknown `--` option exits with an error instead of starting the app.
 
 ### Requirements
 
