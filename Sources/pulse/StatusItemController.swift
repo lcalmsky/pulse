@@ -53,7 +53,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
+        // @Published 는 값을 바꾸기 전에 발행하므로, 다음 런루프에서 바뀐 테마와 NSApp 외형을 읽는다.
         model.$theme
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.updateStatusItem()
                 self?.updatePopoverAppearance()
