@@ -243,7 +243,7 @@ Pulse does not use system notifications, so it never asks for notification permi
 
 ## How it works
 
-Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A `shell` session with an unfinished background task is treated as waiting on that task, so the limit is extended to 60 minutes and the card reads `Background task for N minutes`.
+Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A `shell` session has finished its turn while background shells keep running, so it is treated as waiting on them and the limit is extended to 60 minutes. This holds even when the line that started the shell is earlier than the last 256 KB of the transcript that Pulse reads. When the background tasks can be counted, the card reads `Background task for N minutes`.
 
 <details>
 <summary>Where it reads and the rules</summary>
@@ -252,7 +252,7 @@ Every 3 seconds it reads the session files and groups them by state. Waiting for
 - The session list comes from `<config root>/sessions/<pid>.json`. Only interactive CLI sessions (whose `entrypoint` is `cli`) are included, and only while their process is alive. The `<pid>.<hash>.key` files in the same folder are not read.
 - The title, last answer, last tool, compaction count, background task count, and PR link are built from the last 256 KB of the `<config root>/projects/<project>/<session>.jsonl` transcript.
 - The deadhd state file is read from `/tmp/deadhd-state/<sessionId>.json`, and `DEADHD_STATE_DIR` changes the directory.
-- Sessions that disappear stay in done for 12 hours. The done list shows only items from the last 12 hours, and the view draws up to 5.
+- Sessions that disappear stay in done for 12 hours. If a new session with the same name and folder is running, that terminal has taken over the work, so the previous session is not kept. The done list shows only items from the last 12 hours, and the view draws up to 5.
 - Notifications are not sent during the first list read after launch, while the popover or floating panel is open, or while the setting is off. Sessions that were already in that state are not announced later either.
 - Notification decisions, card insertion, and away transitions are written to the system log (subsystem `io.github.lcalmsky.pulse`, category `notify`).
 
