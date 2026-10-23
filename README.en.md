@@ -194,7 +194,6 @@ A floating panel takes the same keys after a single click or `⌃⌥P`, without 
 
 - Clicking a row runs `orca terminal switch --terminal <handle> --json` to jump to that session's terminal and brings Orca to the front.
 - When there is no terminal handle, Pulse looks for a terminal with the same working directory and picks the one whose title matches the session name. If no title matches, it jumps only when that directory has exactly one terminal.
-- Clicking a session that has already ended does not look for a terminal and shows `This session has ended` instead.
 - When no matching terminal exists, it briefly shows `Orca has no terminal for this session` and beeps.
 - The progress page button opens a browser, and PR and ticket tags open their respective links.
 
@@ -253,7 +252,7 @@ Every 3 seconds it reads the session files and groups them by state. Waiting for
 - The session list comes from `<config root>/sessions/<pid>.json`. Only interactive CLI sessions (whose `entrypoint` is `cli`) are included, and only while their process is alive. The `<pid>.<hash>.key` files in the same folder are not read.
 - The title, last answer, last tool, compaction count, background task count, and PR link are built from the last 256 KB of the `<config root>/projects/<project>/<session>.jsonl` transcript.
 - The deadhd state file is read from `/tmp/deadhd-state/<sessionId>.json`, and `DEADHD_STATE_DIR` changes the directory.
-- Sessions that disappear stay in done for 12 hours. If a new session with the same name and folder is running, that terminal has taken over the work, so the previous session is not kept. The done list shows only items from the last 12 hours, and the view draws up to 5.
+- When a session closes and its session file disappears, it is removed from the list on the next refresh. The done list shows only items from the last 12 hours, and the view draws up to 5.
 - Notifications are not sent during the first list read after launch, while the popover or floating panel is open, or while the setting is off. Sessions that were already in that state are not announced later either.
 - Notification decisions, card insertion, and away transitions are written to the system log (subsystem `io.github.lcalmsky.pulse`, category `notify`).
 
