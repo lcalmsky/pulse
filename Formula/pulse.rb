@@ -8,7 +8,8 @@ class Pulse < Formula
   depends_on :macos
 
   def install
-    system({ "SWIFT_BUILD_DISABLE_SANDBOX" => "1" }, "./scripts/bundle.sh", prefix)
+    ENV["SWIFT_BUILD_DISABLE_SANDBOX"] = "1"
+    system "./scripts/bundle.sh", prefix
     bin.install_symlink prefix/"Pulse.app/Contents/MacOS/pulse"
   end
 
