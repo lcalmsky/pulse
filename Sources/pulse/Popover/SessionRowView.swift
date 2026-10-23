@@ -361,12 +361,16 @@ struct SessionRowView: View {
         }
     }
 
-    private var hasWorkingMeta: Bool {
+    private var hasIdentityMeta: Bool {
         item.placeText != nil
             || (item.keyTag != nil && item.keyTag != item.jiraKey)
             || item.jiraKey != nil
             || (item.prTag != nil && item.prURL != nil)
             || !item.extraPRs.isEmpty
+    }
+
+    private var hasWorkingMeta: Bool {
+        hasIdentityMeta
             || RowText.trail(backgroundTasks: item.backgroundTaskCount, lastTool: item.lastToolName) != nil
             || !item.isActionable
     }
@@ -400,6 +404,7 @@ struct SessionRowView: View {
     private var doneRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             doneTitleLine
+            doneMetaLine
             if item.showsStepLine {
                 stepperLine
                     .padding(.leading, 7)
@@ -442,17 +447,40 @@ struct SessionRowView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .layoutPriority(1)
-            if let place = item.placeText {
-                Text(place)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            prView
             orcaHint
             Spacer(minLength: 0)
             doneRightSlot
+        }
+    }
+
+    @ViewBuilder
+    private var doneMetaLine: some View {
+        if hasIdentityMeta {
+            HStack(spacing: 10) {
+                if let place = item.placeText {
+                    Text(place)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                if let keyTag = item.keyTag, keyTag != item.jiraKey {
+                    Text(keyTag)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                jiraKeyView
+                prView
+                ForEach(item.extraPRs, id: \.url) { link in
+                    let label = link.label ?? "#\(link.number)"
+                    MetaLink(text: label, help: L10n.openPR(label)) {
+                        model.openPullRequest(link.url)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundColor(PopoverPalette.secondary)
+            .lineLimit(1)
+            .padding(.leading, 22)
         }
     }
 
