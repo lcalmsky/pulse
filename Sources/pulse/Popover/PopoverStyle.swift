@@ -57,6 +57,11 @@ enum PopoverPalette {
         light: rgb(0xf6, 0xf6, 0xfa, 0.78)
     )
 
+    static let star = dynamic(
+        dark: rgb(0xff, 0xd6, 0x0a),
+        light: rgb(0xe0, 0xa1, 0x00)
+    )
+
     static let selection = dynamic(
         dark: rgb(0x0a, 0x84, 0xff, 0.90),
         light: rgb(0x00, 0x7a, 0xff, 0.92)

@@ -17,6 +17,9 @@ struct PopoverHeader: View {
                     .foregroundColor(PopoverPalette.text)
                     .lineLimit(1)
                 Spacer(minLength: 4)
+                StarButton {
+                    NSWorkspace.shared.open(AppInfo.repository)
+                }
                 PopoverIconButton(
                     symbol: model.collapsed ? "chevron.down" : "chevron.up",
                     help: model.collapsed ? L10n.expand : L10n.collapse,
@@ -132,5 +135,79 @@ struct PulseLogo: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
+    }
+}
+
+private struct StarButton: View {
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if hovering {
+                    Text(L10n.starOnGitHub)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(PopoverPalette.text)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+                Image(systemName: hovering ? "star.fill" : "star")
+                    .font(.system(size: 12))
+                    .foregroundColor(hovering ? PopoverPalette.star : PopoverPalette.secondary)
+                    .frame(width: 14)
+            }
+            .padding(.leading, hovering ? 10 : 6)
+            .padding(.trailing, 6)
+            .frame(height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(hovering ? PopoverPalette.rowHover : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(HoverTracker { inside in
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                hovering = inside
+            }
+        })
+        .help(L10n.starOnGitHub)
+    }
+}
+
+/// 플로팅 패널은 앱을 활성화하지 않아 SwiftUI `onHover` 가 불리지 않는다. `.activeAlways` 추적 영역으로 호버를 받는다.
+private struct HoverTracker: NSViewRepresentable {
+    let onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ view: TrackingView, context: Context) {
+        view.onChange = onChange
+    }
+
+    final class TrackingView: NSView {
+        var onChange: ((Bool) -> Void)?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach(removeTrackingArea)
+            addTrackingArea(NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            ))
+        }
+
+        override func mouseEntered(with event: NSEvent) { onChange?(true) }
+        override func mouseExited(with event: NSEvent) { onChange?(false) }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }

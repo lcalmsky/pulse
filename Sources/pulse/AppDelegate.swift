@@ -4,6 +4,7 @@ import PulseCore
 
 enum AppInfo {
     static let version = "0.5.2"
+    static let repository = URL(string: "https://github.com/lcalmsky/pulse")!
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

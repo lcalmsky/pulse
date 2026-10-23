@@ -302,6 +302,8 @@ public enum L10n {
         )
     }
     public static var openDisplaySettings: String { pick("설정 열기", "Open Settings") }
+    /// 한국어 화면에서도 영어로 둔다. GitHub 의 버튼 이름과 같게 보이도록 한 의도다.
+    public static var starOnGitHub: String { "Star on GitHub" }
     public static var notifications: String { pick("알림", "Notifications") }
     public static var whenAttentionNeeded: String { pick("확인이 필요할 때", "When attention is needed") }
     public static var whenTaskFinishes: String { pick("작업이 끝났을 때", "When a task finishes") }
