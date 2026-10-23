@@ -1,7 +1,7 @@
 {
   "sessionId": "__SESSION_ID__",
   "summary": {
-    "title": "Add sidebar navigation",
+    "title": "Add sidebar navigation and a search box to every docs page",
     "lang": "en",
     "counts": {"done": 3, "left": 0, "now": 0, "blocked": 1},
     "total": 4,

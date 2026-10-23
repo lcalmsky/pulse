@@ -67,6 +67,13 @@ func runDemoFixtureChecks() {
     expect(docs != nil, "데모: docs-site 가 완료")
     expectEqual(docs?.hasUnfinishedChecklist, true, "데모: docs-site 체크리스트가 남은 채 끝남")
     expectEqual(docs?.showsStepLine, true, "데모: docs-site 완료 행에 단계 줄")
+    expectEqual(docs?.title, "사이드바 내비게이션과 검색 상자를 문서 사이트 전체 페이지에 추가", "데모: docs-site 완료 행의 긴 제목")
+    expectEqual(docs?.keyTag, "docs", "데모: docs-site 완료 행의 세션 이름")
+    let billing = grouped.done.first { $0.sessionId == "ae5b4f7a-6b8c-4d9e-9fa0-5b6c7d8e9fa0" }
+    expect(billing != nil, "데모: billing-worker 가 완료")
+    expectEqual(billing?.title, "결제 재시도 큐에서 같은 요청을 두 번 처리하던 중복 처리 수정", "데모: billing-worker 완료 행의 긴 제목")
+    expectEqual(billing?.placeText, "billing-worker", "데모: billing-worker 완료 행의 위치")
+    expectEqual(billing?.keyTag, "billing", "데모: billing-worker 완료 행의 세션 이름")
 
     guard demoRender(script, directory: manyDirectory, many: true, language: nil, keepers: keepers) else { return }
     let manyNow = Date()
@@ -101,6 +108,13 @@ func runDemoFixtureChecks() {
         .flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
         .flatMap(Checklist.parse)
     expectEqual(englishDataSteps?.count, 6, "데모: 영어 묶음 api-server 체크리스트 항목 수")
+    let englishBilling = englishGrouped.done.first { $0.sessionId == "ae5b4f7a-6b8c-4d9e-9fa0-5b6c7d8e9fa0" }
+    expect(englishBilling != nil, "데모: 영어 묶음 billing-worker 가 완료")
+    expectEqual(englishBilling?.title, "Fix the payment retry queue handling one request twice", "데모: 영어 묶음 billing-worker 완료 행의 긴 제목")
+    expectEqual(englishBilling?.placeText, "billing-worker", "데모: 영어 묶음 billing-worker 완료 행의 위치")
+    expectEqual(englishBilling?.keyTag, "billing", "데모: 영어 묶음 billing-worker 완료 행의 세션 이름")
+    let englishDocs = englishGrouped.done.first { $0.sessionId == "9d4a3e6f-5a7b-4c8d-8e9f-4a5b6c7d8e9f" }
+    expectEqual(englishDocs?.title, "Add sidebar navigation and a search box to every docs page", "데모: 영어 묶음 docs-site 완료 행의 긴 제목")
     expectEqual(demoHangulFiles(englishBasicDirectory), [], "데모: 영어 기본 묶음에 한글 없음")
 
     guard demoRender(script, directory: englishManyDirectory, many: true, language: "en", keepers: keepers) else { return }

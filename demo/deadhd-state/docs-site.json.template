@@ -1,7 +1,7 @@
 {
   "sessionId": "__SESSION_ID__",
   "summary": {
-    "title": "사이드바 내비게이션 추가",
+    "title": "사이드바 내비게이션과 검색 상자를 문서 사이트 전체 페이지에 추가",
     "lang": "ko",
     "counts": {"done": 3, "left": 0, "now": 0, "blocked": 1},
     "total": 4,
