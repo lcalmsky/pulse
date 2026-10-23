@@ -145,14 +145,18 @@ struct PopoverView: View {
         }
     }
 
-    @ViewBuilder
     private var toast: some View {
-        if model.recentAcknowledgedCount > 0 {
-            PopoverToast(count: model.recentAcknowledgedCount) {
-                model.undoRecentAcknowledge()
+        VStack(spacing: 8) {
+            if let notice = model.notice {
+                NoticeToastView(text: notice)
             }
-            .id(model.recentAcknowledgedGeneration)
-            .padding(.bottom, 46)
+            if model.recentAcknowledgedCount > 0 {
+                PopoverToast(count: model.recentAcknowledgedCount) {
+                    model.undoRecentAcknowledge()
+                }
+                .id(model.recentAcknowledgedGeneration)
+            }
         }
+        .padding(.bottom, 46)
     }
 }

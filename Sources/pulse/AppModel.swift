@@ -25,6 +25,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var hiddenDoneCount = 0
     @Published private(set) var recentAcknowledgedCount = 0
     @Published private(set) var recentAcknowledgedGeneration = 0
+    @Published private(set) var notice: String?
+    private var noticeGeneration = 0
     @Published private(set) var lastSuccess: Date?
     @Published private(set) var density: Density
     @Published private(set) var theme: ThemePreference
@@ -499,14 +501,19 @@ final class AppModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             guard DeadhdPage.ensurePage(path: path, dataPath: item.dataPath) else {
                 Self.pageLogger.error("진행 페이지를 만들지 못해 열지 않았다: \(path, privacy: .public)")
+                DispatchQueue.main.async { self.showNotice(L10n.progressPageNotCreated) }
                 return
             }
             guard let url = DeadhdPage.url(for: path) else {
                 Self.pageLogger.error("진행 페이지를 열 주소를 만들지 못해 열지 않았다: \(path, privacy: .public)")
+                DispatchQueue.main.async { self.showNotice(L10n.progressPageNotOpened) }
                 return
             }
             DispatchQueue.main.async {
-                NSWorkspace.shared.open(url)
+                if !NSWorkspace.shared.open(url) {
+                    Self.pageLogger.error("진행 페이지를 열지 못했다: \(url.absoluteString, privacy: .public)")
+                    self.showNotice(L10n.progressPageNotOpened)
+                }
             }
         }
     }
@@ -674,6 +681,16 @@ final class AppModel: ObservableObject {
             snooze(item)
         case .none:
             break
+        }
+    }
+
+    private func showNotice(_ message: String) {
+        notice = message
+        noticeGeneration += 1
+        let generation = noticeGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + NoticeToast.duration) { [weak self] in
+            guard let self, self.noticeGeneration == generation else { return }
+            self.notice = nil
         }
     }
 

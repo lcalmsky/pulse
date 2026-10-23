@@ -17,6 +17,12 @@ struct BoardView: View {
     var body: some View {
         board
             .frame(maxHeight: .infinity, alignment: .top)
+            .overlay(alignment: .bottom) {
+                if let notice = model.notice {
+                    NoticeToastView(text: notice)
+                        .padding(.bottom, 12)
+                }
+            }
     }
 
     /// 창이 내용에 맞춰 자랄 때 기준이 되는 전체 높이.

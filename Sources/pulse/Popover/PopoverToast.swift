@@ -46,3 +46,23 @@ struct PopoverToast: View {
         }
     }
 }
+
+struct NoticeToastView: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12, weight: .medium))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 300)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .foregroundColor(Color(nsColor: .windowBackgroundColor))
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.primary.opacity(0.92))
+            )
+            .shadow(color: Color.black.opacity(0.35), radius: 14, y: 6)
+    }
+}

@@ -140,6 +140,10 @@ public enum StepDisclosure: Int, Comparable {
     }
 }
 
+public enum NoticeToast {
+    public static let duration: TimeInterval = 5
+}
+
 public enum UndoToast {
     public static let duration: TimeInterval = 6
 

@@ -216,6 +216,42 @@ public enum L10n {
     public static var openShortcut: String { pick("열기 (↩)", "Open (↩)") }
     public static var acknowledgeShortcut: String { pick("확인 (⌫)", "Dismiss (⌫)") }
     public static var openProgressPage: String { pick("브라우저에서 진행 페이지 열기", "Open the progress page in the browser") }
+    public static var progressPageNotCreated: String {
+        pick(
+            "진행 페이지를 만들지 못했어요. deadhd 의 render.py 를 찾지 못했거나 실행에 실패했어요",
+            "Could not create the progress page. deadhd's render.py was not found or failed to run"
+        )
+    }
+    public static var progressPageNotOpened: String {
+        pick("진행 페이지를 열지 못했어요", "Could not open the progress page")
+    }
+
+    // MARK: - 명령줄
+
+    public static var usage: String {
+        pick(
+            """
+            사용법: pulse [옵션]
+
+            옵션 없이 실행하면 메뉴 막대 앱을 띄웁니다.
+
+              --version   버전을 출력하고 끝냅니다
+              -h, --help  이 도움말을 출력하고 끝냅니다
+            """,
+            """
+            Usage: pulse [option]
+
+            Without an option, Pulse starts the menu bar app.
+
+              --version   Print the version and exit
+              -h, --help  Print this help and exit
+            """
+        )
+    }
+
+    public static func unknownOption(_ option: String) -> String {
+        pick("pulse: 알 수 없는 옵션 \(option)", "pulse: unknown option \(option)")
+    }
     public static var goToOrcaShortcut: String { pick("Orca 로 이동 (⌥↩)", "Go to Orca (⌥↩)") }
     public static var goToOrcaArrow: String { pick("→ Orca 로 이동", "→ Go to Orca") }
     public static func openPR(_ label: String) -> String { pick("PR \(label) 열기", "Open PR \(label)") }
