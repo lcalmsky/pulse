@@ -92,7 +92,7 @@ public struct TranscriptSummary: Equatable {
 
 public enum LocalSessions {
     public static let stallThreshold: TimeInterval = 10 * 60
-    /// 끝나지 않은 백그라운드 작업이 있는 shell 세션에 쓰는 기준.
+    /// shell 세션에 쓰는 기준. shell 은 턴이 끝나고 백그라운드 셸이 도는 상태다.
     public static let backgroundStallThreshold: TimeInterval = 60 * 60
     public static let replyTailLimit = 160
     public static let promptTitleLimit = 60
@@ -421,9 +421,8 @@ public enum LocalSessions {
                 message = L10n.waitingForReply
             }
         case "busy", "shell":
-            let threshold = record.status == "shell" && (summary.backgroundTasks ?? 0) > 0
-                ? backgroundStallThreshold
-                : stallThreshold
+            // 셸을 띄운 줄이 읽어 들인 트랜스크립트 꼬리 밖에 있으면 개수가 0 으로 나오므로 상태만 본다.
+            let threshold = record.status == "shell" ? backgroundStallThreshold : stallThreshold
             if let last = summary.lastMeaningfulAt,
                now.timeIntervalSince(last) > threshold {
                 bucket = "stall"
@@ -594,11 +593,23 @@ public struct EndedSessionTracker {
             }
         }
         lastActive = current
-        endedSessions = endedSessions.filter { now.timeIntervalSince($0.value.endedAt) < Self.retention }
+        // 같은 이름·같은 폴더로 새 세션이 떠 있으면 그 터미널이 일을 이어받은 것이라 끝난 세션으로 보이지 않는다.
+        let successors = Set(active.compactMap(Self.successorKey))
+        endedSessions = endedSessions.filter {
+            now.timeIntervalSince($0.value.endedAt) < Self.retention
+                && !(Self.successorKey($0.value.session).map(successors.contains) ?? false)
+        }
 
         return endedSessions.values
             .sorted { $0.endedAt < $1.endedAt }
             .map { ended($0.session, at: $0.endedAt) }
+    }
+
+    private static func successorKey(_ session: Session) -> String? {
+        guard let key = session.key?.trimmingCharacters(in: .whitespaces), !key.isEmpty,
+              let cwd = session.cwd, !cwd.isEmpty
+        else { return nil }
+        return key + "\u{0}" + cwd
     }
 
     private func ended(_ session: Session, at date: Date) -> Session {

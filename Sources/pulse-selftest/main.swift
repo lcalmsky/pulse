@@ -1121,8 +1121,8 @@ expectEqual(stalled.bucket, "stall", "stall: 마지막 줄이 10분보다 오래
 expectEqual(Grouping.group(SessionsResponse(sessions: [stalled]), now: now).attention.count, 1,
             "stall: 확인 필요 그룹으로 간다")
 
-let stallShell = localSession(status: "shell", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600)))
-expectEqual(stallShell.bucket, "stall", "stall: shell 도 같은 기준을 쓴다")
+let stallShell = localSession(status: "shell", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660)))
+expectEqual(stallShell.bucket, "stall", "stall: shell 도 60분이 넘으면 stall")
 
 let boundary = localSession(status: "busy", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-600)))
 expectEqual(boundary.bucket, "working", "stall: 정확히 10분이면 아직 working")
@@ -1155,7 +1155,12 @@ let shellNoBackground = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 0)
 )
-expectEqual(shellNoBackground.bucket, "stall", "stall: 백그라운드 작업이 없는 shell 은 기존 기준")
+expectEqual(shellNoBackground.bucket, "working", "stall: 셸을 띄운 줄이 꼬리 밖이라 개수가 0 이어도 shell 은 60분 기준")
+let shellUncountedLong = localSession(
+    status: "shell",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-1800), backgroundTasks: 0)
+)
+expectEqual(shellUncountedLong.bucket, "working", "stall: 개수가 0 인 shell 도 30분이면 working")
 
 let busyWithBackground = localSession(
     status: "busy",
@@ -1404,6 +1409,25 @@ expectEqual(reappeared.reconcile(active: [liveSession], at: t1.addingTimeInterva
 
 var neverSeen = EndedSessionTracker()
 expectEqual(neverSeen.reconcile(active: [], at: t0).count, 0, "종료 추적: 처음부터 없던 세션은 남기지 않는다")
+
+let previousTerminal = Session(sessionId: "old", bucket: "working", key: "api", status: "working", cwd: "/w/api")
+let nextTerminal = Session(sessionId: "new", bucket: "working", key: "api", status: "working", cwd: "/w/api")
+let otherFolder = Session(sessionId: "other", bucket: "working", key: "api", status: "working", cwd: "/w/web")
+var handedOver = EndedSessionTracker()
+_ = handedOver.reconcile(active: [previousTerminal], at: t0)
+expectEqual(handedOver.reconcile(active: [nextTerminal], at: t1).count, 0,
+            "종료 추적: 같은 이름·폴더로 새 세션이 뜨면 이전 세션을 완료로 남기지 않는다")
+expectEqual(handedOver.reconcile(active: [], at: t1.addingTimeInterval(5)).map(\.sessionId), ["new"],
+            "종료 추적: 이어받은 세션이 끝나면 그 세션만 남는다")
+var otherPlace = EndedSessionTracker()
+_ = otherPlace.reconcile(active: [previousTerminal], at: t0)
+expectEqual(otherPlace.reconcile(active: [otherFolder], at: t1).map(\.sessionId), ["old"],
+            "종료 추적: 이름이 같아도 폴더가 다르면 완료로 남는다")
+let unnamed = Session(sessionId: "unnamed", bucket: "working", status: "working", cwd: "/w/api")
+var noName = EndedSessionTracker()
+_ = noName.reconcile(active: [unnamed], at: t0)
+expectEqual(noName.reconcile(active: [Session(sessionId: "unnamed2", bucket: "working", status: "working", cwd: "/w/api")], at: t1).count, 1,
+            "종료 추적: 이름이 없으면 이어받음으로 보지 않는다")
 
 // MARK: - deadhd 상태 파일
 
