@@ -3268,6 +3268,47 @@ expectEqual(DeadhdState.pagePath("/tmpfoo/x.html"), nil, "경로: 접두사 유�
 expectEqual(DeadhdState.dataPath("/tmp/x.html"), nil, "경로: dataPath 는 json 만 받는다")
 expectEqual(DeadhdState.pagePath(nil), nil, "경로: 값이 없으면 nil")
 
+expectEqual(DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: nil),
+            ["/c/skills/deadhd"], "deadhd 위치: 플러그인 기록이 없으면 설정 디렉터리만")
+expectEqual(
+    DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data(
+        #"{"version":2,"plugins":{"deadhd@deadhd":[{"scope":"user","installPath":"/p/1.13.2"}]}}"#.utf8
+    )),
+    ["/c/skills/deadhd", "/p/1.13.2/skills/deadhd"],
+    "deadhd 위치: 플러그인 설치 경로를 뒤에 붙인다"
+)
+expectEqual(
+    DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data(
+        #"{"plugins":{"deadhd@other":[{"installPath":"/o"}],"deadhd@deadhd":[{"installPath":"/p"}]}}"#.utf8
+    )),
+    ["/c/skills/deadhd", "/p/skills/deadhd", "/o/skills/deadhd"],
+    "deadhd 위치: deadhd@deadhd 를 먼저, 나머지 deadhd@ 키는 이름순"
+)
+expectEqual(
+    DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data(
+        #"{"plugins":{"other@market":[{"installPath":"/x"}]}}"#.utf8
+    )),
+    ["/c/skills/deadhd"], "deadhd 위치: 다른 플러그인 키는 무시"
+)
+expectEqual(
+    DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data(
+        #"{"plugins":{"deadhd@deadhd":[{"installPath":"plugins/x"},{"installPath":7},{"installPath":"/p"}]}}"#.utf8
+    )),
+    ["/c/skills/deadhd", "/p/skills/deadhd"],
+    "deadhd 위치: 상대 경로와 문자열이 아닌 installPath 는 거른다"
+)
+expectEqual(DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data("{".utf8)),
+            ["/c/skills/deadhd"], "deadhd 위치: 깨진 JSON 이면 설정 디렉터리만")
+expectEqual(DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data(#"{"version":2}"#.utf8)),
+            ["/c/skills/deadhd"], "deadhd 위치: plugins 가 없으면 설정 디렉터리만")
+expectEqual(
+    DeadhdSkillLocation.directories(configDirectory: "/c", installedPlugins: Data(
+        #"{"plugins":{"deadhd@deadhd":[{"installPath":"/c"},{"installPath":"/p"},{"installPath":"/p"}]}}"#.utf8
+    )),
+    ["/c/skills/deadhd", "/p/skills/deadhd"],
+    "deadhd 위치: 같은 경로는 한 번만"
+)
+
 let untrustedOutState = DeadhdState.parse(Data(
     #"{"sessionId":"s","out":"/Users/alex/x.html","data":"/tmp/x.json"}"#.utf8
 ))
@@ -3416,6 +3457,8 @@ let enEtaThree = DisplayItem(
 expectEqual(enEtaThree.etaText, "~3 min left", "영어 문구: 남은 3분")
 expectEqual(L10n.lockedAlertsGrouped, "Locked-screen alerts arrive as one card", "영어 문구: 잠긴 사이 알림 묶음")
 expectEqual(L10n.shortcutHint, "Once: popover · Twice: floating panel", "영어 문구: 단축키 설명")
+expectEqual(L10n.reduceTransparencyOn, "Reduce transparency is on, so Pulse uses a solid background instead of glass", "영어 문구: 투명도 줄이기 안내")
+expectEqual(L10n.openDisplaySettings, "Open Settings", "영어 문구: 설정 열기")
 let enEmptyTitled = DisplayItem(session: Session(sessionId: "untitled", bucket: "working"), group: .working, now: now)
 expectEqual(enEmptyTitled.title, "Untitled session", "영어 문구: 제목 없는 세션")
 
@@ -3509,6 +3552,8 @@ L10n.language = .ko
 expectEqual(TimePhrase.soFar(from: now.addingTimeInterval(-720), to: now), "12분째", "카드 메타: 경과 분")
 expectEqual(TimePhrase.soFar(from: now.addingTimeInterval(-7500), to: now), "2시간째", "카드 메타: 경과 시간")
 expectEqual(TimePhrase.soFar(from: nil, to: now), nil, "카드 메타: 기준 시각 없음")
+expectEqual(L10n.reduceTransparencyOn, "시스템의 투명도 줄이기가 켜져 있어 유리 대신 단색 배경으로 보여요", "문구: 투명도 줄이기 안내")
+expectEqual(L10n.openDisplaySettings, "설정 열기", "문구: 설정 열기")
 
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

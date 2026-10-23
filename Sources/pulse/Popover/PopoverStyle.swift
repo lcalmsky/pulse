@@ -52,6 +52,11 @@ enum PopoverPalette {
         light: rgb(0xf6, 0xf6, 0xfa)
     )
 
+    static let glassVeil = dynamic(
+        dark: rgb(0x1c, 0x1c, 0x22, 0),
+        light: rgb(0xf6, 0xf6, 0xfa, 0.78)
+    )
+
     static let selection = dynamic(
         dark: rgb(0x0a, 0x84, 0xff, 0.90),
         light: rgb(0x00, 0x7a, 0xff, 0.92)
@@ -106,8 +111,8 @@ enum PopoverPalette {
     }
 }
 
-/// 투명도 줄이기가 꺼져 있으면 NSPopover 의 기본 유리 머티리얼을 그대로 보여 준다.
-/// 켜져 있으면 시안의 `--glass` RGB 로 단색을 채운다.
+/// 투명도 줄이기가 켜져 있으면 시안의 `--glass` RGB 로 단색을 채운다.
+/// 꺼져 있으면 유리 머티리얼을 보여 주되, 라이트에서는 뒤의 글자가 비치지 않도록 한 겹 더 깐다.
 struct PopoverBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -115,7 +120,7 @@ struct PopoverBackground: View {
         if reduceTransparency {
             PopoverPalette.glassSolid
         } else {
-            Color.clear
+            PopoverPalette.glassVeil
         }
     }
 }

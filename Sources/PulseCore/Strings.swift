@@ -259,6 +259,13 @@ public enum L10n {
     public static var themeSystem: String { pick("시스템", "System") }
     public static var themeLight: String { pick("라이트", "Light") }
     public static var themeDark: String { pick("다크", "Dark") }
+    public static var reduceTransparencyOn: String {
+        pick(
+            "시스템의 투명도 줄이기가 켜져 있어 유리 대신 단색 배경으로 보여요",
+            "Reduce transparency is on, so Pulse uses a solid background instead of glass"
+        )
+    }
+    public static var openDisplaySettings: String { pick("설정 열기", "Open Settings") }
     public static var notifications: String { pick("알림", "Notifications") }
     public static var whenAttentionNeeded: String { pick("확인이 필요할 때", "When attention is needed") }
     public static var whenTaskFinishes: String { pick("작업이 끝났을 때", "When a task finishes") }

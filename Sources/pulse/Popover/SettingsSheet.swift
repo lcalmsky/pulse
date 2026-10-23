@@ -4,6 +4,12 @@ import SwiftUI
 struct SettingsSheet: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: PopoverState
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    /// 손쉬운 사용 › 디스플레이. 투명도 줄이기는 시스템 설정이라 앱이 대신 끄지 않는다.
+    private static let displaySettingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?Display"
+    )!
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -53,7 +59,24 @@ struct SettingsSheet: View {
                     }
                 }
             }
-            .padding(.bottom, 12)
+            .padding(.bottom, reduceTransparency ? 6 : 12)
+
+            if reduceTransparency {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(L10n.reduceTransparencyOn)
+                        .font(.system(size: 11))
+                        .foregroundColor(PopoverPalette.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button(L10n.openDisplaySettings) {
+                        NSWorkspace.shared.open(Self.displaySettingsURL)
+                    }
+                    .buttonStyle(.link)
+                    .font(.system(size: 11))
+                }
+                .padding(.horizontal, 2)
+                .padding(.bottom, 12)
+            }
 
             Text(L10n.notifications)
                 .font(.system(size: 11, weight: .semibold))

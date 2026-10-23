@@ -13,6 +13,13 @@ class Pulse < Formula
     bin.install_symlink prefix/"Pulse.app/Contents/MacOS/pulse"
   end
 
+  def caveats
+    <<~EOS
+      If System Settings > Accessibility > Display > Reduce transparency is on,
+      Pulse draws a solid background instead of glass.
+    EOS
+  end
+
   service do
     run [opt_prefix/"Pulse.app/Contents/MacOS/pulse"]
     keep_alive true

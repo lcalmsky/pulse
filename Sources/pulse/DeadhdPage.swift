@@ -82,9 +82,19 @@ enum DeadhdPage {
 
     private static func skillURL(_ name: String, environment: [String: String]) -> URL? {
         let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
-        let url = URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath)
-            .appendingPathComponent("skills/deadhd/\(name)")
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        let configDirectory = NSString(string: configured).expandingTildeInPath
+        let installedPlugins = try? Data(
+            contentsOf: URL(fileURLWithPath: configDirectory)
+                .appendingPathComponent("plugins/installed_plugins.json")
+        )
+        for directory in DeadhdSkillLocation.directories(
+            configDirectory: configDirectory,
+            installedPlugins: installedPlugins
+        ) {
+            let url = URL(fileURLWithPath: directory).appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return nil
     }
 
     // `/usr/bin/python3`(3.9.6)에서도 render.py·serve.py 가 3.14 와 같은 결과를 냈고 deadhd 테스트 451건이 통과했다.
