@@ -448,12 +448,6 @@ expectEqual(SessionClick.resolve(orcaTerminal: "term-1", cwd: "/a/b"), .orca("te
             "클릭 규칙: cwd 보다 핸들")
 expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: "  "), SessionClickAction.none,
             "클릭 규칙: 공백뿐인 cwd 는 없는 것으로 본다")
-expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: "/a/b", ended: true), .ended,
-            "클릭 규칙: 끝난 세션은 cwd 가 있어도 터미널로 가지 않는다")
-expectEqual(SessionClick.resolve(orcaTerminal: "term-1", ended: true), .ended,
-            "클릭 규칙: 끝난 세션은 핸들이 있어도 터미널로 가지 않는다")
-expectEqual(SessionClick.resolve(orcaTerminal: nil, cwd: nil, ended: true), SessionClickAction.none,
-            "클릭 규칙: 끝난 세션도 터미널 정보가 없으면 비활성")
 
 let clickGrouped = Grouping.group(
     SessionsResponse(sessions: [
@@ -480,20 +474,11 @@ expectEqual(clickItems["pageOnly"]?.isActionable, false, "클릭 규칙: 터미�
 expectEqual(clickItems["dataOnly"]?.isActionable, false, "클릭 규칙: 단계만 있는 행도 행 탭 동작은 없다")
 expectEqual(clickItems["none"]?.isActionable, false, "클릭 규칙: 대상 없는 항목은 비활성")
 
-let endedClickItem = DisplayItem(
-    session: Session(sessionId: "ended", bucket: "ended", cwd: "/a/b"),
-    group: .done,
-    now: now
-)
-expectEqual(endedClickItem.isEnded, true, "클릭 규칙: 끝난 세션은 isEnded")
-expectEqual(endedClickItem.clickAction, .ended, "클릭 규칙: 끝난 세션은 터미널을 찾지 않는다")
-expectEqual(endedClickItem.isActionable, true, "클릭 규칙: 끝난 세션도 눌러서 안내를 띄운다")
 let doneClickItem = DisplayItem(
     session: Session(sessionId: "done", bucket: "done", cwd: "/a/b"),
     group: .done,
     now: now
 )
-expectEqual(doneClickItem.isEnded, false, "클릭 규칙: 끝났지만 닫히지 않은 세션은 isEnded 아님")
 expectEqual(doneClickItem.clickAction, .cwd("/a/b"), "클릭 규칙: 끝난 턴은 터미널로 간다")
 
 // MARK: - Orca 터미널 cwd 매칭
@@ -1374,92 +1359,6 @@ let absentKeyGroup = Grouping.group(
     now: now
 )
 expectEqual(absentKeyGroup.working.first?.keyTag, nil, "태그: key 가 없으면 없다")
-
-// MARK: - 종료 추적
-
-let liveSession = Session(
-    sessionId: "gone",
-    bucket: "working",
-    title: "떠난 세션",
-    key: "gone",
-    status: "working",
-    since: now.addingTimeInterval(-60),
-    replyTail: "하던 일",
-    cwd: "/a/b"
-)
-let t0 = now
-let t1 = now.addingTimeInterval(5)
-var tracker = EndedSessionTracker()
-expectEqual(tracker.reconcile(active: [liveSession], at: t0).count, 0, "종료 추적: 살아 있으면 보관본이 없다")
-let disappeared = tracker.reconcile(active: [], at: t1)
-expectEqual(disappeared.count, 1, "종료 추적: 사라지면 ended 로 남는다")
-expectEqual(disappeared.first?.bucket, "ended", "종료 추적: bucket 은 ended")
-expectEqual(disappeared.first?.status, "ended", "종료 추적: status 는 ended")
-expectEqual(disappeared.first?.since, t1, "종료 추적: since 는 사라진 시각")
-expectEqual(disappeared.first?.replyTail, "하던 일", "종료 추적: 마지막 모습을 보존한다")
-expectEqual(Grouping.group(SessionsResponse(sessions: disappeared), now: t1).done.count, 1,
-            "종료 추적: ended 는 완료 그룹으로 간다")
-expectEqual(tracker.reconcile(active: [], at: t1.addingTimeInterval(12 * 3600 - 1)).count, 1,
-            "종료 추적: 12시간이 되기 전에는 남는다")
-expectEqual(tracker.reconcile(active: [], at: t1.addingTimeInterval(12 * 3600)).count, 0,
-            "종료 추적: 12시간 뒤 지운다")
-
-let completedLive = Session(
-    sessionId: "completed",
-    bucket: "done",
-    title: "끝난 세션",
-    status: "idle",
-    since: now.addingTimeInterval(-120)
-)
-let completedAcknowledgeKey = DisplayItem.acknowledgeKey(
-    sessionId: completedLive.sessionId,
-    since: completedLive.since
-)
-var doneTracker = EndedSessionTracker()
-_ = doneTracker.reconcile(active: [completedLive], at: t0)
-let completedEnded = doneTracker.reconcile(active: [], at: t1)
-expectEqual(completedEnded.first?.since, completedLive.since, "종료 추적: 완료로 사라지면 since 를 유지한다")
-expectEqual(
-    DisplayItem.acknowledgeKey(sessionId: "completed", since: completedEnded.first?.since),
-    completedAcknowledgeKey,
-    "종료 추적: 완료로 사라져도 숨김 키가 바뀌지 않는다"
-)
-
-if let endedSession = completedEnded.first {
-    var endedPrune = DoneAcknowledgements(keys: [completedAcknowledgeKey])
-    endedPrune.prune(keeping: SessionsResponse(sessions: [endedSession]))
-    expectEqual(endedPrune.keys, Set([completedAcknowledgeKey]), "정리: ended 세션의 숨김 키는 유지한다")
-} else {
-    expect(false, "정리: ended 세션을 만들지 못했다")
-}
-
-var reappeared = EndedSessionTracker()
-_ = reappeared.reconcile(active: [liveSession], at: t0)
-_ = reappeared.reconcile(active: [], at: t1)
-expectEqual(reappeared.reconcile(active: [liveSession], at: t1.addingTimeInterval(10)).count, 0,
-            "종료 추적: 다시 나타나면 보관본을 버린다")
-
-var neverSeen = EndedSessionTracker()
-expectEqual(neverSeen.reconcile(active: [], at: t0).count, 0, "종료 추적: 처음부터 없던 세션은 남기지 않는다")
-
-let previousTerminal = Session(sessionId: "old", bucket: "working", key: "api", status: "working", cwd: "/w/api")
-let nextTerminal = Session(sessionId: "new", bucket: "working", key: "api", status: "working", cwd: "/w/api")
-let otherFolder = Session(sessionId: "other", bucket: "working", key: "api", status: "working", cwd: "/w/web")
-var handedOver = EndedSessionTracker()
-_ = handedOver.reconcile(active: [previousTerminal], at: t0)
-expectEqual(handedOver.reconcile(active: [nextTerminal], at: t1).count, 0,
-            "종료 추적: 같은 이름·폴더로 새 세션이 뜨면 이전 세션을 완료로 남기지 않는다")
-expectEqual(handedOver.reconcile(active: [], at: t1.addingTimeInterval(5)).map(\.sessionId), ["new"],
-            "종료 추적: 이어받은 세션이 끝나면 그 세션만 남는다")
-var otherPlace = EndedSessionTracker()
-_ = otherPlace.reconcile(active: [previousTerminal], at: t0)
-expectEqual(otherPlace.reconcile(active: [otherFolder], at: t1).map(\.sessionId), ["old"],
-            "종료 추적: 이름이 같아도 폴더가 다르면 완료로 남는다")
-let unnamed = Session(sessionId: "unnamed", bucket: "working", status: "working", cwd: "/w/api")
-var noName = EndedSessionTracker()
-_ = noName.reconcile(active: [unnamed], at: t0)
-expectEqual(noName.reconcile(active: [Session(sessionId: "unnamed2", bucket: "working", status: "working", cwd: "/w/api")], at: t1).count, 1,
-            "종료 추적: 이름이 없으면 이어받음으로 보지 않는다")
 
 // MARK: - deadhd 상태 파일
 
@@ -3539,7 +3438,6 @@ expectEqual(L10n.reduceTransparencyOn, "Reduce transparency is on, so Pulse uses
 expectEqual(L10n.openDisplaySettings, "Open Settings", "영어 문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "영어 문구: GitHub 별 버튼")
 expectEqual(L10n.progressPageNotOpened, "Could not open the progress page", "영어 문구: 진행 페이지 열기 실패")
-expectEqual(L10n.sessionEnded, "This session has ended", "영어 문구: 끝난 세션")
 expectEqual(L10n.unknownOption("--x"), "pulse: unknown option --x", "영어 문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.hasPrefix("Usage: pulse [option]"), true, "영어 문구: 도움말 첫 줄")
 let enEmptyTitled = DisplayItem(session: Session(sessionId: "untitled", bucket: "working"), group: .working, now: now)
@@ -3640,7 +3538,6 @@ expectEqual(L10n.openDisplaySettings, "설정 열기", "문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "문구: GitHub 별 버튼은 한국어 화면에서도 영어")
 expectEqual(L10n.progressPageNotCreated.hasPrefix("진행 페이지를 만들지 못했어요"), true, "문구: 진행 페이지 생성 실패")
 expectEqual(L10n.progressPageNotOpened, "진행 페이지를 열지 못했어요", "문구: 진행 페이지 열기 실패")
-expectEqual(L10n.sessionEnded, "이 세션은 닫혔어요", "문구: 끝난 세션")
 expectEqual(L10n.unknownOption("--x"), "pulse: 알 수 없는 옵션 --x", "문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.contains("--help"), true, "문구: 도움말에 --help")
 

@@ -282,7 +282,6 @@ public enum L10n {
     }
     public static var readFailed: String { pick("읽기 실패", "Read failed") }
     public static var terminalClosed: String { pick("터미널이 닫혔어요", "The terminal was closed") }
-    public static var sessionEnded: String { pick("이 세션은 닫혔어요", "This session has ended") }
     public static var noOrcaTerminal: String {
         pick("Orca 에 이 세션의 터미널이 없어요", "Orca has no terminal for this session")
     }

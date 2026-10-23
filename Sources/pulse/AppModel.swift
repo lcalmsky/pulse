@@ -68,7 +68,6 @@ final class AppModel: ObservableObject {
     private var hasHandledFirstUpdate = false
 
     private var response: SessionsResponse?
-    private var endedTracker = EndedSessionTracker()
     private var timer: Timer?
     private var snoozes: [String: Date] = [:]
     private var acknowledgements: DoneAcknowledgements
@@ -283,19 +282,17 @@ final class AppModel: ObservableObject {
             markFailure()
             return
         }
-        let ended = endedTracker.reconcile(active: active, at: Date())
-        let local = active + ended
         lastSuccess = Date()
         if sessionsUnavailable {
             sessionsUnavailable = false
         }
 
         let before = acknowledgements
-        acknowledgements.prune(keeping: SessionsResponse(sessions: local))
+        acknowledgements.prune(keeping: SessionsResponse(sessions: active))
         if acknowledgements != before {
             persistAcknowledgements()
         }
-        response = SessionsResponse(sessions: local)
+        response = SessionsResponse(sessions: active)
         refresh()
         syncAwayWithScreenLock()
         deliverAttentionNotes(isFirstUpdate: !hasHandledFirstUpdate)
@@ -488,8 +485,6 @@ final class AppModel: ObservableObject {
             switchTerminal(handle)
         case .cwd(let cwd):
             switchToCwd(cwd, name: item.key ?? item.title)
-        case .ended:
-            showError(L10n.sessionEnded)
         case .none:
             break
         }
@@ -644,8 +639,6 @@ final class AppModel: ObservableObject {
             switchTerminal(handle)
         case .cwd(let cwd):
             switchToCwd(cwd, name: item.key ?? item.title)
-        case .ended:
-            showError(L10n.sessionEnded)
         case .none:
             break
         }

@@ -63,7 +63,6 @@ public struct DisplayItem: Equatable, Identifiable {
     public let nowLine: String?
     public let group: DisplayGroup
     public let isStall: Bool
-    public let isEnded: Bool
     public let orcaTerminal: String?
     public let cwd: String?
     public let pagePath: String?
@@ -79,7 +78,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public var rowID: String { "\(group.rawValue)+\(sessionId)" }
 
     public var clickAction: SessionClickAction {
-        SessionClick.resolve(orcaTerminal: orcaTerminal, cwd: cwd, ended: isEnded)
+        SessionClick.resolve(orcaTerminal: orcaTerminal, cwd: cwd)
     }
 
     public var isActionable: Bool { clickAction != .none }
@@ -144,7 +143,6 @@ public struct DisplayItem: Equatable, Identifiable {
         )
         self.group = group
         self.isStall = session.bucket == "stall"
-        self.isEnded = session.bucket == "ended"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)
         self.cwd = Grouping.nonEmpty(session.cwd)
         self.pagePath = Grouping.nonEmpty(session.pagePath)
