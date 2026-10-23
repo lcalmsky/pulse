@@ -120,10 +120,12 @@ Open it with the gear button or `⌘,`. Change the density, theme, and notificat
 | Item | Choice |
 |---|---|
 | Density | Detailed · Compact. Compact narrows the popover and shortens the quotes |
-| Theme | System · Light · Dark |
+| Theme | System · Light · Dark. In Light, an extra light layer sits on the glass so text behind the popover does not show through |
 | When attention is needed | `Card and sound` · `Card only` · `Off` |
 | When a task finishes | `Card` · `Off` |
 | Hotkey | `⌃⌥P`. Shown here when another app uses it |
+
+When **Reduce transparency** is on in System Settings › Accessibility › Display, the popover and cards draw a solid background instead of glass. A note and an `Open Settings` button then appear under Theme, and the button opens that settings pane. Reduce transparency applies to the whole system, so Pulse does not turn it off for you.
 
 <details>
 <summary>Stored keys and language</summary>
@@ -155,7 +157,7 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 - **Progress** draws `5/9` and a step bar. A blocked step is painted orange
 - **Current step** shows the step name and `~N min left`
 - **Steps** clicking the step line expands the previous, current, and next steps inside the row. On the selected row, `→` expands and pressing it again shows all steps, while `←` collapses them one at a time
-- **Progress page** the document button opens the deadhd progress page in a browser
+- **Progress page** the document button opens the deadhd progress page in a browser. Pulse uses `render.py` and `serve.py` from `~/.claude/skills/deadhd` when deadhd is installed there, and otherwise from the install path recorded in `~/.claude/plugins/installed_plugins.json` for the deadhd plugin
 - **Activity** an activity line such as `1 compaction · 2 in background · Bash 12 seconds ago`
 
 Sessions that do not use deadhd are missing only the checklist and step expansion.
