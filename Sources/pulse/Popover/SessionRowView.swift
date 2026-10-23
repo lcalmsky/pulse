@@ -19,7 +19,7 @@ struct SessionRowView: View {
     private var expanded: Bool { model.expandedSteps.contains(item.sessionId) }
     /// 진행 행은 터미널이 없어도 단계 펼침이나 브라우저 열기가 되면 흐리지 않는다.
     private var dimmed: Bool {
-        !item.isActionable && !(group == .working && (item.pagePath != nil || item.dataPath != nil))
+        !item.isActionable && !(group == .working && (item.pagePath != nil || item.dataPath != nil)) && !item.showsStepLine
     }
 
     var body: some View {
@@ -398,6 +398,40 @@ struct SessionRowView: View {
     // MARK: - 완료
 
     private var doneRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            doneTitleLine
+            if item.showsStepLine {
+                stepperLine
+                    .padding(.leading, 7)
+                if doneStepsOpen {
+                    StepPanel(item: item, model: model, full: model.fullSteps.contains(item.sessionId))
+                        .padding(.leading, 7)
+                }
+            }
+        }
+        .padding(.vertical, 7)
+        .padding(.leading, 14)
+        .padding(.trailing, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(highlighted ? PopoverPalette.rowHover : (doneStepsOpen ? PopoverPalette.stepPanel : Color.clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(selected ? PopoverPalette.selection : Color.clear, lineWidth: 1.5)
+        )
+        .modifier(ReplyHelp(reply: item.replyTail))
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture {
+            guard item.isActionable else { return }
+            model.open(item)
+        }
+    }
+
+    /// 진행 중에 펼친 행이 체크리스트를 다 끝내고 완료로 넘어오면 펼침 기록만 남으므로 단계 줄이 있을 때만 쓴다.
+    private var doneStepsOpen: Bool { expanded && item.showsStepLine }
+
+    private var doneTitleLine: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark")
                 .font(.system(size: 14, weight: .bold))
@@ -419,23 +453,6 @@ struct SessionRowView: View {
             orcaHint
             Spacer(minLength: 0)
             doneRightSlot
-        }
-        .padding(.vertical, 7)
-        .padding(.leading, 14)
-        .padding(.trailing, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(highlighted ? PopoverPalette.rowHover : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(selected ? PopoverPalette.selection : Color.clear, lineWidth: 1.5)
-        )
-        .modifier(ReplyHelp(reply: item.replyTail))
-        .contentShape(RoundedRectangle(cornerRadius: 10))
-        .onTapGesture {
-            guard item.isActionable else { return }
-            model.open(item)
         }
     }
 

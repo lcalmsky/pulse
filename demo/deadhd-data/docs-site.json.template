@@ -1,0 +1,9 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "목차 구조 정리", "state": "done", "sub": "완료", "doneAt": "__ISO_M4__"},
+    {"label": "사이드바 컴포넌트", "state": "done", "sub": "완료", "doneAt": "__ISO_M3__"},
+    {"label": "빌드 확인", "state": "done", "sub": "통과", "doneAt": "__ISO_M2__"},
+    {"label": "미리보기 배포 승인", "state": "blocked", "sub": "승인 대기"}
+  ]
+}

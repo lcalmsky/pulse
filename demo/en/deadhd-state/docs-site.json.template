@@ -1,0 +1,14 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "Add sidebar navigation",
+    "lang": "en",
+    "counts": {"done": 3, "left": 0, "now": 0, "blocked": 1},
+    "total": 4,
+    "states": ["done", "done", "done", "blocked"],
+    "nowLabel": "Preview deploy approval",
+    "renderedAt": "__ISO_M2__",
+    "dataAt": "__ISO_M2__"
+  },
+  "data": "__DATA_DIR__/docs-site.json"
+}

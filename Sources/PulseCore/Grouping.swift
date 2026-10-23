@@ -86,10 +86,16 @@ public struct DisplayItem: Equatable, Identifiable {
     /// 지금 하는 일 한 줄을 그리는 행. 확인 필요 섹션에 있는 stall 도 진행 중으로 다룬다.
     public var isRunning: Bool { group == .working || isStall }
 
-    /// 진행 중 섹션에서 단계 줄을 펼칠 수 있는 행. 데이터 파일 경로와 그릴 단계가 모두 있어야 한다.
+    /// 단계 줄을 펼칠 수 있는 행. 진행 중 행과, 체크리스트를 다 끝내지 못한 채 턴이 끝난 완료 행이다.
     public var showsStepLine: Bool {
-        guard group == .working, dataPath != nil else { return false }
+        guard dataPath != nil else { return false }
+        guard group == .working || (group == .done && hasUnfinishedChecklist) else { return false }
         return !Stepper.segments(states: stepStates, counts: counts, total: progress?.total).isEmpty
+    }
+
+    public var hasUnfinishedChecklist: Bool {
+        guard let progress else { return false }
+        return progress.done < progress.total
     }
 
     /// 제목과 같은 이름의 태그는 카드에 같은 글자를 두 번 보이므로 그리지 않는다.

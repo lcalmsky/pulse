@@ -63,6 +63,10 @@ func runDemoFixtureChecks() {
         .flatMap(Checklist.parse)
     expectEqual(dataSteps?.count, 6, "데모: api-server 체크리스트 항목 수")
     expect(grouped.allItems.contains { $0.placeText != nil }, "데모: 위치 줄이 보이는 세션")
+    let docs = grouped.done.first { $0.sessionId == "9d4a3e6f-5a7b-4c8d-8e9f-4a5b6c7d8e9f" }
+    expect(docs != nil, "데모: docs-site 가 완료")
+    expectEqual(docs?.hasUnfinishedChecklist, true, "데모: docs-site 체크리스트가 남은 채 끝남")
+    expectEqual(docs?.showsStepLine, true, "데모: docs-site 완료 행에 단계 줄")
 
     guard demoRender(script, directory: manyDirectory, many: true, language: nil, keepers: keepers) else { return }
     let manyNow = Date()
@@ -121,7 +125,7 @@ func runDemoFixtureChecks() {
     let englishRoot = repository.appendingPathComponent("demo/en")
     let koreanRoot = repository.appendingPathComponent("demo")
     let englishFiles = demoFiles(under: englishRoot)
-    expectEqual(englishFiles.count, 23, "데모: 영어판 템플릿 수")
+    expectEqual(englishFiles.count, 25, "데모: 영어판 템플릿 수")
     for relative in englishFiles {
         expectEqual(
             demoLineCount(englishRoot.appendingPathComponent(relative)),

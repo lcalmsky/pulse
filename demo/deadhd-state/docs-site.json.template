@@ -1,0 +1,14 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "summary": {
+    "title": "사이드바 내비게이션 추가",
+    "lang": "ko",
+    "counts": {"done": 3, "left": 0, "now": 0, "blocked": 1},
+    "total": 4,
+    "states": ["done", "done", "done", "blocked"],
+    "nowLabel": "미리보기 배포 승인",
+    "renderedAt": "__ISO_M2__",
+    "dataAt": "__ISO_M2__"
+  },
+  "data": "__DATA_DIR__/docs-site.json"
+}

@@ -1,0 +1,9 @@
+{
+  "sessionId": "__SESSION_ID__",
+  "items": [
+    {"label": "Outline the contents", "state": "done", "sub": "Done", "doneAt": "__ISO_M4__"},
+    {"label": "Sidebar component", "state": "done", "sub": "Done", "doneAt": "__ISO_M3__"},
+    {"label": "Check the build", "state": "done", "sub": "Passed", "doneAt": "__ISO_M2__"},
+    {"label": "Preview deploy approval", "state": "blocked", "sub": "Awaiting approval"}
+  ]
+}

@@ -1997,7 +1997,29 @@ expectEqual(stepLineGrouped.working.first { $0.sessionId == "workingNoData" }?.s
 expectEqual(stepLineGrouped.attention.first { $0.sessionId == "wait" }?.showsStepLine, false,
             "단계 줄: 확인 필요 행은 펼칠 수 없다")
 expectEqual(stepLineGrouped.done.first { $0.sessionId == "done" }?.showsStepLine, false,
-            "단계 줄: 완료 행은 펼칠 수 없다")
+            "단계 줄: 체크리스트를 다 끝낸 완료 행은 펼칠 수 없다")
+
+let unfinishedDoneGrouped = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "doneUnfinished", bucket: "done", since: now, dataPath: "/tmp/b.json",
+                counts: SessionCounts(done: 8, left: 0, now: 0, blocked: 1), total: 9,
+                stepStates: ["done", "done", "done", "done", "done", "done", "done", "done", "blocked"]),
+        Session(sessionId: "doneUnfinishedNoData", bucket: "done", since: now,
+                counts: SessionCounts(done: 1, left: 1), total: 2,
+                stepStates: ["done", "left"]),
+        Session(sessionId: "doneNoChecklist", bucket: "done", since: now, dataPath: "/tmp/c.json"),
+    ]),
+    now: now
+)
+let doneUnfinished = unfinishedDoneGrouped.done.first { $0.sessionId == "doneUnfinished" }
+expectEqual(doneUnfinished?.hasUnfinishedChecklist, true, "완료 행: 9단계 중 8단계면 체크리스트가 남아 있다")
+expectEqual(doneUnfinished?.showsStepLine, true, "단계 줄: 체크리스트가 남은 완료 행은 펼칠 수 있다")
+expectEqual(unfinishedDoneGrouped.done.first { $0.sessionId == "doneUnfinishedNoData" }?.showsStepLine, false,
+            "단계 줄: 체크리스트가 남아도 데이터 파일이 없는 완료 행은 펼칠 수 없다")
+expectEqual(unfinishedDoneGrouped.done.first { $0.sessionId == "doneNoChecklist" }?.hasUnfinishedChecklist, false,
+            "완료 행: 체크리스트가 없으면 남은 단계도 없다")
+expectEqual(stepLineGrouped.done.first { $0.sessionId == "done" }?.hasUnfinishedChecklist, false,
+            "완료 행: 모든 단계를 끝냈으면 남은 단계가 없다")
 
 // MARK: - 되돌리기 토스트
 
