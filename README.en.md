@@ -193,7 +193,8 @@ A floating panel takes the same keys after a single click or `⌃⌥P`, without 
 ### Opening sessions
 
 - Clicking a row runs `orca terminal switch --terminal <handle> --json` to jump to that session's terminal and brings Orca to the front.
-- When there is no terminal handle, Pulse looks for a terminal with the same working directory. If several match, it picks the one whose session name and title match, and if there is still none, the one with the most recent output.
+- When there is no terminal handle, Pulse looks for a terminal with the same working directory and picks the one whose title matches the session name. If no title matches, it jumps only when that directory has exactly one terminal.
+- Clicking a session that has already ended does not look for a terminal and shows `This session has ended` instead.
 - When no matching terminal exists, it briefly shows `Orca has no terminal for this session` and beeps.
 - The progress page button opens a browser, and PR and ticket tags open their respective links.
 
