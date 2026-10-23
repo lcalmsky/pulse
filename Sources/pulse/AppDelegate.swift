@@ -3,7 +3,7 @@ import Combine
 import PulseCore
 
 enum AppInfo {
-    static let version = "0.5.1"
+    static let version = "0.5.2"
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
