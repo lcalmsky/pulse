@@ -3,7 +3,7 @@ import Combine
 import PulseCore
 
 enum AppInfo {
-    static let version = "0.8.2"
+    static let version = "0.8.3"
     static let repository = URL(string: "https://github.com/lcalmsky/pulse")!
 }
 
