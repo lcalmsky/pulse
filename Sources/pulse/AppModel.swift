@@ -482,7 +482,7 @@ final class AppModel: ObservableObject {
     func open(_ item: DisplayItem) {
         switch item.clickAction {
         case .orca(let handle):
-            switchTerminal(handle)
+            switchTerminal(handle, fallbackCwd: item.cwd, name: item.key ?? item.title)
         case .cwd(let cwd):
             switchToCwd(cwd, name: item.key ?? item.title)
         case .none:
@@ -636,7 +636,7 @@ final class AppModel: ObservableObject {
     func openInOrca(_ item: DisplayItem) {
         switch item.clickAction {
         case .orca(let handle):
-            switchTerminal(handle)
+            switchTerminal(handle, fallbackCwd: item.cwd, name: item.key ?? item.title)
         case .cwd(let cwd):
             switchToCwd(cwd, name: item.key ?? item.title)
         case .none:
@@ -644,9 +644,14 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func switchTerminal(_ handle: String) {
+    private func switchTerminal(_ handle: String, fallbackCwd: String?, name: String) {
         OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
-            if !ok { self?.showError(L10n.terminalClosed) }
+            guard !ok else { return }
+            if let fallbackCwd {
+                self?.switchToCwd(fallbackCwd, name: name)
+            } else {
+                self?.showError(L10n.terminalClosed)
+            }
         }
     }
 

@@ -3632,6 +3632,32 @@ expectEqual(L10n.progressPageNotOpened, "진행 페이지를 열지 못했어요
 expectEqual(L10n.unknownOption("--x"), "pulse: 알 수 없는 옵션 --x", "문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.contains("--help"), true, "문구: 도움말에 --help")
 
+func procArgs(argc: Int32, _ parts: [String], padding: Int = 3) -> Data {
+    var data = withUnsafeBytes(of: argc.littleEndian) { Data($0) }
+    data.append(contentsOf: Array(parts[0].utf8) + [0] + [UInt8](repeating: 0, count: padding))
+    for part in parts.dropFirst() { data.append(contentsOf: Array(part.utf8) + [0]) }
+    data.append(0)
+    return data
+}
+let orcaArgs = procArgs(argc: 2, ["/bin/claude", "claude", "--resume", "PWD=/a", "ORCA_TERMINAL_HANDLE=term_1", "X=1"])
+expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: orcaArgs), "term_1", "프로세스 환경: Orca 핸들")
+expectEqual(ProcessEnvironment.value("PWD", inProcArgs: orcaArgs), "/a", "프로세스 환경: 첫 변수")
+expectEqual(ProcessEnvironment.value("ORCA_TERMINAL", inProcArgs: orcaArgs), nil, "프로세스 환경: 이름 앞부분만 같으면 아님")
+expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: procArgs(argc: 3, ["/bin/claude", "claude", "ORCA_TERMINAL_HANDLE=arg", "-c", "X=1"])), nil, "프로세스 환경: 인자는 변수로 읽지 않음")
+expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: procArgs(argc: 1, ["/bin/zsh", "zsh", "PWD=/a"])), nil, "프로세스 환경: Orca 밖에서 띄운 프로세스")
+expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: Data([1, 0])), nil, "프로세스 환경: 잘린 버퍼")
+expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: procArgs(argc: 9, ["/bin/claude", "claude"])), nil, "프로세스 환경: 인자 수보다 짧은 버퍼")
+expectEqual(
+    LocalSessions.makeSession(
+        record: LocalSessionRecord(pid: 1, sessionId: "s", cwd: "/a", status: "idle"),
+        summary: TranscriptSummary(),
+        now: now,
+        orcaTerminal: "term_1"
+    ).orcaTerminal,
+    "term_1",
+    "로컬 세션: 환경 변수 핸들이 있으면 cwd 매칭 대신 핸들로 이동"
+)
+
 expectEqual(LaunchCommand.parse(["pulse"]), .run, "실행 인자: 없으면 앱 실행")
 expectEqual(LaunchCommand.parse(["pulse", "--version"]), .version, "실행 인자: --version")
 expectEqual(LaunchCommand.parse(["pulse", "--help"]), .help, "실행 인자: --help")

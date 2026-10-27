@@ -22,6 +22,7 @@ final class LocalSessionSource {
     private var summaries = TranscriptSummaryCache()
     private var transcriptMisses: [String: TranscriptMiss] = [:]
     private var loggedStatuses: [String: String] = [:]
+    private var orcaTerminals: [String: (pid: Int, handle: String?)] = [:]
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
         let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
@@ -58,7 +59,8 @@ final class LocalSessionSource {
                 summary: summary,
                 now: now,
                 home: NSHomeDirectory(),
-                deadhd: deadhdState(for: record)
+                deadhd: deadhdState(for: record),
+                orcaTerminal: orcaTerminal(for: record)
             ))
         }
         let sessionIds = Set(sessions.map(\.sessionId))
@@ -66,6 +68,7 @@ final class LocalSessionSource {
         transcriptPaths = transcriptPaths.filter { sessionIds.contains($0.key) }
         transcriptMisses = transcriptMisses.filter { sessionIds.contains($0.key) }
         loggedStatuses = loggedStatuses.filter { sessionIds.contains($0.key) }
+        orcaTerminals = orcaTerminals.filter { sessionIds.contains($0.key) }
         return sessions
     }
 
@@ -98,6 +101,27 @@ final class LocalSessionSource {
             state.pagePath = nil
         }
         return state
+    }
+
+    /// 프로세스 환경 변수는 띄운 뒤 바뀌지 않으므로 pid 가 같으면 처음 읽은 값을 쓴다.
+    private func orcaTerminal(for record: LocalSessionRecord) -> String? {
+        if let cached = orcaTerminals[record.sessionId], cached.pid == record.pid {
+            return cached.handle
+        }
+        // 읽기에 실패하면 다음 갱신에서 다시 읽도록 캐시하지 않는다.
+        guard let args = procArgs(record.pid) else { return nil }
+        let handle = ProcessEnvironment.value(ProcessEnvironment.orcaTerminalHandleKey, inProcArgs: args)
+        orcaTerminals[record.sessionId] = (record.pid, handle)
+        return handle
+    }
+
+    private func procArgs(_ pid: Int) -> Data? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, Int32(pid)]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buffer = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return nil }
+        return Data(buffer.prefix(size))
     }
 
     private func isProcessAlive(_ pid: Int) -> Bool {
