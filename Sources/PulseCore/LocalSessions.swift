@@ -55,7 +55,7 @@ public struct TranscriptSummary: Equatable {
     public let pullRequest: PullRequestLink?
     /// 트랜스크립트 끝에서 센 압축 경계 레코드 수.
     public let compactions: Int?
-    /// 아직 완료 알림을 받지 못한 `run_in_background` 도구 호출 수.
+    /// 아직 완료 알림을 받지 못한 백그라운드 작업(셸, 비동기 에이전트, 모니터) 수.
     public let backgroundTasks: Int?
 
     public init(
@@ -171,7 +171,9 @@ public enum LocalSessions {
         var pullRequest: PullRequestLink?
         var compactions = 0
         var backgroundToolUseIds: Set<String> = []
+        var backgroundTaskIds: [String: String] = [:]
         var completedBackgroundToolUseIds: Set<String> = []
+        var completedTaskIds: Set<String> = []
         var assistantTexts: [String] = []
 
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: false)
@@ -183,6 +185,13 @@ public enum LocalSessions {
             else { continue }
 
             switch type {
+            case "queue-operation":
+                completedTaskIds.formUnion(taskNotificationValues(tag: "task-id", in: object["content"], terminalOnly: true))
+            case "attachment":
+                let attachment = object["attachment"] as? [String: Any]
+                if attachment?["type"] as? String == "queued_command" {
+                    completedTaskIds.formUnion(taskNotificationValues(tag: "task-id", in: attachment?["prompt"], terminalOnly: true))
+                }
             case "system":
                 if object["subtype"] as? String == "compact_boundary" {
                     compactions += 1
@@ -233,14 +242,24 @@ public enum LocalSessions {
                 }
                 let message = object["message"] as? [String: Any]
                 let blocks = message?["content"] as? [[String: Any]] ?? []
+                let result = object["toolUseResult"] as? [String: Any]
                 for block in blocks where block["type"] as? String == "tool_result" {
                     if let id = nonEmpty(block["tool_use_id"] as? String) {
                         resolvedToolUseIds.insert(id)
+                        let toolName = pendingToolUses.last { $0.id == id }?.name
+                        if let taskId = backgroundTaskId(fromToolResult: result, toolName: toolName) {
+                            backgroundToolUseIds.insert(id)
+                            backgroundTaskIds[id] = taskId
+                        }
                     }
                 }
+                if let stopped = nonEmpty(result?["task_id"] as? String) {
+                    completedTaskIds.insert(stopped)
+                }
                 completedBackgroundToolUseIds.formUnion(
-                    taskNotificationToolUseIds(in: message?["content"])
+                    taskNotificationValues(tag: "tool-use-id", in: message?["content"])
                 )
+                completedTaskIds.formUnion(taskNotificationValues(tag: "task-id", in: message?["content"], terminalOnly: true))
             case "pr-link":
                 if let url = nonEmpty(object["prUrl"] as? String),
                    SafeLink.httpURL(url) != nil,
@@ -282,13 +301,25 @@ public enum LocalSessions {
             pendingToolLabel: pendingLabel,
             pullRequest: pullRequest,
             compactions: compactions,
-            backgroundTasks: backgroundToolUseIds.subtracting(completedBackgroundToolUseIds).count
+            backgroundTasks: backgroundToolUseIds.filter { id in
+                !completedBackgroundToolUseIds.contains(id)
+                    && !(backgroundTaskIds[id].map(completedTaskIds.contains) ?? false)
+            }.count
         )
     }
 
-    /// 백그라운드 작업 완료는 `<task-notification>` 안의 `<tool-use-id>` 로 돌아온다.
+    /// `run_in_background` 없이도 뒤로 넘어간 셸(Ctrl+B, 시간 초과)과 비동기 에이전트가 있어 도구 결과로 판정한다.
+    static func backgroundTaskId(fromToolResult result: [String: Any]?, toolName: String?) -> String? {
+        guard let result else { return nil }
+        if let id = nonEmpty(result["backgroundTaskId"] as? String) { return id }
+        if result["isAsync"] as? Bool == true, let id = nonEmpty(result["agentId"] as? String) { return id }
+        return toolName == "Monitor" ? nonEmpty(result["taskId"] as? String) : nil
+    }
+
+    /// 백그라운드 작업 완료는 `<task-notification>` 으로 돌아온다. 턴 도중에 끝나면 대기열 레코드에만 남는다.
     /// 다른 안내 문구에도 같은 태그 이름이 쓰이므로 알림 블록만 본다.
-    public static func taskNotificationToolUseIds(in content: Any?) -> Set<String> {
+    /// `terminalOnly` 면 `<status>` 가 있는 블록만 본다. 모니터 이벤트처럼 작업이 도는 중에 오는 알림에는 `<status>` 가 없다.
+    public static func taskNotificationValues(tag: String, in content: Any?, terminalOnly: Bool = false) -> Set<String> {
         var texts: [String] = []
         if let text = content as? String {
             texts = [text]
@@ -297,16 +328,23 @@ public enum LocalSessions {
         }
 
         var ids: Set<String> = []
-        for text in texts where text.contains("<task-notification>") {
-            var remainder = text[...]
-            while let start = remainder.range(of: "<tool-use-id>"),
-                  let end = remainder.range(of: "</tool-use-id>", range: start.upperBound..<remainder.endIndex) {
-                let id = remainder[start.upperBound..<end.lowerBound]
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !id.isEmpty {
-                    ids.insert(id)
+        for text in texts {
+            var rest = text[...]
+            while let open = rest.range(of: "<task-notification>") {
+                let close = rest.range(of: "</task-notification>", range: open.upperBound..<rest.endIndex)
+                let block = rest[open.upperBound..<(close?.lowerBound ?? rest.endIndex)]
+                rest = close.map { rest[$0.upperBound...] } ?? rest[rest.endIndex...]
+                if terminalOnly && !block.contains("<status>") { continue }
+                var remainder = block
+                while let start = remainder.range(of: "<\(tag)>"),
+                      let end = remainder.range(of: "</\(tag)>", range: start.upperBound..<remainder.endIndex) {
+                    let id = remainder[start.upperBound..<end.lowerBound]
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !id.isEmpty {
+                        ids.insert(id)
+                    }
+                    remainder = remainder[end.upperBound...]
                 }
-                remainder = remainder[end.upperBound...]
             }
         }
         return ids

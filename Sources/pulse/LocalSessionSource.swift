@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import OSLog
 import PulseCore
 
 enum LocalSessionReadError: Error {
@@ -12,6 +13,7 @@ final class LocalSessionSource {
     private static let transcriptTailBytes = 256 * 1024
 
     private static let stateFileLimit = 1024 * 1024
+    private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "session")
 
     private let root: URL
     private let stateDirectory: URL
@@ -19,6 +21,7 @@ final class LocalSessionSource {
     private var transcriptPaths: [String: URL] = [:]
     private var summaries = TranscriptSummaryCache()
     private var transcriptMisses: [String: TranscriptMiss] = [:]
+    private var loggedStatuses: [String: String] = [:]
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
         let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
@@ -49,6 +52,7 @@ final class LocalSessionSource {
             else { continue }
 
             let summary = transcriptSummary(for: record, now: now)
+            logStatusChange(record, summary: summary)
             sessions.append(LocalSessions.makeSession(
                 record: record,
                 summary: summary,
@@ -61,7 +65,17 @@ final class LocalSessionSource {
         summaries.retain(only: sessionIds)
         transcriptPaths = transcriptPaths.filter { sessionIds.contains($0.key) }
         transcriptMisses = transcriptMisses.filter { sessionIds.contains($0.key) }
+        loggedStatuses = loggedStatuses.filter { sessionIds.contains($0.key) }
         return sessions
+    }
+
+    private func logStatusChange(_ record: LocalSessionRecord, summary: TranscriptSummary) {
+        let status = "\(record.status ?? "-")/\(record.waitingFor ?? "-")"
+        guard loggedStatuses[record.sessionId] != status else { return }
+        loggedStatuses[record.sessionId] = status
+        Self.logger.info(
+            "상태 \(status, privacy: .public) 백그라운드 \(summary.backgroundTasks ?? 0) 세션 \(record.sessionId, privacy: .public)"
+        )
     }
 
     private func deadhdState(for record: LocalSessionRecord) -> DeadhdState? {

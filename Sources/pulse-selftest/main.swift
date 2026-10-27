@@ -1768,6 +1768,60 @@ let notifiedSummary = LocalSessions.summarizeTranscriptTail(
 )
 expectEqual(notifiedSummary.backgroundTasks, 0, "트랜스크립트: 완료 알림을 받은 작업은 뺀다")
 
+let asyncJSON = """
+{"type":"assistant","timestamp":"2026-10-20T11:10:00Z","message":{"content":[{"type":"tool_use","id":"agent-1","name":"Agent","input":{"description":"review"}},{"type":"tool_use","id":"auto-1","name":"Bash","input":{"command":"make"}},{"type":"tool_use","id":"mon-1","name":"Monitor","input":{}}]}}
+{"type":"user","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a1"},"message":{"content":[{"type":"tool_result","tool_use_id":"agent-1","content":"launched"}]}}
+{"type":"user","toolUseResult":{"backgroundTaskId":"b1"},"message":{"content":[{"type":"tool_result","tool_use_id":"auto-1","content":"moved"}]}}
+{"type":"user","toolUseResult":{"taskId":"m1"},"message":{"content":[{"type":"tool_result","tool_use_id":"mon-1","content":"watching"}]}}
+"""
+let asyncSummary = LocalSessions.summarizeTranscriptTail(Data(asyncJSON.utf8), droppingPartialFirstLine: false)
+expectEqual(asyncSummary.backgroundTasks, 3, "트랜스크립트: 비동기 에이전트·뒤로 넘긴 셸·모니터도 백그라운드 작업")
+
+let queuedJSON = asyncJSON + "\n" + """
+{"type":"queue-operation","operation":"enqueue","content":"<task-notification>\\n<task-id>a1</task-id>\\n<status>completed</status>\\n</task-notification>"}
+{"type":"attachment","attachment":{"type":"queued_command","prompt":"<task-notification>\\n<task-id>b1</task-id>\\n<status>completed</status>\\n</task-notification>"}}
+"""
+let queuedSummary = LocalSessions.summarizeTranscriptTail(Data(queuedJSON.utf8), droppingPartialFirstLine: false)
+expectEqual(queuedSummary.backgroundTasks, 1, "트랜스크립트: 턴 도중 대기열에 들어온 완료 알림도 task-id 로 뺀다")
+
+let stoppedJSON = queuedJSON + "\n" + """
+{"type":"user","toolUseResult":{"task_id":"m1","task_type":"monitor"},"message":{"content":[{"type":"tool_result","tool_use_id":"stop-1","content":"stopped"}]}}
+"""
+let stoppedSummary = LocalSessions.summarizeTranscriptTail(Data(stoppedJSON.utf8), droppingPartialFirstLine: false)
+expectEqual(stoppedSummary.backgroundTasks, 0, "트랜스크립트: TaskStop 으로 멈춘 작업은 뺀다")
+
+let monitorEventJSON = asyncJSON + "\n" + """
+{"type":"queue-operation","operation":"enqueue","content":"<task-notification>\\n<task-id>m1</task-id>\\n<summary>Monitor event: build</summary>\\n</task-notification>"}
+{"type":"user","message":{"content":"<task-notification>\\n<task-id>m1</task-id>\\n<summary>Monitor event: build</summary>\\n</task-notification>"}}
+"""
+let monitorEventSummary = LocalSessions.summarizeTranscriptTail(Data(monitorEventJSON.utf8), droppingPartialFirstLine: false)
+expectEqual(monitorEventSummary.backgroundTasks, 3, "트랜스크립트: status 가 없는 모니터 이벤트 알림은 완료로 세지 않는다")
+
+let monitorEndedJSON = monitorEventJSON + "\n" + """
+{"type":"user","message":{"content":"<task-notification>\\n<task-id>m1</task-id>\\n<status>completed</status>\\n</task-notification>"}}
+"""
+let monitorEndedSummary = LocalSessions.summarizeTranscriptTail(Data(monitorEndedJSON.utf8), droppingPartialFirstLine: false)
+expectEqual(monitorEndedSummary.backgroundTasks, 2, "트랜스크립트: 모니터 종료 알림이 오면 user 행의 task-id 로 뺀다")
+
+let foreignTaskJSON = """
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"other-1","name":"TaskCreate","input":{}}]}}
+{"type":"user","toolUseResult":{"taskId":"t1"},"message":{"content":[{"type":"tool_result","tool_use_id":"other-1","content":"created"}]}}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(foreignTaskJSON.utf8), droppingPartialFirstLine: false).backgroundTasks,
+    0,
+    "트랜스크립트: Monitor 가 아닌 도구의 taskId 는 백그라운드 작업이 아니다"
+)
+
+let otherTagJSON = asyncJSON + "\n" + """
+{"type":"queue-operation","operation":"enqueue","content":"<task-id>a1</task-id> 알림이 아닌 안내"}
+"""
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(otherTagJSON.utf8), droppingPartialFirstLine: false).backgroundTasks,
+    3,
+    "트랜스크립트: 알림 블록 밖의 task-id 는 완료로 세지 않는다"
+)
+
 // MARK: - 팝오버 링과 숫자
 
 let ring = SegmentRatio.make(attention: 1, working: 2, done: 1)
