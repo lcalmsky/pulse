@@ -488,14 +488,16 @@ func terminal(
     _ worktreePath: String?,
     title: String? = nil,
     connected: Bool = true,
-    lastOutputAt: Double? = nil
+    lastOutputAt: Double? = nil,
+    agentIdentity: String? = nil
 ) -> OrcaTerminal {
     OrcaTerminal(
         handle: handle,
         worktreePath: worktreePath,
         title: title,
         connected: connected,
-        lastOutputAt: lastOutputAt
+        lastOutputAt: lastOutputAt,
+        agentIdentity: agentIdentity
     )
 }
 
@@ -579,6 +581,28 @@ let disconnectedNamed = [
 expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "target", among: disconnectedNamed), "alive",
             "터미널 매칭: 끊긴 터미널은 이름이 맞아도 제외")
 
+let claudeAndShell = [
+    terminal("claude", "/w/app", agentIdentity: "claude"),
+    terminal("shell", "/w/app"),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", among: claudeAndShell), "claude",
+            "터미널 매칭: 제목이 없어도 Claude 터미널을 고른다")
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", name: "없는이름", among: claudeAndShell), "claude",
+            "터미널 매칭: 이름이 안 맞아도 Claude 터미널을 고른다")
+let twoClaudeAndShell = [
+    terminal("claude1", "/w/app", agentIdentity: "claude"),
+    terminal("claude2", "/w/app", agentIdentity: "Claude"),
+    terminal("shell", "/w/app"),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", among: twoClaudeAndShell), nil,
+            "터미널 매칭: Claude 터미널이 여럿이면 고르지 않는다")
+let goneClaudeAndShell = [
+    terminal("claude", "/w/app", connected: false, agentIdentity: "claude"),
+    terminal("shell", "/w/app"),
+]
+expectEqual(OrcaTerminalMatch.bestHandle(for: "/w/app", among: goneClaudeAndShell), "shell",
+            "터미널 매칭: Claude 터미널이 끊겼으면 남은 셸 터미널")
+
 let orcaListJSON = """
 {"ok":true,"result":{"terminals":[
   {"handle":"term_091e","worktreePath":"/Users/a/notes","title":"◐ notes4","connected":true,"lastOutputAt":1792488183685},
@@ -602,6 +626,19 @@ if let emptyList = try? JSONDecoder().decode(OrcaTerminalList.self, from: Data("
     expectEqual(emptyList.terminals.count, 0, "터미널 목록: result 가 없으면 빈 목록")
 } else {
     expect(false, "터미널 목록: result 없는 응답을 읽지 못했다")
+}
+
+let orcaIdentityJSON = """
+{"ok":true,"result":{"terminals":[
+  {"handle":"term_0805","worktreePath":"/w/app","agentIdentity":"claude"},
+  {"handle":"term_1bbe","worktreePath":"/w/app"}
+]}}
+"""
+if let identityList = try? JSONDecoder().decode(OrcaTerminalList.self, from: Data(orcaIdentityJSON.utf8)) {
+    expectEqual(identityList.terminals.first?.agentIdentity, "claude", "터미널 목록: agentIdentity")
+    expectEqual(identityList.terminals.last?.agentIdentity, nil, "터미널 목록: agentIdentity 키가 없으면 nil")
+} else {
+    expect(false, "터미널 목록: agentIdentity 응답을 읽지 못했다")
 }
 
 // MARK: - 체크리스트 진행도

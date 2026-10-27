@@ -6,19 +6,22 @@ public struct OrcaTerminal: Equatable {
     public let title: String?
     public let connected: Bool
     public let lastOutputAt: Double?
+    public let agentIdentity: String?
 
     public init(
         handle: String,
         worktreePath: String? = nil,
         title: String? = nil,
         connected: Bool = true,
-        lastOutputAt: Double? = nil
+        lastOutputAt: Double? = nil,
+        agentIdentity: String? = nil
     ) {
         self.handle = handle
         self.worktreePath = worktreePath
         self.title = title
         self.connected = connected
         self.lastOutputAt = lastOutputAt
+        self.agentIdentity = agentIdentity
     }
 
     enum CodingKeys: String, CodingKey {
@@ -27,6 +30,7 @@ public struct OrcaTerminal: Equatable {
         case title
         case connected
         case lastOutputAt
+        case agentIdentity
     }
 }
 
@@ -38,6 +42,7 @@ extension OrcaTerminal: Decodable {
         title = Lenient.string(container, .title)
         connected = (try? container?.decodeIfPresent(Bool.self, forKey: .connected)) ?? true
         lastOutputAt = Lenient.double(container, .lastOutputAt)
+        agentIdentity = Lenient.string(container, .agentIdentity)
     }
 }
 
@@ -71,7 +76,7 @@ extension OrcaTerminalList: Decodable {
 public enum OrcaTerminalMatch {
     /// 핸들이 없는 세션의 cwd 로 터미널을 찾는다. 정확히 같은 경로와 그 하위 경로가 대상이고,
     /// 세션 이름과 제목이 같은 터미널이 여럿이면 그중 가장 최근에 출력이 있던 것을 쓴다.
-    /// 맞는 이름이 없으면 후보가 하나뿐일 때만 그 터미널을 쓰고, 여럿이면 nil 이다.
+    /// 맞는 이름이 없으면 후보가 하나뿐일 때만 그 터미널을 쓰고, 여럿이면 agentIdentity 가 "claude" 인 후보가 하나뿐일 때 그것을 쓰며 그 밖에는 nil 이다.
     public static func bestHandle(
         for cwd: String,
         name: String? = nil,
@@ -96,7 +101,13 @@ public enum OrcaTerminalMatch {
                 return handle
             }
         }
-        return matched.count == 1 ? matched[0].handle : nil
+        if matched.count == 1 {
+            return matched[0].handle
+        }
+        let claude = matched.filter { terminal in
+            terminal.agentIdentity?.caseInsensitiveCompare("claude") == .orderedSame
+        }
+        return claude.count == 1 ? claude[0].handle : nil
     }
 
     /// Orca 터미널 제목 앞의 상태 기호(✳ ◐ 등)와 공백을 떼고 세션 이름만 남긴다.
