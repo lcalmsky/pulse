@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController = FloatingPanelController.board(model: model)
         cardPanelController = FloatingPanelController.cards(model: model)
         model.onPanelFocusRequest = { [weak self] in self?.panelController?.focus() }
+        model.onPanelFocusRelease = { [weak self] in self?.panelController?.releaseFocus() }
 
         let hotKey = GlobalHotKey { [weak self] in self?.handleHotKey() }
         self.hotKey = hotKey

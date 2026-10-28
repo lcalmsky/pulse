@@ -76,6 +76,8 @@ final class AppModel: ObservableObject {
 
     /// 패널 컨트롤러가 생긴 뒤 AppDelegate 가 넣는다. 바닥글에서 패널을 띄울 때 키보드 포커스를 준다.
     var onPanelFocusRequest: (() -> Void)?
+    /// Orca 로 이동한 뒤 패널이 키 창으로 남아 입력을 가로채지 않게 한다.
+    var onPanelFocusRelease: (() -> Void)?
 
     init() {
         let settings = AppSettings(
@@ -646,7 +648,10 @@ final class AppModel: ObservableObject {
 
     private func switchTerminal(_ handle: String, fallbackCwd: String?, name: String) {
         OrcaLauncher.switchTerminal(handle: handle) { [weak self] ok in
-            guard !ok else { return }
+            guard !ok else {
+                self?.onPanelFocusRelease?()
+                return
+            }
             if let fallbackCwd {
                 self?.switchToCwd(fallbackCwd, name: name)
             } else {
@@ -657,7 +662,11 @@ final class AppModel: ObservableObject {
 
     private func switchToCwd(_ cwd: String, name: String) {
         OrcaLauncher.switchToCwd(cwd, name: name) { [weak self] ok in
-            if !ok { self?.showError(L10n.noOrcaTerminal) }
+            if ok {
+                self?.onPanelFocusRelease?()
+            } else {
+                self?.showError(L10n.noOrcaTerminal)
+            }
         }
     }
 

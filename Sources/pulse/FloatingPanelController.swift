@@ -124,6 +124,14 @@ final class FloatingPanelController: NSObject {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    /// 키 창 상태만 내려놓고 패널은 그대로 띄워 둔다. 비활성화 패널은 다른 앱이 앞에 와도 키 창으로 남는다.
+    func releaseFocus() {
+        guard panel.isKeyWindow else { return }
+        previousApp = nil
+        panel.orderOut(nil)
+        panel.orderFrontRegardless()
+    }
+
     /// 포커스를 넘겨받기 전의 앱으로 돌려준다. 기억한 앱이 없거나 이미 끝났으면 아무것도 하지 않는다.
     private func restorePreviousApp() {
         guard let app = previousApp else { return }
