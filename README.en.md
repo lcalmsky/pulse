@@ -188,7 +188,7 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 | `Esc` | Close the search first if it is open, then settings if they are open, otherwise close the popover |
 | `⌘,` | Open and close settings |
 
-A floating panel takes the same keys after a single click or `⌃⌥P`, without bringing another app forward. In the panel, `Esc` clears the search first, then the selection, and then returns keyboard focus to the app you came from; it does not hide the panel.
+A floating panel takes the same keys after a single click or `⌃⌥P`, without bringing another app forward. In the panel, `Esc` clears the search first, then the selection, and then returns keyboard focus to the app you came from; it does not hide the panel. When you open a session from the panel and jump to Orca, keyboard focus also moves from the panel to Orca, so you can keep typing right away.
 
 ### Opening sessions
 
