@@ -171,6 +171,7 @@ struct BoardView: View {
                         selected: isSelected(item),
                         optionDown: state.optionDown
                     )
+                    .simultaneousGesture(TapGesture().onEnded { select(item) })
                     .padding(.horizontal, 8)
                     .padding(.bottom, section.group == .attention ? 12 : 0)
                     .id(item.rowID)
@@ -197,6 +198,12 @@ struct BoardView: View {
         let items = state.filter.selectableItems(in: model.groups, query: state.query)
         guard items.indices.contains(index) else { return false }
         return items[index].id == item.id
+    }
+
+    private func select(_ item: DisplayItem) {
+        let items = state.filter.selectableItems(in: model.groups, query: state.query)
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        state.selectedIndex = index
     }
 
     private func scrollToSelection(_ proxy: ScrollViewProxy) {
