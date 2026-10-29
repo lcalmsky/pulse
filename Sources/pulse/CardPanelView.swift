@@ -262,6 +262,9 @@ private struct AttentionCardRow: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
+                    if let kind = item.multiplexer?.kind.rawValue {
+                        MultiplexerBadge(kind: kind)
+                    }
                     Text(item.title)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(PopoverPalette.text)
@@ -318,6 +321,9 @@ private struct DoneCardRow: View {
             RemainingRing(card: card, paused: model.cardsPaused, size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
+                    if let kind = item.multiplexer?.kind.rawValue {
+                        MultiplexerBadge(kind: kind)
+                    }
                     Text(item.title)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(PopoverPalette.text)
@@ -484,7 +490,7 @@ private struct CardButtons: View {
             if showsOpen {
                 PopoverIconButton(
                     symbol: "arrow.up.forward.square",
-                    help: L10n.openInOrca,
+                    help: item.multiplexer.map { L10n.multiplexerMove($0.kind.rawValue) } ?? L10n.openInOrca,
                     enabled: item.isActionable,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
@@ -507,7 +513,7 @@ private struct CardButtons: View {
             if showsAnswer {
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
-                    help: L10n.replyInOrca,
+                    help: item.multiplexer.map { L10n.multiplexerMove($0.kind.rawValue) } ?? L10n.replyInOrca,
                     enabled: canAnswer(item),
                     symbolSize: 13,
                     restingFill: PopoverPalette.attention,
