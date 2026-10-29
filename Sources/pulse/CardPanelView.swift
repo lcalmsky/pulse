@@ -510,9 +510,9 @@ private struct CardButtons: View {
     }
 }
 
-/// Orca 로 답할 수 있는 항목인지. 답하기 버튼과 캡슐 버튼이 같은 기준을 쓴다.
+/// Orca 나 멀티플렉서 패널로 답할 수 있는 항목인지. 답하기 버튼과 캡슐 버튼이 같은 기준을 쓴다.
 private func canAnswer(_ item: DisplayItem) -> Bool {
-    item.orcaTerminal != nil || item.cwd != nil
+    item.orcaTerminal != nil || item.cwd != nil || item.multiplexer != nil
 }
 
 /// 남은 시간 링 글리프.

@@ -162,6 +162,8 @@ public struct Session: Equatable, Identifiable {
     public let place: Place?
     public let cwd: String?
     public let orcaTerminal: String?
+    /// 이 세션을 띄운 터미널 멀티플렉서의 패널. 없으면 nil.
+    public let multiplexer: MultiplexerPane?
     public let backgroundTasks: [BackgroundTask]
     public let lastTool: LastTool?
     public let updatedAt: Date?
@@ -203,6 +205,7 @@ public struct Session: Equatable, Identifiable {
         place: Place? = nil,
         cwd: String? = nil,
         orcaTerminal: String? = nil,
+        multiplexer: MultiplexerPane? = nil,
         backgroundTasks: [BackgroundTask] = [],
         lastTool: LastTool? = nil,
         updatedAt: Date? = nil,
@@ -234,6 +237,7 @@ public struct Session: Equatable, Identifiable {
         self.place = place
         self.cwd = cwd
         self.orcaTerminal = orcaTerminal
+        self.multiplexer = multiplexer
         self.backgroundTasks = backgroundTasks
         self.lastTool = lastTool
         self.updatedAt = updatedAt
@@ -265,6 +269,7 @@ public struct Session: Equatable, Identifiable {
         case place
         case cwd
         case orcaTerminal
+        case multiplexer
         case backgroundTasks
         case lastTool
         case updatedAt
@@ -302,6 +307,7 @@ extension Session: Decodable {
         place = Lenient.object(container, .place, as: Place.self)
         cwd = Lenient.string(container, .cwd)
         orcaTerminal = Lenient.string(container, .orcaTerminal)
+        multiplexer = Lenient.object(container, .multiplexer, as: MultiplexerPane.self)
         backgroundTasks = Lenient.array(container, .backgroundTasks, as: BackgroundTask.self)
         lastTool = Lenient.object(container, .lastTool, as: LastTool.self)
         updatedAt = Lenient.date(container, .updatedAt)

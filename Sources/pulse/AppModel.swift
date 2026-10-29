@@ -483,6 +483,8 @@ final class AppModel: ObservableObject {
 
     func open(_ item: DisplayItem) {
         switch item.clickAction {
+        case .multiplexer(let pane):
+            focusMultiplexer(pane)
         case .orca(let handle):
             switchTerminal(handle, fallbackCwd: item.cwd, name: item.key ?? item.title)
         case .cwd(let cwd):
@@ -637,12 +639,32 @@ final class AppModel: ObservableObject {
 
     func openInOrca(_ item: DisplayItem) {
         switch item.clickAction {
+        case .multiplexer(let pane):
+            focusMultiplexer(pane)
         case .orca(let handle):
             switchTerminal(handle, fallbackCwd: item.cwd, name: item.key ?? item.title)
         case .cwd(let cwd):
             switchToCwd(cwd, name: item.key ?? item.title)
         case .none:
             break
+        }
+    }
+
+    private func focusMultiplexer(_ pane: MultiplexerPane) {
+        let kind = pane.kind.rawValue
+        MultiplexerLauncher.focus(pane) { [weak self] result in
+            switch result {
+            case .success:
+                self?.onPanelFocusRelease?()
+            case .panelMissing:
+                self?.showError(L10n.multiplexerPanelMissing(kind))
+            case .executableMissing:
+                self?.showError(L10n.multiplexerExecutableMissing)
+            case .clientMissing:
+                self?.showError(L10n.multiplexerClientMissing(kind))
+            case .hostUnknown:
+                self?.showError(L10n.multiplexerHostUnknown(kind))
+            }
         }
     }
 

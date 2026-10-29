@@ -20,10 +20,21 @@ func runDemoFixtureChecks() {
 
     // 세션 파일은 살아 있는 pid 여야만 읽히고 파일 이름도 pid 마다 달라야 해서, 전개하는 동안만 유지 프로세스를 둔다.
     var keepers: [Process] = []
-    for _ in 0..<15 {
+    for index in 0..<15 {
         let keeper = Process()
         keeper.executableURL = URL(fileURLWithPath: "/bin/sleep")
         keeper.arguments = ["60"]
+        // docs-site 는 네 번째 줄이라 네 번째 유지 프로세스가 그 세션 pid 가 된다.
+        if index == 3 {
+            keeper.executableURL = URL(fileURLWithPath: demoKeeperExecutable)
+            keeper.arguments = ["--demo-keeper", "60"]
+            var environment = ProcessInfo.processInfo.environment
+            environment["HERDR_ENV"] = "1"
+            environment["HERDR_PANE_ID"] = "w1:p3"
+            environment["HERDR_TAB_ID"] = "w1:t1"
+            environment["HERDR_WORKSPACE_ID"] = "w1"
+            keeper.environment = environment
+        }
         guard (try? keeper.run()) != nil else {
             expect(false, "데모: 유지 프로세스 실행")
             keepers.forEach { $0.terminate() }
@@ -69,6 +80,11 @@ func runDemoFixtureChecks() {
     expectEqual(docs?.showsStepLine, true, "데모: docs-site 완료 행에 단계 줄")
     expectEqual(docs?.title, "사이드바 내비게이션과 검색 상자를 문서 사이트 전체 페이지에 추가", "데모: docs-site 완료 행의 긴 제목")
     expectEqual(docs?.keyTag, "docs", "데모: docs-site 완료 행의 세션 이름")
+    expectEqual(
+        docs?.multiplexer,
+        MultiplexerPane(kind: .herdr, paneId: "w1:p3", workspaceId: "w1", tabId: "w1:t1"),
+        "데모: docs-site 완료 행의 herdr 배지"
+    )
     let billing = grouped.done.first { $0.sessionId == "ae5b4f7a-6b8c-4d9e-9fa0-5b6c7d8e9fa0" }
     expect(billing != nil, "데모: billing-worker 가 완료")
     expectEqual(billing?.title, "결제 재시도 큐에서 같은 요청을 두 번 처리하던 중복 처리 수정", "데모: billing-worker 완료 행의 긴 제목")
@@ -115,6 +131,7 @@ func runDemoFixtureChecks() {
     expectEqual(englishBilling?.keyTag, "billing", "데모: 영어 묶음 billing-worker 완료 행의 세션 이름")
     let englishDocs = englishGrouped.done.first { $0.sessionId == "9d4a3e6f-5a7b-4c8d-8e9f-4a5b6c7d8e9f" }
     expectEqual(englishDocs?.title, "Add sidebar navigation and a search box to every docs page", "데모: 영어 묶음 docs-site 완료 행의 긴 제목")
+    expectEqual(englishDocs?.multiplexer?.kind, .herdr, "데모: 영어 묶음 docs-site 의 herdr 배지")
     expectEqual(demoHangulFiles(englishBasicDirectory), [], "데모: 영어 기본 묶음에 한글 없음")
 
     guard demoRender(script, directory: englishManyDirectory, many: true, language: "en", keepers: keepers) else { return }
@@ -196,12 +213,14 @@ private func demoReadSessions(config: URL, now: Date) -> [Session] {
               demoIsAlive(record.pid)
         else { continue }
 
+        let multiplexer = ProcessEnvironment.procArgs(record.pid).flatMap(Multiplexer.pane(inProcArgs:))
         sessions.append(LocalSessions.makeSession(
             record: record,
             summary: demoSummary(config: config, record: record),
             now: now,
             home: NSHomeDirectory(),
-            deadhd: demoDeadhdState(directory: stateDirectory, sessionId: record.sessionId)
+            deadhd: demoDeadhdState(directory: stateDirectory, sessionId: record.sessionId),
+            multiplexer: multiplexer
         ))
     }
     return sessions
@@ -259,6 +278,13 @@ private func demoHangulFiles(_ root: URL) -> [String] {
         }
     }
     return hits
+}
+
+/// 실행 중인 selftest 바이너리의 절대 경로. `--demo-keeper` 모드로 유지 프로세스를 띄울 때 쓴다.
+private var demoKeeperExecutable: String {
+    let path = CommandLine.arguments.first ?? ""
+    if path.hasPrefix("/") { return path }
+    return FileManager.default.currentDirectoryPath + "/" + path
 }
 
 private func demoIsAlive(_ pid: Int) -> Bool {

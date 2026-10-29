@@ -53,7 +53,7 @@ struct ListKeyboard {
             return true
         case 36, 76:
             guard let item = selectedItem(in: items) else { return true }
-            let hasOrca = item.orcaTerminal != nil || item.cwd != nil
+            let hasOrca = item.orcaTerminal != nil || item.cwd != nil || item.multiplexer != nil
             if event.modifierFlags.contains(.option), hasOrca {
                 model.openInOrca(item)
             } else {

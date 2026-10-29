@@ -285,6 +285,36 @@ public enum L10n {
     public static var noOrcaTerminal: String {
         pick("Orca 에 이 세션의 터미널이 없어요", "Orca has no terminal for this session")
     }
+    public static func multiplexerBadgeHelp(_ kind: String) -> String {
+        pick(
+            "\(kind) 가 띄운 세션이에요. 누르면 이 패널로 이동해요",
+            "This session runs in \(kind). Click to jump to the pane"
+        )
+    }
+    public static func multiplexerPanelMissing(_ kind: String) -> String {
+        pick("\(kind) 에 이 세션의 패널이 없어요", "\(kind) has no pane for this session")
+    }
+    public static var multiplexerExecutableMissing: String {
+        pick("tmux 실행 파일을 찾지 못했어요", "Couldn't find the tmux executable")
+    }
+    public static func multiplexerClientMissing(_ kind: String) -> String {
+        pick(
+            "\(kind) 가 열린 터미널이 없어요. 터미널에서 \(kind) 를 먼저 열어 주세요",
+            "No terminal has \(kind) open. Open \(kind) in a terminal first"
+        )
+    }
+    public static func multiplexerHostUnknown(_ kind: String) -> String {
+        pick(
+            "패널은 옮겼지만 \(kind) 가 열린 터미널 앱을 찾지 못했어요",
+            "Moved the pane but couldn't find the terminal app running \(kind)"
+        )
+    }
+    public static func multiplexerMove(_ kind: String) -> String {
+        pick("\(kind) 패널로 이동", "Go to \(kind) pane")
+    }
+    public static func multiplexerMoveShortcut(_ kind: String) -> String {
+        pick("\(kind) 패널로 이동 (⌥↩)", "Go to \(kind) pane (⌥↩)")
+    }
 
     // MARK: - 설정 시트
 

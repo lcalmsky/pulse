@@ -1,6 +1,14 @@
 import Foundation
 import PulseCore
 
+// 데모 검사의 유지 프로세스 모드. 플랫폼 서명 바이너리(/bin/sleep)는 procargs 에서 환경 변수가
+// 가려지므로, 서명 없는 이 바이너리를 대신 띄워 herdr 패널 환경을 읽히게 한다.
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--demo-keeper",
+   let seconds = Double(CommandLine.arguments[2]) {
+    Thread.sleep(forTimeInterval: seconds)
+    exit(0)
+}
+
 var checks = 0
 var failures = 0
 
@@ -3656,6 +3664,193 @@ expectEqual(
     ).orcaTerminal,
     "term_1",
     "로컬 세션: 환경 변수 핸들이 있으면 cwd 매칭 대신 핸들로 이동"
+)
+
+let herdrProcArgs = procArgs(
+    argc: 1,
+    [
+        "/bin/claude", "claude", "HERDR_ENV=1", "HERDR_PANE_ID=w1:p30", "HERDR_TAB_ID=w1:t2",
+        "HERDR_WORKSPACE_ID=w1", "HERDR_SOCKET_PATH=/tmp/herdr.sock",
+    ]
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: herdrProcArgs),
+    MultiplexerPane(
+        kind: .herdr, paneId: "w1:p30", socketPath: "/tmp/herdr.sock",
+        workspaceId: "w1", tabId: "w1:t2"
+    ),
+    "멀티플렉서: herdr 패널 감지"
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: procArgs(
+        argc: 1,
+        ["/bin/claude", "claude", "TMUX=/tmp/tmux-501/default,123,0", "TMUX_PANE=%3"]
+    )),
+    MultiplexerPane(kind: .tmux, paneId: "%3", socketPath: "/tmp/tmux-501/default"),
+    "멀티플렉서: tmux 패널 감지"
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: procArgs(
+        argc: 1,
+        ["/bin/claude", "claude", "HERDR_PANE_ID=w1:p30", "TMUX=/tmp/s,1,0", "TMUX_PANE=%3"]
+    )),
+    MultiplexerPane(kind: .tmux, paneId: "%3", socketPath: "/tmp/s"),
+    "멀티플렉서: 둘 다 있으면 tmux"
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: procArgs(argc: 1, ["/bin/claude", "claude", "PWD=/a"])),
+    nil,
+    "멀티플렉서: 둘 다 없으면 없음"
+)
+expectEqual(Multiplexer.socketPath(fromTMUX: "/tmp/s,123,0"), "/tmp/s", "멀티플렉서: TMUX 소켓 파싱")
+expectEqual(Multiplexer.socketPath(fromTMUX: ",123,0"), nil, "멀티플렉서: 빈 소켓 경로")
+expectEqual(Multiplexer.socketPath(fromTMUX: nil), nil, "멀티플렉서: TMUX 없음")
+expectEqual(
+    ProcessEnvironment.arguments(inProcArgs: procArgs(
+        argc: 3, ["/bin/herdr", "herdr", "session", "attach", "X=1"]
+    )),
+    ["herdr", "session", "attach"],
+    "프로세스 인자: argv 추출"
+)
+let herdrClientCases: [(arguments: [String], expected: Bool)] = [
+    (["herdr"], true),
+    (["/opt/homebrew/bin/herdr"], true),
+    (["herdr", "--session", "a"], true),
+    (["herdr", "session", "attach", "a"], true),
+    (["herdr", "server"], false),
+    (["herdr", "pane", "list"], false),
+    (["herdr", "session", "list"], false),
+    (["tmux"], false),
+    ([], false),
+]
+for testCase in herdrClientCases {
+    expectEqual(
+        Multiplexer.isHerdrClient(arguments: testCase.arguments),
+        testCase.expected,
+        "멀티플렉서: herdr 클라이언트 판정 \(testCase.arguments)"
+    )
+}
+
+func focusRequestObject(_ line: String) -> [String: Any]? {
+    guard let data = line.data(using: .utf8),
+          let object = try? JSONSerialization.jsonObject(with: data) else {
+        return nil
+    }
+    return object as? [String: Any]
+}
+
+let focusLines = Multiplexer.focusRequestLines(workspaceId: "w1", tabId: "w1:t2", paneId: "w1:p30")
+expectEqual(focusLines.count, 3, "멀티플렉서: 포커스 요청 세 줄")
+expectEqual(focusRequestObject(focusLines[0])?["method"] as? String, "workspace.focus", "멀티플렉서: 첫 요청은 workspace")
+expectEqual(focusRequestObject(focusLines[1])?["method"] as? String, "tab.focus", "멀티플렉서: 둘째 요청은 tab")
+expectEqual(focusRequestObject(focusLines[2])?["method"] as? String, "pane.focus", "멀티플렉서: 셋째 요청은 pane")
+expectEqual(focusRequestObject(focusLines[2])?["id"] as? String, "pulse-pane.focus", "멀티플렉서: 요청 id 접두사")
+expectEqual(
+    (focusRequestObject(focusLines[2])?["params"] as? [String: String])?["pane_id"],
+    "w1:p30",
+    "멀티플렉서: pane 요청 값"
+)
+expectEqual(
+    Multiplexer.focusRequestLines(workspaceId: nil, tabId: nil, paneId: "w1:p30").count,
+    1,
+    "멀티플렉서: id 가 없으면 건너뜀"
+)
+expectEqual(Multiplexer.isSuccessResponse(#"{"id":"x","result":{}}"#), true, "멀티플렉서: 결과 응답")
+expectEqual(Multiplexer.isSuccessResponse(#"{"id":"x","error":{"message":"no"}}"#), false, "멀티플렉서: 오류 응답")
+expectEqual(Multiplexer.isSuccessResponse(#"{"id":"x"}"#), false, "멀티플렉서: result 없는 응답")
+expectEqual(Multiplexer.isSuccessResponse("not json"), false, "멀티플렉서: 깨진 응답")
+expectEqual(
+    Multiplexer.host(inProcArgs: procArgs(
+        argc: 1,
+        ["/bin/herdr", "herdr", "ORCA_TERMINAL_HANDLE=term_1", "__CFBundleIdentifier=com.example.term"]
+    )),
+    .orca("term_1"),
+    "멀티플렉서 호스트: Orca 우선"
+)
+expectEqual(
+    Multiplexer.host(inProcArgs: procArgs(
+        argc: 1, ["/bin/herdr", "herdr", "__CFBundleIdentifier=com.example.term"]
+    )),
+    .app("com.example.term"),
+    "멀티플렉서 호스트: 번들 id"
+)
+expectEqual(
+    Multiplexer.host(inProcArgs: procArgs(argc: 1, ["/bin/herdr", "herdr", "PWD=/a"])),
+    nil,
+    "멀티플렉서 호스트: 알 수 없음"
+)
+
+let multiplexerPane = MultiplexerPane(kind: .tmux, paneId: "%3", socketPath: "/tmp/t")
+expectEqual(
+    SessionClick.resolve(orcaTerminal: "term_1", cwd: "/a", multiplexer: multiplexerPane),
+    .multiplexer(multiplexerPane),
+    "클릭: 멀티플렉서가 Orca·cwd 보다 먼저"
+)
+expectEqual(
+    SessionClick.resolve(orcaTerminal: "term_1", cwd: "/a"),
+    .orca("term_1"),
+    "클릭: 멀티플렉서가 없으면 Orca"
+)
+expectEqual(
+    DisplayItem(
+        session: Session(sessionId: "m", bucket: "working", cwd: "/a", multiplexer: multiplexerPane),
+        group: .working,
+        now: now
+    ).clickAction,
+    .multiplexer(multiplexerPane),
+    "화면 행: 멀티플렉서 패널로 이동"
+)
+expectEqual(
+    LocalSessions.makeSession(
+        record: LocalSessionRecord(pid: 1, sessionId: "s", cwd: "/a", status: "idle"),
+        summary: TranscriptSummary(),
+        now: now,
+        multiplexer: multiplexerPane
+    ).multiplexer,
+    multiplexerPane,
+    "로컬 세션: 멀티플렉서 패널 전달"
+)
+let multiplexerJSON = #"""
+{"sessionId":"s1","bucket":"working","multiplexer":{"kind":"herdr","paneId":"w1:p30","socketPath":"/tmp/h.sock","tabId":"w1:t2","workspaceId":"w1"}}
+"""#
+expectEqual(
+    (try? JSONDecoder().decode(Session.self, from: Data(multiplexerJSON.utf8)))?.multiplexer,
+    MultiplexerPane(
+        kind: .herdr, paneId: "w1:p30", socketPath: "/tmp/h.sock",
+        workspaceId: "w1", tabId: "w1:t2"
+    ),
+    "세션 JSON: multiplexer 읽기"
+)
+let plainSessionJSON = #"{"sessionId":"s2","bucket":"working"}"#
+expectEqual(
+    (try? JSONDecoder().decode(Session.self, from: Data(plainSessionJSON.utf8)))?.multiplexer,
+    nil,
+    "세션 JSON: multiplexer 가 없으면 nil"
+)
+expectEqual(
+    L10n.multiplexerBadgeHelp("herdr").contains("herdr"),
+    true,
+    "문구: 배지 툴팁에 kind"
+)
+expectEqual(
+    L10n.multiplexerPanelMissing("tmux").contains("tmux"),
+    true,
+    "문구: 패널 없음에 kind"
+)
+expectEqual(
+    L10n.multiplexerClientMissing("herdr").contains("herdr"),
+    true,
+    "문구: 클라이언트 없음에 kind"
+)
+expectEqual(
+    L10n.multiplexerHostUnknown("herdr").contains("herdr"),
+    true,
+    "문구: 호스트 모름에 kind"
+)
+expectEqual(
+    L10n.multiplexerExecutableMissing.hasPrefix("tmux"),
+    true,
+    "문구: 실행 파일 없음"
 )
 
 expectEqual(LaunchCommand.parse(["pulse"]), .run, "실행 인자: 없으면 앱 실행")

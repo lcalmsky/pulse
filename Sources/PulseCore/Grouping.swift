@@ -65,6 +65,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public let isStall: Bool
     public let orcaTerminal: String?
     public let cwd: String?
+    public let multiplexer: MultiplexerPane?
     public let pagePath: String?
     /// 진행 페이지 HTML 이 아직 없을 때 만들 때 쓰는 체크리스트 JSON 의 절대 경로.
     public let dataPath: String?
@@ -78,7 +79,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public var rowID: String { "\(group.rawValue)+\(sessionId)" }
 
     public var clickAction: SessionClickAction {
-        SessionClick.resolve(orcaTerminal: orcaTerminal, cwd: cwd)
+        SessionClick.resolve(orcaTerminal: orcaTerminal, cwd: cwd, multiplexer: multiplexer)
     }
 
     public var isActionable: Bool { clickAction != .none }
@@ -145,6 +146,7 @@ public struct DisplayItem: Equatable, Identifiable {
         self.isStall = session.bucket == "stall"
         self.orcaTerminal = Grouping.nonEmpty(session.orcaTerminal)
         self.cwd = Grouping.nonEmpty(session.cwd)
+        self.multiplexer = session.multiplexer
         self.pagePath = Grouping.nonEmpty(session.pagePath)
         self.dataPath = Grouping.nonEmpty(session.dataPath)
         self.acknowledgeKey = Self.acknowledgeKey(sessionId: session.sessionId, since: session.since)

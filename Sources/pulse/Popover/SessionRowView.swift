@@ -14,7 +14,9 @@ struct SessionRowView: View {
 
     private var compact: Bool { model.density == .compact }
     private var highlighted: Bool { hovering || selected }
-    private var showsOrca: Bool { item.orcaTerminal != nil || item.cwd != nil }
+    private var showsOrca: Bool {
+        item.orcaTerminal != nil || item.cwd != nil || item.multiplexer != nil
+    }
     private var showsPage: Bool { item.pagePath != nil }
     private var expanded: Bool { model.expandedSteps.contains(item.sessionId) }
     /// 진행 행은 터미널이 없어도 단계 펼침이나 브라우저 열기가 되면 흐리지 않는다.
@@ -96,7 +98,8 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
-                    help: L10n.replyInOrcaShortcut,
+                    help: item.multiplexer.map { L10n.multiplexerMoveShortcut($0.kind.rawValue) }
+                        ?? L10n.replyInOrcaShortcut,
                     enabled: showsOrca,
                     symbolSize: 13,
                     restingFill: PopoverPalette.attention,
@@ -198,7 +201,8 @@ struct SessionRowView: View {
                 if showsOrca {
                     PopoverIconButton(
                         symbol: "arrow.up.forward.square",
-                        help: L10n.goToOrcaShortcut,
+                        help: item.multiplexer.map { L10n.multiplexerMoveShortcut($0.kind.rawValue) }
+                            ?? L10n.goToOrcaShortcut,
                         symbolSize: 13
                     ) {
                         model.openInOrca(item)
@@ -320,6 +324,7 @@ struct SessionRowView: View {
     private var workingMetaLine: some View {
         if hasWorkingMeta {
             HStack(spacing: 10) {
+                multiplexerBadge
                 if let place = item.placeText {
                     Text(place)
                         .lineLimit(1)
@@ -362,7 +367,8 @@ struct SessionRowView: View {
     }
 
     private var hasIdentityMeta: Bool {
-        item.placeText != nil
+        item.multiplexer != nil
+            || item.placeText != nil
             || (item.keyTag != nil && item.keyTag != item.jiraKey)
             || item.jiraKey != nil
             || (item.prTag != nil && item.prURL != nil)
@@ -457,6 +463,7 @@ struct SessionRowView: View {
     private var doneMetaLine: some View {
         if hasIdentityMeta {
             HStack(spacing: 10) {
+                multiplexerBadge
                 if let place = item.placeText {
                     Text(place)
                         .lineLimit(1)
@@ -521,10 +528,33 @@ struct SessionRowView: View {
     @ViewBuilder
     private var orcaHint: some View {
         if optionDown, item.isActionable, showsOrca {
-            Text(L10n.goToOrcaArrow)
+            Text(openHintText)
                 .font(.system(size: 10.5, weight: .semibold))
                 .foregroundColor(.blue)
                 .lineLimit(1)
+                .fixedSize()
+        }
+    }
+
+    /// 멀티플렉서 세션은 Orca 가 아니라 그 패널로 이동한다.
+    private var openHintText: String {
+        guard let kind = item.multiplexer?.kind.rawValue else { return L10n.goToOrcaArrow }
+        return "→ " + L10n.multiplexerMove(kind)
+    }
+
+    @ViewBuilder
+    private var multiplexerBadge: some View {
+        if let kind = item.multiplexer?.kind.rawValue {
+            Text(kind)
+                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                .foregroundColor(PopoverPalette.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(PopoverPalette.secondary.opacity(0.45), lineWidth: 1)
+                )
+                .help(L10n.multiplexerBadgeHelp(kind))
                 .fixedSize()
         }
     }

@@ -102,17 +102,29 @@ render_file() {
     sed "${args[@]}" "$template" > "$output"
 }
 
+# 두 번째 인자가 herdr 이면 화면 그림에 herdr 배지가 보이도록 패널 환경 변수를 넣어 띄운다.
+# 플랫폼 서명 바이너리의 환경은 procargs 에서 가려지므로, ad-hoc 서명한 사본으로 띄운다.
 spawn_keeper() {
-    /bin/sleep 86400 &
-    echo "$!" >> "$1"
+    local keepers="$1" kind="${2:-sleep}"
+    if [[ "$kind" == "herdr" ]]; then
+        local binary="${keepers%/*}/.herdr-keeper"
+        if [[ ! -x "$binary" ]]; then
+            cp /bin/sleep "$binary"
+            codesign -s - -f "$binary" >/dev/null 2>&1 || true
+        fi
+        HERDR_ENV=1 HERDR_PANE_ID=w1:p3 HERDR_TAB_ID=w1:t1 HERDR_WORKSPACE_ID=w1 "$binary" 86400 &
+    else
+        /bin/sleep 86400 &
+    fi
+    echo "$!" >> "$keepers"
 }
 
-# pid 가 재사용됐을 수 있으니 이 스크립트가 띄운 종류(pulse·sleep)일 때만 죽인다.
+# pid 가 재사용됐을 수 있으니 이 스크립트가 띄운 종류(pulse·sleep·herdr keeper)일 때만 죽인다.
 kill_if_ours() {
     local pid="$1" comm
     comm="$(ps -p "$pid" -o comm= 2>/dev/null || true)"
     case "${comm##*/}" in
-        pulse|sleep) kill "$pid" 2>/dev/null || true ;;
+        pulse|sleep|.herdr-keeper) kill "$pid" 2>/dev/null || true ;;
     esac
 }
 
@@ -152,7 +164,11 @@ render_into() {
         if (( ${#pids[@]} > 0 )); then
             pid="${pids[$((index % ${#pids[@]}))]}"
         else
-            spawn_keeper "$keepers"
+            if [[ "$key" == "docs-site" ]]; then
+                spawn_keeper "$keepers" herdr
+            else
+                spawn_keeper "$keepers"
+            fi
             pid="$!"
         fi
         render_file "$demo_root/claude-config/sessions/$key.json.template" \

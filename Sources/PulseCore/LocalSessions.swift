@@ -441,7 +441,8 @@ public enum LocalSessions {
         now: Date,
         home: String? = nil,
         deadhd: DeadhdState? = nil,
-        orcaTerminal: String? = nil
+        orcaTerminal: String? = nil,
+        multiplexer: MultiplexerPane? = nil
     ) -> Session {
         // 꺼진 세션의 요약은 체크리스트로 쓰지 않는다. 활동 정보는 그대로 쓴다.
         let checklist = deadhd?.hasChecklist == true ? deadhd : nil
@@ -514,6 +515,7 @@ public enum LocalSessions {
             place: place,
             cwd: record.cwd,
             orcaTerminal: orcaTerminal,
+            multiplexer: multiplexer,
             backgroundTasks: deadhd?.hasBackgroundTasks == true ? deadhd?.backgroundTasks ?? [] : [],
             lastTool: lastTool,
             updatedAt: updatedAt,
