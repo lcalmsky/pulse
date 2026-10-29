@@ -92,7 +92,8 @@ public struct TranscriptSummary: Equatable {
 
 public enum LocalSessions {
     public static let stallThreshold: TimeInterval = 10 * 60
-    /// shell 세션에 쓰는 기준. shell 은 턴이 끝나고 백그라운드 셸이 도는 상태다.
+    /// shell 세션과 백그라운드 작업이 남은 busy 세션에 쓰는 기준. 둘 다 트랜스크립트가
+    /// 조용해도 작업이 도는 중일 수 있다.
     public static let backgroundStallThreshold: TimeInterval = 60 * 60
     public static let replyTailLimit = 160
     public static let promptTitleLimit = 60
@@ -462,7 +463,8 @@ public enum LocalSessions {
             }
         case "busy", "shell":
             // 셸을 띄운 줄이 읽어 들인 트랜스크립트 꼬리 밖에 있으면 개수가 0 으로 나오므로 상태만 본다.
-            let threshold = record.status == "shell" ? backgroundStallThreshold : stallThreshold
+            let hasBackground = record.status == "shell" || (summary.backgroundTasks ?? 0) > 0
+            let threshold = hasBackground ? backgroundStallThreshold : stallThreshold
             if let last = summary.lastMeaningfulAt,
                now.timeIntervalSince(last) > threshold {
                 bucket = "stall"

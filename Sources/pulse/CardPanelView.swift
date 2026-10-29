@@ -647,7 +647,7 @@ private struct CardWave: Shape {
 
 private enum CardPanelText {
     static func question(_ item: DisplayItem) -> String {
-        "“\(RowText.question(detail: item.detail, replyTail: item.replyTail, status: item.status))”"
+        "“\(RowText.question(detail: item.detail, replyTail: item.replyTail, status: item.status, isStall: item.isStall))”"
     }
 }
 

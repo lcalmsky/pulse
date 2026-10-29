@@ -58,7 +58,7 @@ struct SessionRowView: View {
                 }
             }
 
-            Text("“\(RowText.question(detail: item.detail, replyTail: item.replyTail, status: item.status))”")
+            Text("“\(RowText.question(detail: item.detail, replyTail: item.replyTail, status: item.status, isStall: item.isStall))”")
                 .font(.system(size: 12.5))
                 .foregroundColor(PopoverPalette.text)
                 .lineLimit(compact ? 2 : 6)

@@ -90,8 +90,14 @@ public enum RowText {
     }
 
     /// 확인 필요 카드의 본문. 질문 전문이 가장 먼저, 없으면 마지막 답, 그다음 상태 문구.
-    public static func question(detail: String?, replyTail: String?, status: String) -> String {
-        detail ?? replyTail ?? status
+    /// stall 카드는 마지막 답을 건너뛰고 상태 문구를 쓴다.
+    public static func question(
+        detail: String?,
+        replyTail: String?,
+        status: String,
+        isStall: Bool = false
+    ) -> String {
+        detail ?? (isStall ? nil : replyTail) ?? status
     }
 
     /// 진행 행의 인용 한 줄. 단계 이름은 스텝퍼 줄에 이미 있어 「▶ 」 로 시작하는 줄은 다시 쓰지 않는다.

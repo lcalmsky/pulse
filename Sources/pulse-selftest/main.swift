@@ -1228,7 +1228,17 @@ let busyWithBackground = localSession(
     status: "busy",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 1)
 )
-expectEqual(busyWithBackground.bucket, "stall", "stall: busy 는 백그라운드 작업이 있어도 기준을 늘리지 않는다")
+expectEqual(busyWithBackground.bucket, "working", "stall: busy 도 백그라운드 작업이 있으면 60분 기준")
+let busyBackgroundStalled = localSession(
+    status: "busy",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
+)
+expectEqual(busyBackgroundStalled.bucket, "stall", "stall: 백그라운드 작업이 도는 busy 도 60분이 넘으면 stall")
+let busyNoBackgroundLong = localSession(
+    status: "busy",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 0)
+)
+expectEqual(busyNoBackgroundLong.bucket, "stall", "stall: 백그라운드 작업이 없는 busy 는 10분 기준")
 
 expectEqual(
     Grouping.group(SessionsResponse(sessions: [shellBackgroundStalled]), now: now).attention.first?.status,
@@ -2668,6 +2678,10 @@ expectEqual(RowText.waiting(since: now.addingTimeInterval(-60), now: now), "1분
 expectEqual(RowText.question(detail: "질문", replyTail: "답", status: "상태"), "질문", "행 문구: 질문이 먼저")
 expectEqual(RowText.question(detail: nil, replyTail: "답", status: "상태"), "답", "행 문구: 질문이 없으면 답")
 expectEqual(RowText.question(detail: nil, replyTail: nil, status: "상태"), "상태", "행 문구: 둘 다 없으면 상태")
+expectEqual(RowText.question(detail: nil, replyTail: "답", status: "상태", isStall: true), "상태",
+            "행 문구: stall 은 마지막 답 대신 상태")
+expectEqual(RowText.question(detail: "질문", replyTail: "답", status: "상태", isStall: true), "질문",
+            "행 문구: stall 이어도 질문 전문이 있으면 질문")
 expectEqual(RowText.activity(lastSentence: "문장", nowLine: "지금 줄"), "문장", "행 문구: 마지막 문장이 먼저")
 expectEqual(RowText.activity(lastSentence: nil, nowLine: "▶ 검증"), nil, "행 문구: 단계 이름은 다시 쓰지 않는다")
 expectEqual(RowText.activity(lastSentence: nil, nowLine: "도구 실행"), "도구 실행", "행 문구: 지금 줄")
