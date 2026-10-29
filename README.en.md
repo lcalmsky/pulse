@@ -14,7 +14,7 @@
 
 <p align="center">
   🟠 Sessions waiting for an answer &nbsp;·&nbsp; 🔵 Sessions working &nbsp;·&nbsp; 🟢 Finished sessions<br>
-  Click a row to jump straight to that session in the Orca terminal.
+  Click a row to jump straight to that session in the Orca terminal or its herdr or tmux pane.
 </p>
 
 <br>
@@ -56,6 +56,7 @@ The list is ordered **attention → working → done**.
 - **Attention** shows how long it has been waiting and the last answer. The buttons are wait 10 more minutes, open, and reply
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
 - **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
+- **Multiplexer badge** sessions started inside herdr or tmux get a `herdr` or `tmux` badge before the location. On hover, the Orca button becomes a jump-to-pane button
 - **Header and footer** the header has the three group counts and the GitHub star and collapse buttons, and the footer has the refresh time and the floating panel, settings, and quit buttons
 - **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
@@ -183,7 +184,7 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 | `⌥→` | Expand the selected row's steps all the way |
 | `⌥←` | Collapse the expanded steps at once |
 | `↩` | Open the selected item |
-| `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca` |
+| `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca`. For herdr or tmux sessions it jumps to the pane and rows show `→ Go to herdr pane` |
 | `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes. When the search line is open it deletes search text |
 | `Esc` | Close the search first if it is open, then settings if they are open, otherwise close the popover |
 | `⌘,` | Open and close settings |
@@ -192,6 +193,7 @@ A floating panel takes the same keys after a single click or `⌃⌥P`, without 
 
 ### Opening sessions
 
+- Sessions started inside herdr or tmux are recognized from the session process's environment variables (`HERDR_PANE_ID` and `HERDR_SOCKET_PATH`, or `TMUX` and `TMUX_PANE`). Clicking the row focuses that workspace, tab, and pane through the herdr socket API, or moves the most recently used tmux client to that pane. Pulse then brings forward the terminal hosting that client: the Orca terminal if the client runs inside Orca, otherwise that terminal app. Nothing needs to be configured. When the jump fails, Pulse briefly shows why, such as `herdr has no pane for this session`.
 - Clicking a row runs `orca terminal switch --terminal <handle> --json` to jump to that session's terminal and brings Orca to the front.
 - The terminal handle is read from the session process's `ORCA_TERMINAL_HANDLE` environment variable, which Orca sets for processes it starts in its terminals. Even when a worktree has several Claude terminals, Pulse jumps to that session's terminal regardless of titles. If switching with that handle fails, it falls back to the search below.
 - When there is no terminal handle, Pulse looks for a terminal with the same working directory and picks the one whose title matches the session name. If no title matches, it jumps when that directory has exactly one terminal, or, when there are several, when exactly one of them is running Claude. Worktrees not yet opened since Orca restarted have empty terminal titles, so they are found this way.
@@ -200,7 +202,7 @@ A floating panel takes the same keys after a single click or `⌃⌥P`, without 
 
 ### Card actions
 
-- `Reply` on an attention card always opens the Orca terminal. Stall cards show a wait 10 more minutes button on hover.
+- `Reply` on an attention card opens that session's Orca terminal, or jumps to its pane for herdr and tmux sessions. Stall cards show a wait 10 more minutes button on hover.
 - Hovering a done card pauses the countdown and shows open and dismiss buttons.
 - `Dismiss all` in the card panel acknowledges every visible done card at once and closes every card. Attention sessions stay in the list.
 - `Dismiss all` in the done section of the list hides the visible done items and removes them from the count. They stay hidden across launches.
