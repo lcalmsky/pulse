@@ -664,6 +664,8 @@ final class AppModel: ObservableObject {
                 self?.showError(L10n.multiplexerClientMissing(kind))
             case .hostUnknown:
                 self?.showError(L10n.multiplexerHostUnknown(kind))
+            case .timedOut:
+                self?.showError(L10n.multiplexerTimedOut(kind))
             }
         }
     }

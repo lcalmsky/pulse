@@ -68,6 +68,7 @@ struct SessionRowView: View {
                 .padding(.leading, 15)
 
             HStack(spacing: 6) {
+                multiplexerBadge
                 if !attentionMeta.isEmpty {
                     Text(attentionMeta)
                         .font(.system(size: 11, design: .monospaced))
@@ -545,17 +546,7 @@ struct SessionRowView: View {
     @ViewBuilder
     private var multiplexerBadge: some View {
         if let kind = item.multiplexer?.kind.rawValue {
-            Text(kind)
-                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                .foregroundColor(PopoverPalette.secondary)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(PopoverPalette.secondary.opacity(0.45), lineWidth: 1)
-                )
-                .help(L10n.multiplexerBadgeHelp(kind))
-                .fixedSize()
+            MultiplexerBadge(kind: kind)
         }
     }
 
@@ -780,6 +771,24 @@ private struct StepPanel: View {
     private var updatedText: String {
         guard let date = snapshot?.modifiedAt else { return "deadhd" }
         return L10n.deadhdUpdated(Self.clock.string(from: date))
+    }
+}
+
+struct MultiplexerBadge: View {
+    let kind: String
+
+    var body: some View {
+        Text(kind)
+            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+            .foregroundColor(PopoverPalette.secondary)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(PopoverPalette.secondary.opacity(0.45), lineWidth: 1)
+            )
+            .help(L10n.multiplexerBadgeHelp(kind))
+            .fixedSize()
     }
 }
 

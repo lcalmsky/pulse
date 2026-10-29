@@ -4,7 +4,6 @@ import Foundation
 import os
 
 enum OrcaLauncher {
-    private static let bundleIdentifier = "com.stablyai.orca"
     private static let appPath = "/Applications/Orca.app"
     private static let cliPath = "/Applications/Orca.app/Contents/Resources/bin/orca"
     private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "orca")
@@ -101,7 +100,7 @@ enum OrcaLauncher {
     }
 
     private static func bringForward() {
-        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first {
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: Multiplexer.orcaBundleIdentifier).first {
             if #available(macOS 14.0, *) {
                 app.activate()
             } else {

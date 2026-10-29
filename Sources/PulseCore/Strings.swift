@@ -309,6 +309,12 @@ public enum L10n {
             "Moved the pane but couldn't find the terminal app running \(kind)"
         )
     }
+    public static func multiplexerTimedOut(_ kind: String) -> String {
+        pick(
+            "\(kind) 가 응답하지 않아요. 잠시 뒤 다시 눌러 주세요",
+            "\(kind) isn't responding. Try again in a moment"
+        )
+    }
     public static func multiplexerMove(_ kind: String) -> String {
         pick("\(kind) 패널로 이동", "Go to \(kind) pane")
     }

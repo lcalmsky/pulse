@@ -147,9 +147,14 @@ private struct SingleCard: View {
                     .lineLimit(2)
                     .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
-                attentionMeta
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                HStack(spacing: 6) {
+                    if let kind = item.multiplexer?.kind.rawValue {
+                        MultiplexerBadge(kind: kind)
+                    }
+                    attentionMeta
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
             Spacer(minLength: 0)
             if hovering && item.isStall {
@@ -215,11 +220,16 @@ private struct SingleCard: View {
                     .foregroundColor(PopoverPalette.text)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Text(CardText.doneMeta(title: item.title, runDuration: card.runDuration))
-                    .font(.system(size: 11))
-                    .foregroundColor(PopoverPalette.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                HStack(spacing: 6) {
+                    if let kind = item.multiplexer?.kind.rawValue {
+                        MultiplexerBadge(kind: kind)
+                    }
+                    Text(CardText.doneMeta(title: item.title, runDuration: card.runDuration))
+                        .font(.system(size: 11))
+                        .foregroundColor(PopoverPalette.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
             Spacer(minLength: 0)
             if hovering {

@@ -3731,6 +3731,89 @@ for testCase in herdrClientCases {
     )
 }
 
+let herdrSessionNameCases: [(arguments: [String], expected: String?)] = [
+    (["herdr"], nil),
+    (["/opt/homebrew/bin/herdr", "--session", "a"], "a"),
+    (["herdr", "session", "attach", "b"], "b"),
+    (["herdr", "--session"], nil),
+    (["herdr", "server"], nil),
+]
+for testCase in herdrSessionNameCases {
+    expectEqual(
+        Multiplexer.herdrSessionName(arguments: testCase.arguments),
+        testCase.expected,
+        "멀티플렉서: 세션 이름 \(testCase.arguments)"
+    )
+}
+
+let herdrListJSON = """
+{"sessions":[{"default":true,"name":"default","running":true,"session_dir":"/Users/x/.config/herdr","socket_path":"/Users/x/.config/herdr/herdr.sock"},{"default":false,"name":"pulse-test","running":true,"session_dir":"/Users/x/.config/herdr/sessions/pulse-test","socket_path":"/Users/x/.config/herdr/sessions/pulse-test/herdr.sock"}]}
+"""
+let parsedSessions = Multiplexer.herdrSessions(fromListJSON: herdrListJSON)
+expectEqual(parsedSessions?.count, 2, "멀티플렉서: 세션 목록 개수")
+expectEqual(parsedSessions?.last?.name, "pulse-test", "멀티플렉서: 세션 목록 이름")
+expectEqual(parsedSessions?.last?.isDefault, false, "멀티플렉서: 세션 목록 기본 여부")
+expectEqual(Multiplexer.herdrSessions(fromListJSON: "not json"), nil, "멀티플렉서: 세션 목록 JSON 아님")
+expectEqual(Multiplexer.herdrSessions(fromListJSON: #"{"x":1}"#), nil, "멀티플렉서: 세션 목록 sessions 없음")
+
+let defaultSession = HerdrSession(
+    name: "default", isDefault: true, socketPath: "/Users/x/.config/herdr/herdr.sock"
+)
+let testSession = HerdrSession(
+    name: "pulse-test",
+    isDefault: false,
+    socketPath: "/Users/x/.config/herdr/sessions/pulse-test/herdr.sock"
+)
+let herdrSessionList = [defaultSession, testSession]
+expectEqual(
+    Multiplexer.herdrSession(
+        forSocket: "/Users/x/.config/herdr/sessions/pulse-test/herdr.sock", in: herdrSessionList
+    )?.name,
+    "pulse-test",
+    "멀티플렉서: 소켓으로 세션 찾기"
+)
+expectEqual(
+    Multiplexer.herdrSession(
+        forSocket: "/Users/x/.config/herdr/sessions/pulse-test/../pulse-test/herdr.sock",
+        in: herdrSessionList
+    )?.name,
+    "pulse-test",
+    "멀티플렉서: 소켓 경로 정규화"
+)
+expectEqual(
+    Multiplexer.herdrSession(
+        forSocket: "~/.config/herdr/herdr.sock",
+        in: [HerdrSession(
+            name: "default",
+            isDefault: true,
+            socketPath: NSHomeDirectory() + "/.config/herdr/herdr.sock"
+        )]
+    )?.name,
+    "default",
+    "멀티플렉서: 소켓 경로의 ~ 펼침"
+)
+expectEqual(
+    Multiplexer.herdrSession(forSocket: "/nope.sock", in: herdrSessionList),
+    nil,
+    "멀티플렉서: 맞는 세션 없음"
+)
+
+let herdrAttachCases: [(arguments: [String], session: HerdrSession, expected: Bool)] = [
+    (["herdr"], defaultSession, true),
+    (["herdr", "--session", "pulse-test"], defaultSession, false),
+    (["herdr", "--session", "pulse-test"], testSession, true),
+    (["herdr", "session", "attach", "pulse-test"], testSession, true),
+    (["herdr"], testSession, false),
+    (["herdr", "pane", "list"], testSession, false),
+]
+for testCase in herdrAttachCases {
+    expectEqual(
+        Multiplexer.herdrClient(arguments: testCase.arguments, attachesTo: testCase.session),
+        testCase.expected,
+        "멀티플렉서: 세션에 붙는 클라이언트 \(testCase.arguments)"
+    )
+}
+
 func focusRequestObject(_ line: String) -> [String: Any]? {
     guard let data = line.data(using: .utf8),
           let object = try? JSONSerialization.jsonObject(with: data) else {
@@ -3859,6 +3942,11 @@ expectEqual(
     L10n.multiplexerHostUnknown("herdr").contains("herdr"),
     true,
     "문구: 호스트 모름에 kind"
+)
+expectEqual(
+    L10n.multiplexerTimedOut("tmux").contains("tmux"),
+    true,
+    "문구: 응답 없음에 kind"
 )
 expectEqual(
     L10n.multiplexerExecutableMissing.hasPrefix("tmux"),

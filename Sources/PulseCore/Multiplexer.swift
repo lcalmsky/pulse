@@ -67,6 +67,19 @@ public enum MultiplexerHost: Equatable {
     case app(String)
 }
 
+/// herdr 세션 하나. `herdr session list --json` 의 항목이다.
+public struct HerdrSession: Equatable {
+    public let name: String
+    public let isDefault: Bool
+    public let socketPath: String
+
+    public init(name: String, isDefault: Bool, socketPath: String) {
+        self.name = name
+        self.isDefault = isDefault
+        self.socketPath = socketPath
+    }
+}
+
 public enum Multiplexer {
     public static func pane(inProcArgs data: Data) -> MultiplexerPane? {
         let herdrPane = ProcessEnvironment.value(ProcessEnvironment.herdrPaneIdKey, inProcArgs: data)
@@ -110,6 +123,54 @@ public enum Multiplexer {
         if rest.isEmpty { return true }
         if rest.first == "--session" { return true }
         return rest.count >= 2 && rest[0] == "session" && rest[1] == "attach"
+    }
+
+    /// TUI 클라이언트 argv 가 붙는 세션 이름. 이름 없이 `herdr` 만 띄우면 nil(기본 세션)이다.
+    public static func herdrSessionName(arguments: [String]) -> String? {
+        guard isHerdrClient(arguments: arguments) else { return nil }
+        let rest = Array(arguments.dropFirst())
+        if rest.first == "--session" {
+            return rest.count >= 2 ? rest[1] : nil
+        }
+        if rest.count >= 3, rest[0] == "session", rest[1] == "attach" {
+            return rest[2]
+        }
+        return nil
+    }
+
+    /// `herdr session list --json` 출력을 읽는다. 형식이 다르면 nil.
+    public static func herdrSessions(fromListJSON text: String) -> [HerdrSession]? {
+        guard let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: Any],
+              let items = dictionary["sessions"] as? [[String: Any]] else {
+            return nil
+        }
+        return items.compactMap { item in
+            guard let name = item["name"] as? String,
+                  let socketPath = item["socket_path"] as? String else {
+                return nil
+            }
+            let isDefault = item["default"] as? Bool ?? false
+            return HerdrSession(name: name, isDefault: isDefault, socketPath: socketPath)
+        }
+    }
+
+    /// 패널 소켓 경로에 해당하는 세션. 경로는 `~` 를 펼치고 standardizingPath 로 맞춰 비교한다.
+    public static func herdrSession(forSocket socketPath: String, in sessions: [HerdrSession]) -> HerdrSession? {
+        let target = standardizedPath(socketPath)
+        return sessions.first { standardizedPath($0.socketPath) == target }
+    }
+
+    /// 클라이언트 argv 가 그 세션에 붙는지. 이름이 없으면 기본 세션에 붙는다.
+    public static func herdrClient(arguments: [String], attachesTo session: HerdrSession) -> Bool {
+        guard isHerdrClient(arguments: arguments) else { return false }
+        guard let name = herdrSessionName(arguments: arguments) else { return session.isDefault }
+        return name == session.name
+    }
+
+    private static func standardizedPath(_ path: String) -> String {
+        (NSString(string: path).expandingTildeInPath as NSString).standardizingPath
     }
 
     /// 포커스 요청 줄을 workspace → tab → pane 순서로 만든다. id 가 없는 단계는 건너뛴다.
