@@ -186,6 +186,8 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 | `⌥←` | Collapse the expanded steps at once |
 | `↩` | Open the selected item |
 | `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca`. For herdr or tmux sessions it jumps to the pane and rows show `→ Go to herdr pane` |
+| `Space` | Open the session that has waited longest for a reply. Press again to move to the next longest-waiting one. Stall sessions are skipped. Works only while the search text is empty. Holding `⌃⌥` sends it to the macOS input source switch instead, so release the keys after `⌃⌥P` |
+| `⇧Space` | Open the finished session that ended longest ago and acknowledge it. Press again for the next oldest one. Use `Undo` on the toast to bring it back |
 | `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes. When the search line is open it deletes search text |
 | `Esc` | Close the search first if it is open, then settings if they are open, otherwise close the popover |
 | `⌘,` | Open and close settings |
