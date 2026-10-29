@@ -53,7 +53,7 @@ A heartbeat line is drawn over the ring, and it is refreshed from a poll every t
 
 The list is ordered **attention → working → done**.
 
-- **Attention** shows how long it has been waiting and the last answer. The buttons are wait 10 more minutes, open, and reply
+- **Attention** shows how long it has been waiting and the last answer. A stall card shows a check-if-stuck message instead of the last answer. The buttons are wait 10 more minutes, open, and reply
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
 - **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
 - **Multiplexer badge** sessions started inside herdr or tmux get a `herdr` or `tmux` badge before the location on attention cards and on working and done rows. On hovering a working or done row, the Orca button becomes a jump-to-pane button
@@ -247,7 +247,7 @@ Pulse does not use system notifications, so it never asks for notification permi
 
 ## How it works
 
-Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A `shell` session has finished its turn while background shells keep running, so it is treated as waiting on them and the limit is extended to 60 minutes. This holds even when the line that started the shell is earlier than the last 256 KB of the transcript that Pulse reads. When the background tasks can be counted, the card reads `Background task for N minutes`.
+Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A `shell` session has finished its turn while background shells keep running, so it is treated as waiting on them and the limit is extended to 60 minutes. A `busy` session with unfinished background tasks, such as one waiting for an async agent, uses the same 60-minute limit. This holds even when the line that started the shell is earlier than the last 256 KB of the transcript that Pulse reads. When the background tasks can be counted, the card reads `Background task for N minutes`.
 
 <details>
 <summary>Where it reads and the rules</summary>
