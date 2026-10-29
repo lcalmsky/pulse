@@ -3762,10 +3762,23 @@ expectEqual(Multiplexer.isSuccessResponse("not json"), false, "멀티플렉서: 
 expectEqual(
     Multiplexer.host(inProcArgs: procArgs(
         argc: 1,
-        ["/bin/herdr", "herdr", "ORCA_TERMINAL_HANDLE=term_1", "__CFBundleIdentifier=com.example.term"]
+        ["/bin/herdr", "herdr", "ORCA_TERMINAL_HANDLE=term_1", "__CFBundleIdentifier=com.stablyai.orca"]
     )),
     .orca("term_1"),
-    "멀티플렉서 호스트: Orca 우선"
+    "멀티플렉서 호스트: Orca 앱이면 터미널 핸들"
+)
+expectEqual(
+    Multiplexer.host(inProcArgs: procArgs(
+        argc: 1,
+        ["/bin/herdr", "herdr", "ORCA_TERMINAL_HANDLE=term_1", "__CFBundleIdentifier=com.example.term"]
+    )),
+    .app("com.example.term"),
+    "멀티플렉서 호스트: 다른 앱이 물려받은 Orca 핸들은 무시"
+)
+expectEqual(
+    Multiplexer.host(inProcArgs: procArgs(argc: 1, ["/bin/herdr", "herdr", "ORCA_TERMINAL_HANDLE=term_1"])),
+    .orca("term_1"),
+    "멀티플렉서 호스트: 번들 id 없이 핸들만"
 )
 expectEqual(
     Multiplexer.host(inProcArgs: procArgs(

@@ -137,14 +137,16 @@ public enum Multiplexer {
         return dictionary["result"] != nil
     }
 
+    public static let orcaBundleIdentifier = "com.stablyai.orca"
+
     public static func host(inProcArgs data: Data) -> MultiplexerHost? {
-        if let handle = ProcessEnvironment.value(ProcessEnvironment.orcaTerminalHandleKey, inProcArgs: data) {
+        let handle = ProcessEnvironment.value(ProcessEnvironment.orcaTerminalHandleKey, inProcArgs: data)
+        let bundleIdentifier = ProcessEnvironment.value("__CFBundleIdentifier", inProcArgs: data)
+        // Orca 셸에서 연 다른 터미널 앱도 ORCA_TERMINAL_HANDLE 을 물려받으므로, 앱이 Orca 일 때만 핸들을 믿는다.
+        if let handle, bundleIdentifier == nil || bundleIdentifier == orcaBundleIdentifier {
             return .orca(handle)
         }
-        if let bundleIdentifier = ProcessEnvironment.value("__CFBundleIdentifier", inProcArgs: data) {
-            return .app(bundleIdentifier)
-        }
-        return nil
+        return bundleIdentifier.map { .app($0) }
     }
 
     private static func appendFocusRequest(
