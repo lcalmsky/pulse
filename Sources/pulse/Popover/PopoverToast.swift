@@ -49,20 +49,51 @@ struct PopoverToast: View {
 
 struct NoticeToastView: View {
     let text: String
+    var tone: DisplayGroup? = nil
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 12, weight: .medium))
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: 300)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .foregroundColor(Color(nsColor: .windowBackgroundColor))
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.primary.opacity(0.92))
+        if let tone {
+            HStack(spacing: 8) {
+                Image(systemName: symbol(for: tone))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(PopoverPalette.color(for: tone))
+                Text(text)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundColor(PopoverPalette.text)
+                    .frame(maxWidth: 280, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(.regularMaterial, in: Capsule())
+            .background(Capsule().fill(PopoverPalette.color(for: tone).opacity(0.16)))
+            .overlay(
+                Capsule().strokeBorder(PopoverPalette.color(for: tone).opacity(0.55), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.35), radius: 14, y: 6)
+            .shadow(color: Color.black.opacity(0.25), radius: 12, y: 5)
+            .fixedSize()
+        } else {
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 300)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .foregroundColor(Color(nsColor: .windowBackgroundColor))
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.primary.opacity(0.92))
+                )
+                .shadow(color: Color.black.opacity(0.35), radius: 14, y: 6)
+        }
+    }
+
+    private func symbol(for tone: DisplayGroup) -> String {
+        switch tone {
+        case .attention: return "bubble.left.fill"
+        case .done: return "checkmark.circle.fill"
+        case .working: return "circle.fill"
+        }
     }
 }

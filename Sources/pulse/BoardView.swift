@@ -19,7 +19,7 @@ struct BoardView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .overlay(alignment: .bottom) {
                 if let notice = model.notice {
-                    NoticeToastView(text: notice)
+                    NoticeToastView(text: notice, tone: model.noticeTone)
                         .padding(.bottom, 12)
                 }
             }

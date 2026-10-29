@@ -148,7 +148,7 @@ struct PopoverView: View {
     private var toast: some View {
         VStack(spacing: 8) {
             if let notice = model.notice {
-                NoticeToastView(text: notice)
+                NoticeToastView(text: notice, tone: model.noticeTone)
             }
             if model.recentAcknowledgedCount > 0 {
                 PopoverToast(count: model.recentAcknowledgedCount) {

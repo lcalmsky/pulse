@@ -26,6 +26,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var recentAcknowledgedCount = 0
     @Published private(set) var recentAcknowledgedGeneration = 0
     @Published private(set) var notice: String?
+    @Published private(set) var noticeTone: DisplayGroup?
     private var noticeGeneration = 0
     @Published private(set) var lastSuccess: Date?
     @Published private(set) var density: Density
@@ -498,7 +499,10 @@ final class AppModel: ObservableObject {
     func jumpToPriority(_ kind: PriorityJump.Kind, state: PopoverState) {
         guard let item = PriorityJump.target(kind, in: groups, after: state.lastReplyJumpSessionId) else {
             NSSound.beep()
-            showNotice(kind == .reply ? L10n.noReplySession : L10n.noDoneSession)
+            showNotice(
+                kind == .reply ? L10n.noReplySession : L10n.noDoneSession,
+                tone: kind == .reply ? .attention : .done
+            )
             return
         }
         if kind == .reply { state.lastReplyJumpSessionId = item.sessionId }
@@ -738,13 +742,15 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func showNotice(_ message: String) {
+    private func showNotice(_ message: String, tone: DisplayGroup? = nil) {
         notice = message
+        noticeTone = tone
         noticeGeneration += 1
         let generation = noticeGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + NoticeToast.duration) { [weak self] in
             guard let self, self.noticeGeneration == generation else { return }
             self.notice = nil
+            self.noticeTone = nil
         }
     }
 
