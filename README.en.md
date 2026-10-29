@@ -56,7 +56,7 @@ The list is ordered **attention → working → done**.
 - **Attention** shows how long it has been waiting and the last answer. The buttons are wait 10 more minutes, open, and reply
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
 - **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
-- **Multiplexer badge** sessions started inside herdr or tmux get a `herdr` or `tmux` badge before the location. On hover, the Orca button becomes a jump-to-pane button
+- **Multiplexer badge** sessions started inside herdr or tmux get a `herdr` or `tmux` badge before the location on attention cards and on working and done rows. On hovering a working or done row, the Orca button becomes a jump-to-pane button
 - **Header and footer** the header has the three group counts and the GitHub star and collapse buttons, and the footer has the refresh time and the floating panel, settings, and quit buttons
 - **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
@@ -100,6 +100,7 @@ Instead of macOS notification banners, **the app draws the cards itself.**
 
 - **Attention card** shows the last answer and how long it has been waiting. Pressing `Reply` opens the Orca terminal
 - **Done card** shows a one-line summary and disappears after 8 seconds. Hovering pauses it
+- **Multiplexer badge** a single attention or done card for a herdr or tmux session shows a `herdr` or `tmux` badge on its bottom line
 - **Multiple cards** the header shows `N waiting · M done` and a `Dismiss all` button
 - **Away** notifications from while the screen was locked are bundled into one card when you return
 
@@ -193,7 +194,7 @@ A floating panel takes the same keys after a single click or `⌃⌥P`, without 
 
 ### Opening sessions
 
-- Sessions started inside herdr or tmux are recognized from the session process's environment variables (`HERDR_PANE_ID` and `HERDR_SOCKET_PATH`, or `TMUX` and `TMUX_PANE`). Clicking the row focuses that workspace, tab, and pane through the herdr socket API, or moves the most recently used tmux client to that pane. Pulse then brings forward the terminal hosting that client: the Orca terminal if the client runs inside Orca, otherwise that terminal app. Nothing needs to be configured. When the jump fails, Pulse briefly shows why, such as `herdr has no pane for this session`.
+- Sessions started inside herdr or tmux are recognized from the session process's environment variables (`HERDR_PANE_ID` and `HERDR_SOCKET_PATH`, or `TMUX` and `TMUX_PANE`). Clicking the row focuses that workspace, tab, and pane through the herdr socket API and picks the most recently started client attached to that herdr session, or moves the most recently used tmux client to that pane. Pulse then brings forward the terminal hosting that client: the Orca terminal if the client runs inside Orca, otherwise that terminal app. Nothing needs to be configured. When the jump fails, Pulse briefly shows why, such as `herdr has no pane for this session`. If tmux doesn't respond within 3 seconds, Pulse stops waiting and shows `tmux isn't responding`.
 - Clicking a row runs `orca terminal switch --terminal <handle> --json` to jump to that session's terminal and brings Orca to the front.
 - The terminal handle is read from the session process's `ORCA_TERMINAL_HANDLE` environment variable, which Orca sets for processes it starts in its terminals. Even when a worktree has several Claude terminals, Pulse jumps to that session's terminal regardless of titles. If switching with that handle fails, it falls back to the search below.
 - When there is no terminal handle, Pulse looks for a terminal with the same working directory and picks the one whose title matches the session name. If no title matches, it jumps when that directory has exactly one terminal, or, when there are several, when exactly one of them is running Claude. Worktrees not yet opened since Orca restarted have empty terminal titles, so they are found this way.
