@@ -52,10 +52,10 @@ enum MultiplexerLauncher {
     private static func focusHerdr(_ pane: MultiplexerPane) -> Bool {
         let configured = pane.socketPath ?? defaultHerdrSocket
         let path = NSString(string: configured).expandingTildeInPath
-        guard let fd = connectUnixSocket(path) else { return false }
-        defer { close(fd) }
-
+        // herdr 서버는 응답 한 줄을 보낸 뒤 연결을 닫으므로 요청마다 새로 연결한다.
         for line in Multiplexer.focusRequestLines(for: pane) {
+            guard let fd = connectUnixSocket(path) else { return false }
+            defer { close(fd) }
             guard send(line + "\n", to: fd), let response = readLine(from: fd),
                   Multiplexer.isSuccessResponse(response) else {
                 return false
@@ -80,6 +80,9 @@ enum MultiplexerLauncher {
         var timeout = timeval(tv_sec: requestTimeoutSeconds, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        // 닫힌 연결에 쓰면 SIGPIPE 로 앱이 통째로 꺼지므로 EPIPE 오류로 받는다.
+        var noSigPipe: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
 
         let result = withUnsafePointer(to: &address) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
