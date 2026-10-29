@@ -15,6 +15,9 @@ case .unknown(let option):
     exit(2)
 }
 
+// 멀티플렉서 소켓이나 자식 프로세스 파이프가 먼저 닫혀도 앱이 꺼지지 않고 쓰기 오류로 받게 한다.
+signal(SIGPIPE, SIG_IGN)
+
 let application = NSApplication.shared
 let delegate = AppDelegate()
 application.delegate = delegate
