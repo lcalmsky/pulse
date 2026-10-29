@@ -489,6 +489,41 @@ let doneClickItem = DisplayItem(
 )
 expectEqual(doneClickItem.clickAction, .cwd("/a/b"), "클릭 규칙: 끝난 턴은 터미널로 간다")
 
+// MARK: - 우선순위 이동
+
+let jumpGroups = Grouping.group(
+    SessionsResponse(sessions: [
+        Session(sessionId: "jumpStall", bucket: "stall",
+                since: now.addingTimeInterval(-60 * 60), orcaTerminal: "t"),
+        Session(sessionId: "jumpNone", bucket: "wait", since: now.addingTimeInterval(-50 * 60)),
+        Session(sessionId: "jumpOld", bucket: "wait",
+                since: now.addingTimeInterval(-40 * 60), orcaTerminal: "t"),
+        Session(sessionId: "jumpNew", bucket: "idle",
+                since: now.addingTimeInterval(-10 * 60), cwd: "/a"),
+        Session(sessionId: "jumpDoneNew", bucket: "done",
+                since: now.addingTimeInterval(-20 * 60), cwd: "/a"),
+        Session(sessionId: "jumpDoneOld", bucket: "done",
+                since: now.addingTimeInterval(-80 * 60), cwd: "/a"),
+    ]),
+    now: now
+)
+expectEqual(PriorityJump.target(.reply, in: jumpGroups, after: nil)?.sessionId, "jumpOld",
+            "우선순위 이동: stall 과 누를 수 없는 항목을 건너뛴다")
+expectEqual(PriorityJump.target(.reply, in: jumpGroups, after: "jumpOld")?.sessionId, "jumpNew",
+            "우선순위 이동: 답 대기는 다음 후보로 순환")
+expectEqual(PriorityJump.target(.reply, in: jumpGroups, after: "jumpNew")?.sessionId, "jumpOld",
+            "우선순위 이동: 답 대기는 끝에서 처음으로 순환")
+expectEqual(PriorityJump.target(.reply, in: jumpGroups, after: "jumpStall")?.sessionId, "jumpOld",
+            "우선순위 이동: 직전 세션이 후보에 없으면 첫 후보")
+expectEqual(PriorityJump.target(.done, in: jumpGroups, after: nil)?.sessionId, "jumpDoneOld",
+            "우선순위 이동: 완료는 가장 오래전에 끝난 세션")
+expectEqual(PriorityJump.target(.done, in: jumpGroups, after: "jumpDoneNew")?.sessionId, "jumpDoneOld",
+            "우선순위 이동: 완료는 직전 세션을 무시한다")
+expectEqual(PriorityJump.target(.reply, in: .empty, after: nil)?.sessionId, nil,
+            "우선순위 이동: 답 대기 후보가 없으면 nil")
+expectEqual(PriorityJump.target(.done, in: .empty, after: nil)?.sessionId, nil,
+            "우선순위 이동: 완료 후보가 없으면 nil")
+
 // MARK: - Orca 터미널 cwd 매칭
 
 func terminal(
@@ -3551,6 +3586,8 @@ expectEqual(L10n.reduceTransparencyOn, "Reduce transparency is on, so Pulse uses
 expectEqual(L10n.openDisplaySettings, "Open Settings", "영어 문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "영어 문구: GitHub 별 버튼")
 expectEqual(L10n.progressPageNotOpened, "Could not open the progress page", "영어 문구: 진행 페이지 열기 실패")
+expectEqual(L10n.noReplySession, "No session is waiting for a reply", "영어 문구: 답할 세션 없음")
+expectEqual(L10n.noDoneSession, "No finished session to open", "영어 문구: 열 완료 세션 없음")
 expectEqual(L10n.unknownOption("--x"), "pulse: unknown option --x", "영어 문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.hasPrefix("Usage: pulse [option]"), true, "영어 문구: 도움말 첫 줄")
 let enEmptyTitled = DisplayItem(session: Session(sessionId: "untitled", bucket: "working"), group: .working, now: now)
@@ -3651,6 +3688,8 @@ expectEqual(L10n.openDisplaySettings, "설정 열기", "문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "문구: GitHub 별 버튼은 한국어 화면에서도 영어")
 expectEqual(L10n.progressPageNotCreated.hasPrefix("진행 페이지를 만들지 못했어요"), true, "문구: 진행 페이지 생성 실패")
 expectEqual(L10n.progressPageNotOpened, "진행 페이지를 열지 못했어요", "문구: 진행 페이지 열기 실패")
+expectEqual(L10n.noReplySession, "답할 세션이 없어요", "문구: 답할 세션 없음")
+expectEqual(L10n.noDoneSession, "열 완료 세션이 없어요", "문구: 열 완료 세션 없음")
 expectEqual(L10n.unknownOption("--x"), "pulse: 알 수 없는 옵션 --x", "문구: 알 수 없는 옵션")
 expectEqual(L10n.usage.contains("--help"), true, "문구: 도움말에 --help")
 

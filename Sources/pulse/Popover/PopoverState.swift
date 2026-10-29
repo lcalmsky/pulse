@@ -13,6 +13,8 @@ final class PopoverState: ObservableObject {
     @Published var searchFocused = false
     /// 값이 커질 때마다 검색 필드에 포커스를 준다.
     @Published var searchFocusRequest = 0
+    /// Space 로 마지막에 연 답 대기 세션. 다음 Space 가 그다음 후보로 가게 한다.
+    var lastReplyJumpSessionId: String?
 
     func reset() {
         selectedIndex = nil
@@ -20,6 +22,7 @@ final class PopoverState: ObservableObject {
         settingsOpen = false
         query = ""
         searchFocused = false
+        lastReplyJumpSessionId = nil
     }
 
     func select(_ filter: SessionFilter) {

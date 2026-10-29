@@ -494,6 +494,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// 답을 기다리는 세션은 오래 기다린 순으로, 끝난 세션은 가장 오래전 것부터 연다.
+    func jumpToPriority(_ kind: PriorityJump.Kind, state: PopoverState) {
+        guard let item = PriorityJump.target(kind, in: groups, after: state.lastReplyJumpSessionId) else {
+            NSSound.beep()
+            showNotice(kind == .reply ? L10n.noReplySession : L10n.noDoneSession)
+            return
+        }
+        if kind == .reply { state.lastReplyJumpSessionId = item.sessionId }
+        open(item)
+        if kind == .done { acknowledge(item) }
+        let items = state.filter.selectableItems(in: groups, query: state.query)
+        if let index = items.firstIndex(where: { $0.sessionId == item.sessionId }) {
+            state.selectedIndex = index
+        }
+    }
+
     /// HTML 이 아직 없으면 render.py 로 만든 뒤 브라우저로 연다.
     /// deadhd 의 serve.py 주소 규칙을 먼저 시도하고, 실패하면 file:// 로 연다.
     /// 서버 확인이 파일 IO 라서 화면을 붙잡지 않도록 백그라운드에서 돈다.

@@ -29,7 +29,7 @@ struct ListKeyboard {
                 close()
             }
             return true
-        case 126, 125, 36, 76, 51, 117, 123, 124:
+        case 126, 125, 36, 76, 51, 117, 123, 124, 49:
             // 설정 시트가 열려 있는 동안에는 목록 단축키를 넘기지 않는다.
             if handlesSettings, state.settingsOpen { return true }
         default:
@@ -73,6 +73,15 @@ struct ListKeyboard {
             if event.isARepeat || state.searchFocused { return true }
             guard let item = selectedItem(in: items) else { return true }
             model.acknowledge(item)
+            return true
+        case 49:
+            guard state.query.isEmpty, !state.searchFocused else { return false }
+            // ⌃⌥Space 는 시스템 입력 소스 전환이다.
+            if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty { return false }
+            model.jumpToPriority(
+                event.modifierFlags.contains(.shift) ? .done : .reply,
+                state: state
+            )
             return true
         case 123, 124:
             guard let item = selectedItem(in: items), item.showsStepLine else { return true }

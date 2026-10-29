@@ -277,6 +277,12 @@ public enum L10n {
     public static var sessionsUnreadable: String { pick("Claude 세션을 읽지 못했어요", "Couldn't read Claude sessions") }
     public static var allQuiet: String { pick("지금은 조용해요", "All quiet for now") }
     public static var nothingToDo: String { pick("할 일이 비었어요", "Nothing to do") }
+    public static var noReplySession: String {
+        pick("답할 세션이 없어요", "No session is waiting for a reply")
+    }
+    public static var noDoneSession: String {
+        pick("열 완료 세션이 없어요", "No finished session to open")
+    }
     public static var willNotifyNewSession: String {
         pick("새 세션이 시작되면 바로 알려 드릴게요.", "You'll hear about new sessions as soon as they start.")
     }
