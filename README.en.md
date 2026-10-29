@@ -100,7 +100,7 @@ Instead of macOS notification banners, **the app draws the cards itself.**
 
 - **Attention card** shows the last answer and how long it has been waiting. Pressing `Reply` opens the Orca terminal
 - **Done card** shows a one-line summary and disappears after 8 seconds. Hovering pauses it
-- **Multiplexer badge** a single attention or done card for a herdr or tmux session shows a `herdr` or `tmux` badge on its bottom line
+- **Multiplexer badge** a single attention or done card for a herdr or tmux session shows a `herdr` or `tmux` badge on its bottom line, and each row of several cards shows it before the title. Hovering a card button then reads `Go to herdr pane` instead of the Orca text
 - **Multiple cards** the header shows `N waiting · M done` and a `Dismiss all` button
 - **Away** notifications from while the screen was locked are bundled into one card when you return
 
