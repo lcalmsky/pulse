@@ -44,7 +44,11 @@ enum OrcaLauncher {
                 return
             }
             DispatchQueue.main.async {
-                completion(openPageOutsideOrca(alert))
+                let opened = openPageOutsideOrca(alert)
+                if !opened {
+                    logger.error("페이지를 열지 못했다: \(alert.url, privacy: .public)")
+                }
+                completion(opened)
             }
         }
     }
@@ -64,8 +68,18 @@ enum OrcaLauncher {
             return true
         }
         guard let created = runReadingOutput(
-            arguments: ["tab", "create", "--url", alert.url, "--worktree", worktree, "--json"]
-        ), created.status == 0 else {
+            arguments: ["tab", "create", "--url", alert.url, "--worktree", worktree, "--json"],
+            capturingError: true
+        ) else {
+            logger.error("orca tab create 를 실행하지 못했다: \(alert.url, privacy: .public)")
+            return false
+        }
+        guard created.status == 0 else {
+            let stderr = String(decoding: created.error, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            logger.error(
+                "orca tab create 종료 코드 \(created.status), stderr: \(stderr, privacy: .public), url: \(alert.url, privacy: .public)"
+            )
             return false
         }
         if let pageId = browserPageId(in: created.output) {
@@ -88,7 +102,11 @@ enum OrcaLauncher {
             logger.error("페이지 주소가 file 스킴이 아니다: \(alert.url, privacy: .public)")
             return false
         }
-        return NSWorkspace.shared.open(url)
+        let opened = NSWorkspace.shared.open(url)
+        if !opened {
+            logger.error("기본 앱으로 페이지를 열지 못했다: \(url.absoluteString, privacy: .public)")
+        }
+        return opened
     }
 
     private static func browserPageId(in data: Data) -> String? {
@@ -112,10 +130,15 @@ enum OrcaLauncher {
         return nil
     }
 
-    private static func runReadingOutput(arguments: [String]) -> (status: Int32, output: Data)? {
+    private static func runReadingOutput(
+        arguments: [String],
+        capturingError: Bool = false
+    ) -> (status: Int32, output: Data, error: Data)? {
         guard let process = command(arguments: arguments) else { return nil }
         let pipe = Pipe()
         process.standardOutput = pipe
+        let errorPipe = capturingError ? Pipe() : nil
+        if let errorPipe { process.standardError = errorPipe }
         do {
             try process.run()
         } catch {
@@ -126,8 +149,9 @@ enum OrcaLauncher {
         }
         // waitUntilExit 전에 읽어야 출력이 파이프 버퍼를 넘어도 멈추지 않는다.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let errorData = errorPipe?.fileHandleForReading.readDataToEndOfFile() ?? Data()
         process.waitUntilExit()
-        return (process.terminationStatus, data)
+        return (process.terminationStatus, data, errorData)
     }
 
     private static func matchingHandle(for cwd: String, name: String?) -> String? {

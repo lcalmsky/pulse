@@ -4121,6 +4121,45 @@ expectEqual(PageAlerts.rowText(for: [matchedPages[0]]), "첫 페이지", "페이
 expectEqual(PageAlerts.tabTarget(in: matchAlerts)?.pageId, "m1", "페이지: Tab 대상은 가장 오래된 항목")
 expectEqual(PageAlerts.tabTarget(in: [])?.pageId, nil, "페이지: 비면 Tab 대상 없음")
 
+func pageAlertAt(
+    _ pageId: String,
+    _ label: String,
+    worktree: String,
+    url: String,
+    createdAt: String,
+    fileName: String
+) -> PageAlert? {
+    let json = #"""
+    {"page_id":"\#(pageId)","worktree":"\#(worktree)","url":"\#(url)","label":"\#(label)","created_at":"\#(createdAt)","session_id":"s1"}
+    """#
+    return PageAlerts.parse(data: Data(json.utf8), fileName: fileName)
+}
+let samePageAlerts = [
+    pageAlertAt("old", "오래된 페이지", worktree: "w1", url: "file:///same.html",
+                createdAt: "2026-10-30T07:00:00Z", fileName: "old.json"),
+    pageAlertAt("new", "새 페이지", worktree: "w1", url: "file:///same.html",
+                createdAt: "2026-10-30T09:00:00Z", fileName: "new.json"),
+    pageAlertAt("other-wt", "다른 작업트리", worktree: "w2", url: "file:///same.html",
+                createdAt: "2026-10-30T08:00:00Z", fileName: "other-wt.json"),
+    pageAlertAt("other-url", "다른 주소", worktree: "w1", url: "file:///other.html",
+                createdAt: "2026-10-30T08:00:00Z", fileName: "other-url.json"),
+].compactMap { $0 }
+let dedupedPages = PageAlerts.sorted(PageAlerts.merged(samePageAlerts))
+expectEqual(dedupedPages.count, 3, "페이지 합치기: 같은 worktree+url 만 하나로")
+let mergedSamePage = dedupedPages.first { $0.worktree == "w1" && $0.url == "file:///same.html" }
+expectEqual(mergedSamePage?.pageId, "new", "페이지 합치기: 대표는 가장 최근 page_id")
+expectEqual(mergedSamePage?.label, "새 페이지", "페이지 합치기: 대표의 label")
+expectEqual(mergedSamePage?.fileNames, ["old.json", "new.json"], "페이지 합치기: fileNames 는 그룹 전부")
+expect(mergedSamePage?.oldestCreatedAt == utcDate(2026, 10, 30, 7, 0, 0),
+       "페이지 합치기: 정렬 시각은 그룹에서 가장 오래된 created_at")
+expectEqual(dedupedPages.first?.pageId, "new", "페이지 합치기: 대표가 최신이어도 오래 기다린 그룹이 먼저")
+expectEqual(PageAlerts.tabTarget(in: dedupedPages)?.pageId, "new", "페이지 합치기: Tab 대상도 가장 오래된 그룹")
+expectEqual(
+    PageAlerts.rowText(for: PageAlerts.alerts(for: pageItem, in: dedupedPages)),
+    "새 페이지 +2",
+    "페이지 합치기: 행 문구의 +N 은 합친 뒤 개수"
+)
+
 expectEqual(
     PageAlerts.directory(environment: ["PULSE_PAGES_DIR": "/tmp/pulse-pages"]).path,
     "/tmp/pulse-pages",

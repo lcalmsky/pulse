@@ -570,12 +570,12 @@ final class AppModel: ObservableObject {
                 return
             }
             self.onPanelFocusRelease?()
-            self.removePageFiles([alert.fileName])
+            self.removePageFiles(alert.fileNames)
         }
     }
 
     func dismissPage(_ alert: PageAlert) {
-        removePageFiles([alert.fileName])
+        removePageFiles(alert.fileNames)
     }
 
     func dismissUnreadablePage(_ fileName: String) {
@@ -583,11 +583,11 @@ final class AppModel: ObservableObject {
     }
 
     func dismissAllPages() {
-        removePageFiles(pageAlerts.map(\.fileName) + unreadablePageFiles)
+        removePageFiles(pageAlerts.flatMap(\.fileNames) + unreadablePageFiles)
     }
 
     func dismissPages(_ alerts: [PageAlert]) {
-        removePageFiles(alerts.map(\.fileName))
+        removePageFiles(alerts.flatMap(\.fileNames))
     }
 
     private func removePageFiles(_ names: [String]) {
@@ -596,7 +596,9 @@ final class AppModel: ObservableObject {
             pageSource.remove(fileName: name)
         }
         let removed = Set(names)
-        let keptAlerts = pageAlerts.filter { !removed.contains($0.fileName) }
+        let keptAlerts = pageAlerts.filter { alert in
+            !alert.fileNames.contains { removed.contains($0) }
+        }
         if keptAlerts != pageAlerts {
             pageAlerts = keptAlerts
         }

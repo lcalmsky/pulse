@@ -11,6 +11,10 @@ public struct PageAlert: Equatable {
     public let sessionId: String?
     public let sessionName: String?
     public let fileName: String
+    /// 같은 worktree·url 로 본 파일들. 대표 항목이 그룹의 파일을 모두 들고 있다.
+    public let fileNames: [String]
+    /// 그룹에서 가장 오래된 created_at. 정렬과 Tab 우선순위에 쓴다.
+    public let oldestCreatedAt: Date
 }
 
 public struct PageAlertReadResult: Equatable {
@@ -60,7 +64,9 @@ public enum PageAlerts {
             terminalHandle: nonEmpty(payload.terminalHandle),
             sessionId: nonEmpty(payload.sessionId),
             sessionName: nonEmpty(payload.sessionName),
-            fileName: fileName
+            fileName: fileName,
+            fileNames: [fileName],
+            oldestCreatedAt: createdAt
         )
     }
 
@@ -86,14 +92,47 @@ public enum PageAlerts {
             alerts.append(alert)
         }
         return PageAlertReadResult(
-            alerts: sorted(alerts),
+            alerts: sorted(merged(alerts)),
             unreadableFiles: unreadable.sorted()
         )
     }
 
+    /// 같은 worktree·url 은 같은 페이지를 다시 연 것이다. 가장 최근 파일을 대표로 남기고
+    /// 그룹의 모든 fileName 을 대표에 붙인다.
+    public static func merged(_ alerts: [PageAlert]) -> [PageAlert] {
+        var groups: [String: [PageAlert]] = [:]
+        for alert in alerts {
+            let key = alert.worktree + "\u{0}" + alert.url
+            groups[key, default: []].append(alert)
+        }
+        return groups.values.map { group in
+            let ordered = group.sorted {
+                if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+                if $0.pageId != $1.pageId { return $0.pageId < $1.pageId }
+                return $0.fileName < $1.fileName
+            }
+            let representative = ordered.last!
+            let oldest = ordered.first!.createdAt
+            return PageAlert(
+                version: representative.version,
+                pageId: representative.pageId,
+                worktree: representative.worktree,
+                url: representative.url,
+                label: representative.label,
+                createdAt: representative.createdAt,
+                terminalHandle: representative.terminalHandle,
+                sessionId: representative.sessionId,
+                sessionName: representative.sessionName,
+                fileName: representative.fileName,
+                fileNames: ordered.map(\.fileName),
+                oldestCreatedAt: oldest
+            )
+        }
+    }
+
     public static func sorted(_ alerts: [PageAlert]) -> [PageAlert] {
         alerts.sorted { left, right in
-            if left.createdAt != right.createdAt { return left.createdAt < right.createdAt }
+            if left.oldestCreatedAt != right.oldestCreatedAt { return left.oldestCreatedAt < right.oldestCreatedAt }
             return left.pageId < right.pageId
         }
     }
