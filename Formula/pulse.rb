@@ -11,6 +11,7 @@ class Pulse < Formula
     ENV["SWIFT_BUILD_DISABLE_SANDBOX"] = "1"
     system "./scripts/bundle.sh", prefix
     bin.install_symlink prefix/"Pulse.app/Contents/MacOS/pulse"
+    bin.install "scripts/pulse-page.sh" => "pulse-page"
   end
 
   def caveats

@@ -311,6 +311,26 @@ Write to a temporary file whose name starts with a dot, then move it into place 
 - Opening or dismissing a file deletes it. Nothing expires on its own. Pulse does not notice a tab you close or look at directly in Orca, so the file stays in the list while it exists.
 - A file that cannot be read is not deleted; it stays in the badge menu as `Unreadable page file: <name>`.
 
+### Sending with pulse-page
+
+You can open a page and leave the alert without writing the file yourself.
+
+```sh
+pulse-page --label "Backoff design" /tmp/pages/backoff.html   # open an Orca tab and leave the file
+pulse-page record --page-id <id> --url <address> --label "Title"  # write the file only
+```
+
+- With Homebrew the command is `pulse-page`; from source it is `scripts/pulse-page.sh`
+- Inside an Orca terminal it opens a new tab and writes the file under `~/.pulse/pages`. Outside Orca, or when the tab cannot be created, it opens the page in the default app and writes no file
+- `record` writes the file without calling Orca. When `--worktree`, `--terminal-handle`, or `--session-id` is omitted it takes the value from the `ORCA_WORKTREE_ID`, `ORCA_TERMINAL_HANDLE`, or `CLAUDE_CODE_SESSION_ID` environment variable
+- With `PULSE_PAGE_DRY_RUN=1` it runs neither Orca nor the default app and only prints the commands it would run
+
+Add one line to your agent instructions (for example `CLAUDE.md`).
+
+```
+When you build an HTML page for the user to read, open it with pulse-page --label "<task name>" <file>.
+```
+
 <br>
 
 ## Development
@@ -324,6 +344,7 @@ scripts/bundle.sh
 - **Demos** `scripts/demo.sh start` launches sessions, `fire done|attention|both` shows cards, and `stop` takes them down. `start --many` launches 15 sessions. Every example image is captured from these demos, so the project names and text on screen are made up.
 - **App icon** `swift scripts/make-icon.swift` regenerates `assets/AppIcon.icns` with the same ring and waveform as the header logo, and `scripts/bundle.sh` copies it into the bundle.
 - **Release** `scripts/release.sh X.Y.Z -m "<summary of changed features>"` does the version, build, checks, tag, GitHub release, and Homebrew formula update in one go. If it stopped at the step that downloads the tarball, `scripts/release.sh --formula-only X.Y.Z` redoes only the formula update. `scripts/release-selftest.sh` checks this script.
+- **Page tool** `scripts/pulse-page-selftest.sh` checks the open and record paths of `scripts/pulse-page.sh` with a fake Orca.
 - Repository rules are in [CLAUDE.md](CLAUDE.md).
 
 <br>

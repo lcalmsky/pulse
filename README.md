@@ -311,6 +311,26 @@ Pulse 는 시스템 알림을 쓰지 않아 알림 권한을 묻지 않습니다
 - 열거나 닫은 파일은 지웁니다. 스스로 만료되지는 않습니다. Orca 에서 탭을 직접 보고 닫은 것은 감지하지 않으므로, 파일이 남아 있으면 목록에도 남습니다.
 - 읽지 못한 파일은 지우지 않고 배지 메뉴에 `읽지 못한 페이지 파일: <이름>` 으로 남깁니다.
 
+### pulse-page 로 보내기
+
+파일을 직접 쓰지 않고 `pulse-page` 로 페이지를 열고 알릴 수 있습니다.
+
+```sh
+pulse-page --label "백오프 설계안" /tmp/pages/backoff.html   # Orca 탭으로 열고 파일을 남긴다
+pulse-page record --page-id <id> --url <주소> --label "제목"  # 열지 않고 파일만 쓴다
+```
+
+- Homebrew 로 설치하면 `pulse-page` 이고, 소스에서 쓰면 `scripts/pulse-page.sh` 입니다
+- Orca 터미널 안이면 새 탭을 열고 `~/.pulse/pages` 에 파일을 씁니다. Orca 밖이거나 탭을 열지 못하면 기본 앱으로 열고 파일은 쓰지 않습니다
+- `record` 는 Orca 를 부르지 않고 파일만 씁니다. `--worktree`, `--terminal-handle`, `--session-id` 를 생략하면 `ORCA_WORKTREE_ID`, `ORCA_TERMINAL_HANDLE`, `CLAUDE_CODE_SESSION_ID` 환경 변수에서 가져옵니다
+- `PULSE_PAGE_DRY_RUN=1` 이면 Orca 와 기본 앱을 실행하지 않고 실행했을 명령만 출력합니다
+
+에이전트 지침(예: `CLAUDE.md`)에 한 줄을 넣어 두면 됩니다.
+
+```
+사용자에게 보여 줄 HTML 페이지를 만들면 pulse-page --label "<작업 이름>" <파일> 로 연다.
+```
+
 <br>
 
 ## 개발
@@ -324,6 +344,7 @@ scripts/bundle.sh
 - **데모** `scripts/demo.sh start` 로 세션을 띄우고 `fire done|attention|both` 로 카드를 띄우며 `stop` 으로 내립니다. `start --many` 는 세션 15개를 띄웁니다. 예시 그림은 모두 이 데모로 찍어서 프로젝트 이름과 문구가 가짜입니다.
 - **앱 아이콘** `swift scripts/make-icon.swift` 가 머리글 로고와 같은 링과 파형으로 `assets/AppIcon.icns` 를 다시 만들고, `scripts/bundle.sh` 가 그 파일을 번들에 넣습니다.
 - **릴리즈** `scripts/release.sh X.Y.Z -m "<바뀐 기능 요약>"` 하나로 버전, 빌드, 검사, 태그, GitHub Release, Homebrew formula 갱신을 합니다. tarball 을 받는 단계에서 멈췄다면 `scripts/release.sh --formula-only X.Y.Z` 로 formula 갱신만 다시 합니다. `scripts/release-selftest.sh` 가 이 스크립트를 검사합니다.
+- **페이지 도구** `scripts/pulse-page-selftest.sh` 가 `scripts/pulse-page.sh` 의 열기·기록 경로를 가짜 Orca 로 검사합니다.
 - 저장소 규칙은 [CLAUDE.md](CLAUDE.md) 에 있습니다.
 
 <br>
