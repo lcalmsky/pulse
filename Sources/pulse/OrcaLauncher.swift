@@ -98,8 +98,8 @@ enum OrcaLauncher {
     }
 
     private static func openPageOutsideOrca(_ alert: PageAlert) -> Bool {
-        guard let url = SafeLink.fileURL(alert.url) else {
-            logger.error("페이지 주소가 file 스킴이 아니다: \(alert.url, privacy: .public)")
+        guard let url = SafeLink.pageFileURL(alert.url, isRegularFile: isRegularFile) else {
+            logger.error("기본 앱으로 열 수 있는 html 파일이 아니다: \(alert.url, privacy: .public)")
             return false
         }
         let opened = NSWorkspace.shared.open(url)
@@ -107,6 +107,12 @@ enum OrcaLauncher {
             logger.error("기본 앱으로 페이지를 열지 못했다: \(url.absoluteString, privacy: .public)")
         }
         return opened
+    }
+
+    private static func isRegularFile(_ path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+        return exists && !isDirectory.boolValue
     }
 
     private static func browserPageId(in data: Data) -> String? {

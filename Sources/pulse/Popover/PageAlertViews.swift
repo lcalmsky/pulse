@@ -85,13 +85,10 @@ struct SessionPageBadge: View {
             Button {
                 activate()
             } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 9, weight: .medium))
-                    Text(text)
-                        .font(.system(size: 9.5, weight: .medium))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                // 메타 줄이 좁으면 워크트리·티켓 대신 이 표시가 먼저 줄어든다.
+                ViewThatFits(in: .horizontal) {
+                    badgeLabel(text)
+                    badgeLabel(alerts.count > 1 ? "\(alerts.count)" : nil)
                 }
                 .foregroundColor(PopoverPalette.purple)
                 .padding(.horizontal, 5)
@@ -103,7 +100,21 @@ struct SessionPageBadge: View {
             .onHover { hovering = $0 }
             .background(MenuPopupAnchorView(anchor: anchor))
             .help(text)
+            .layoutPriority(-1)
         }
+    }
+
+    private func badgeLabel(_ text: String?) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 9, weight: .medium))
+            if let text {
+                Text(text)
+                    .font(.system(size: 9.5, weight: .medium))
+                    .lineLimit(1)
+            }
+        }
+        .fixedSize()
     }
 
     private func activate() {

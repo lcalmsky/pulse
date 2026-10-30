@@ -307,7 +307,7 @@ Write to a temporary file whose name starts with a dot, then move it into place 
 - Sessions are matched by `session_id` first, then by `terminal_handle` for a session in the same Orca terminal. When both are absent the page attaches to no row.
 - When several files share the same `worktree` and `url`, the newest file is shown as the representative, and opening or dismissing it removes every file in the group.
 - Clicking the badge or the page label on a row opens the page directly when there is one, and shows an oldest-first menu when there are several. Holding `⌥` in the menu turns items into `Dismiss`; the header menu ends with `Dismiss all` and a session menu has `Dismiss this session's pages`.
-- It opens in this order: switch the Orca terminal, switch the tab by `page_id`, create a tab with the same URL, then the default app. When it cannot open, it briefly shows `Couldn't open this page in Orca`.
+- It opens in this order: switch the Orca terminal, switch the tab by `page_id`, create a tab with the same URL, then the default app. The default app only opens an `html` or `htm` file that actually exists. When it cannot open, it briefly shows `Couldn't open this page in Orca`.
 - Opening or dismissing a file deletes it. Nothing expires on its own. Pulse does not notice a tab you close or look at directly in Orca, so the file stays in the list while it exists.
 - A file that cannot be read is not deleted; it stays in the badge menu as `Unreadable page file: <name>`.
 

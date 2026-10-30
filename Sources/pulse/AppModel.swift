@@ -43,6 +43,9 @@ final class AppModel: ObservableObject {
     /// 사용자가 꼭 읽어야 할 페이지. 오래된 것이 먼저다.
     @Published private(set) var pageAlerts: [PageAlert] = []
     @Published private(set) var unreadablePageFiles: [String] = []
+    /// 지운 직후 시작된 읽기가 지운 파일을 다시 들고 오지 않게 잠깐 기억한다. 같은 이름이 실제로 다시 생기면 이 시간이 지난 뒤 보인다.
+    private var recentlyRemovedPageFiles: [String: Date] = [:]
+    private let recentlyRemovedPageSeconds: TimeInterval = 10
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
 
@@ -287,11 +290,25 @@ final class AppModel: ObservableObject {
     }
 
     private func applyPages(_ result: PageAlertReadResult) {
-        if pageAlerts != result.alerts {
-            pageAlerts = result.alerts
+        pruneRecentlyRemovedPageFiles()
+        let removed = recentlyRemovedPageFiles
+        let alerts = removed.isEmpty ? result.alerts : result.alerts.filter { alert in
+            !alert.fileNames.contains { removed[$0] != nil }
         }
-        if unreadablePageFiles != result.unreadableFiles {
-            unreadablePageFiles = result.unreadableFiles
+        let unreadable = removed.isEmpty ? result.unreadableFiles : result.unreadableFiles.filter { removed[$0] == nil }
+        if pageAlerts != alerts {
+            pageAlerts = alerts
+        }
+        if unreadablePageFiles != unreadable {
+            unreadablePageFiles = unreadable
+        }
+    }
+
+    private func pruneRecentlyRemovedPageFiles(now: Date = Date()) {
+        guard !recentlyRemovedPageFiles.isEmpty else { return }
+        let kept = recentlyRemovedPageFiles.filter { $0.value > now }
+        if kept != recentlyRemovedPageFiles {
+            recentlyRemovedPageFiles = kept
         }
     }
 
@@ -592,9 +609,12 @@ final class AppModel: ObservableObject {
 
     private func removePageFiles(_ names: [String]) {
         guard !names.isEmpty else { return }
+        let expires = Date().addingTimeInterval(recentlyRemovedPageSeconds)
         for name in names {
             pageSource.remove(fileName: name)
+            recentlyRemovedPageFiles[name] = expires
         }
+        pruneRecentlyRemovedPageFiles()
         let removed = Set(names)
         let keptAlerts = pageAlerts.filter { alert in
             !alert.fileNames.contains { removed.contains($0) }

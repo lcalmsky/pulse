@@ -4175,9 +4175,27 @@ expectEqual(
     "페이지: 물결표 확장"
 )
 
-expectEqual(SafeLink.fileURL("file:///tmp/a%20b.html")?.path, "/tmp/a b.html", "페이지 링크: file 주소")
-expectEqual(SafeLink.fileURL("https://example.com/a"), nil, "페이지 링크: https 는 기본 앱 경로가 아니다")
-expectEqual(SafeLink.fileURL("javascript:alert(1)"), nil, "페이지 링크: 다른 스킴 거부")
+let pageFileExists: (String) -> Bool = { _ in true }
+expectEqual(SafeLink.pageFileURL("file:///tmp/a%20b.html", isRegularFile: pageFileExists)?.path,
+            "/tmp/a b.html", "페이지 링크: file 주소")
+expectEqual(SafeLink.pageFileURL("FILE:///tmp/a.html", isRegularFile: pageFileExists)?.path,
+            "/tmp/a.html", "페이지 링크: 대문자 FILE 스킴")
+expect(SafeLink.pageFileURL("file:///tmp/a.htm", isRegularFile: pageFileExists) != nil,
+       "페이지 링크: htm 허용")
+expect(SafeLink.pageFileURL("file:///tmp/a.HTML", isRegularFile: pageFileExists) != nil,
+       "페이지 링크: 대문자 확장자 허용")
+expectEqual(SafeLink.pageFileURL("file:///tmp/App.app", isRegularFile: pageFileExists), nil,
+            "페이지 링크: .app 거부")
+expectEqual(SafeLink.pageFileURL("file:///tmp/run.command", isRegularFile: pageFileExists), nil,
+            "페이지 링크: .command 거부")
+expectEqual(SafeLink.pageFileURL("file:///tmp/a.txt", isRegularFile: pageFileExists), nil,
+            "페이지 링크: html 이 아닌 파일 거부")
+expectEqual(SafeLink.pageFileURL("file:///tmp/missing.html", isRegularFile: { _ in false }), nil,
+            "페이지 링크: 없는 파일 거부")
+expectEqual(SafeLink.pageFileURL("https://example.com/a.html", isRegularFile: pageFileExists), nil,
+            "페이지 링크: https 는 기본 앱 경로가 아니다")
+expectEqual(SafeLink.pageFileURL("javascript:alert(1)", isRegularFile: pageFileExists), nil,
+            "페이지 링크: 다른 스킴 거부")
 
 try? FileManager.default.removeItem(atPath: pageDirectoryPath)
 

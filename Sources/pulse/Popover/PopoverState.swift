@@ -29,9 +29,8 @@ final class PopoverState: ObservableObject {
     }
 
     func setOptionDown(_ down: Bool) {
-        if optionDown != down {
-            optionDown = down
-        }
+        guard optionDown != down else { return }
+        optionDown = down
         optionHoldWork?.cancel()
         optionHoldWork = nil
         guard down else {
