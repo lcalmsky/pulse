@@ -8,7 +8,7 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PopoverHeader(model: model, onClose: onClose)
+            PopoverHeader(model: model, state: state, onClose: onClose)
             if !state.query.isEmpty || state.searchFocused {
                 SessionSearchBar(model: model, state: state)
                     .padding(.bottom, 8)
@@ -71,7 +71,8 @@ struct PopoverView: View {
                                     group: section.group,
                                     model: model,
                                     selected: isSelected(item),
-                                    optionDown: state.optionDown
+                                    optionDown: state.optionDown,
+                                    shortcutHintsVisible: state.shortcutHintsVisible
                                 )
                                 .padding(.horizontal, 8)
                                 .padding(.bottom, section.group == .attention ? 12 : 0)

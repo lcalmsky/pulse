@@ -8,6 +8,7 @@ struct SessionRowView: View {
     @ObservedObject var model: AppModel
     let selected: Bool
     let optionDown: Bool
+    let shortcutHintsVisible: Bool
 
     @State private var hovering = false
     @State private var stepHovering = false
@@ -17,6 +18,7 @@ struct SessionRowView: View {
     private var showsOrca: Bool {
         item.orcaTerminal != nil || item.cwd != nil || item.multiplexer != nil
     }
+    private var sessionPages: [PageAlert] { model.pages(for: item) }
     private var showsPage: Bool { item.pagePath != nil }
     private var expanded: Bool { model.expandedSteps.contains(item.sessionId) }
     /// 진행 행은 터미널이 없어도 단계 펼침이나 브라우저 열기가 되면 흐리지 않는다.
@@ -76,6 +78,9 @@ struct SessionRowView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
+                if !sessionPages.isEmpty {
+                    SessionPageBadge(model: model, item: item)
+                }
                 Spacer(minLength: 0)
                 PopoverIconButton(
                     symbol: "clock",
@@ -110,6 +115,9 @@ struct SessionRowView: View {
                 }
             }
             .padding(.leading, 15)
+
+            shortcutHintLine
+                .padding(.leading, 15)
         }
         .padding(.top, 9)
         .padding(.bottom, 9)
@@ -160,6 +168,9 @@ struct SessionRowView: View {
                 Spacer(minLength: 0)
                 workingRightSlot
             }
+
+            shortcutHintLine
+                .padding(.leading, 15)
 
             stepperLine
             if expanded {
@@ -354,6 +365,9 @@ struct SessionRowView: View {
                         .truncationMode(.tail)
                         .layoutPriority(1)
                 }
+                if !sessionPages.isEmpty {
+                    SessionPageBadge(model: model, item: item)
+                }
                 if !item.isActionable {
                     Text(L10n.noTerminal)
                         .foregroundColor(PopoverPalette.tertiary)
@@ -380,6 +394,7 @@ struct SessionRowView: View {
         hasIdentityMeta
             || RowText.trail(backgroundTasks: item.backgroundTaskCount, lastTool: item.lastToolName) != nil
             || !item.isActionable
+            || !sessionPages.isEmpty
     }
 
     @ViewBuilder
@@ -411,6 +426,8 @@ struct SessionRowView: View {
     private var doneRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             doneTitleLine
+            shortcutHintLine
+                .padding(.leading, 22)
             doneMetaLine
             if item.showsStepLine {
                 stepperLine
@@ -462,7 +479,7 @@ struct SessionRowView: View {
 
     @ViewBuilder
     private var doneMetaLine: some View {
-        if hasIdentityMeta {
+        if hasIdentityMeta || !sessionPages.isEmpty {
             HStack(spacing: 10) {
                 multiplexerBadge
                 if let place = item.placeText {
@@ -484,6 +501,9 @@ struct SessionRowView: View {
                     }
                 }
                 Spacer(minLength: 0)
+                if !sessionPages.isEmpty {
+                    SessionPageBadge(model: model, item: item)
+                }
             }
             .font(.system(size: 11, design: .monospaced))
             .foregroundColor(PopoverPalette.secondary)
@@ -535,6 +555,33 @@ struct SessionRowView: View {
                 .lineLimit(1)
                 .fixedSize()
         }
+    }
+
+    @ViewBuilder
+    private var shortcutHintLine: some View {
+        if selected, shortcutHintsVisible {
+            Text(shortcutHintText)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundColor(PopoverPalette.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    private var shortcutHintText: String {
+        var parts: [String] = [L10n.shortcutOpen]
+        if showsOrca {
+            if let kind = item.multiplexer?.kind.rawValue {
+                parts.append(L10n.shortcutMultiplexer(kind))
+            } else {
+                parts.append(L10n.shortcutOrca)
+            }
+        }
+        if !sessionPages.isEmpty {
+            parts.append(L10n.shortcutPage)
+        }
+        parts.append(L10n.shortcutDismiss)
+        return parts.joined(separator: " · ")
     }
 
     /// 멀티플렉서 세션은 Orca 가 아니라 그 패널로 이동한다.

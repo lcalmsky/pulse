@@ -29,7 +29,7 @@ struct ListKeyboard {
                 close()
             }
             return true
-        case 126, 125, 36, 76, 51, 117, 123, 124, 49:
+        case 126, 125, 36, 76, 51, 117, 123, 124, 49, 48:
             // 설정 시트가 열려 있는 동안에는 목록 단축키를 넘기지 않는다.
             if handlesSettings, state.settingsOpen { return true }
         default:
@@ -53,6 +53,14 @@ struct ListKeyboard {
             return true
         case 36, 76:
             guard let item = selectedItem(in: items) else { return true }
+            if event.modifierFlags.contains(.shift) {
+                if let alert = model.pages(for: item).first {
+                    model.openPage(alert)
+                } else {
+                    NSSound.beep()
+                }
+                return true
+            }
             let hasOrca = item.orcaTerminal != nil || item.cwd != nil || item.multiplexer != nil
             if event.modifierFlags.contains(.option), hasOrca {
                 model.openInOrca(item)
@@ -82,6 +90,15 @@ struct ListKeyboard {
                 event.modifierFlags.contains(.shift) ? .done : .reply,
                 state: state
             )
+            return true
+        case 48:
+            guard state.query.isEmpty, !state.searchFocused else { return false }
+            if !event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty { return false }
+            guard let alert = model.oldestPageAlert else {
+                NSSound.beep()
+                return true
+            }
+            model.openPage(alert)
             return true
         case 123, 124:
             guard let item = selectedItem(in: items), item.showsStepLine else { return true }

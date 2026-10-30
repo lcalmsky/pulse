@@ -171,7 +171,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
             guard let self else { return event }
             if event.type == .flagsChanged {
-                self.state.optionDown = event.modifierFlags.contains(.option)
+                self.state.setOptionDown(event.modifierFlags.contains(.option))
                 return event
             }
             // 플로팅 패널이 키를 가져가도 팝오버가 떠 있을 수 있어, 팝오버 창의 키만 받는다.
@@ -186,7 +186,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             NSEvent.removeMonitor(keyMonitor)
         }
         keyMonitor = nil
-        state.optionDown = false
+        state.setOptionDown(false)
     }
 
     private lazy var keyboard = ListKeyboard(

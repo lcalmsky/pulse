@@ -4016,5 +4016,155 @@ expectEqual(LaunchCommand.parse(["pulse", "-theme", "light"]), .run, "실행 인
 expectEqual(LaunchCommand.parse(["pulse", "-psn_0_12345"]), .run, "실행 인자: Finder 의 -psn 인자는 무시")
 expectEqual(LaunchCommand.parse(["pulse", "-panelWidth", "440", "--version"]), .version, "실행 인자: 인자 도메인 뒤의 --version")
 
+// MARK: - 페이지 알림
+
+let fullPageJSON = #"""
+{"version":1,"page_id":"p1","worktree":"repo::/Users/x/My Repo","url":"file:///tmp/a.html","label":"배포 안내","created_at":"2026-10-30T08:08:04Z","terminal_handle":"h1","session_id":"s1","session_name":"alpha"}
+"""#
+let fullPage = PageAlerts.parse(data: Data(fullPageJSON.utf8), fileName: "full.json")
+expectEqual(fullPage?.version, 1, "페이지: version")
+expectEqual(fullPage?.pageId, "p1", "페이지: page_id")
+expectEqual(fullPage?.worktree, "repo::/Users/x/My Repo", "페이지: worktree 의 공백")
+expectEqual(fullPage?.url, "file:///tmp/a.html", "페이지: url")
+expectEqual(fullPage?.label, "배포 안내", "페이지: label")
+expectEqual(fullPage?.terminalHandle, "h1", "페이지: terminal_handle")
+expectEqual(fullPage?.sessionId, "s1", "페이지: session_id")
+expectEqual(fullPage?.sessionName, "alpha", "페이지: session_name")
+expectEqual(fullPage?.fileName, "full.json", "페이지: fileName")
+expect(fullPage?.createdAt == utcDate(2026, 10, 30, 8, 8, 4), "페이지: created_at")
+
+let minimalPageJSON = #"""
+{"page_id":"p2","worktree":"repo::/a","url":"file:///b.html","label":"둘째","created_at":"2026-10-30T08:09:04Z"}
+"""#
+let minimalPage = PageAlerts.parse(data: Data(minimalPageJSON.utf8), fileName: "minimal.json")
+expectEqual(minimalPage?.version, 1, "페이지: version 이 없으면 1")
+expectEqual(minimalPage?.terminalHandle, nil, "페이지: terminal_handle 없음")
+expectEqual(minimalPage?.sessionId, nil, "페이지: session_id 없음")
+expectEqual(minimalPage?.sessionName, nil, "페이지: session_name 없음")
+expectEqual(PageAlerts.parse(
+    data: Data(#"{"page_id":"p3","worktree":"w","url":"file:///x"}"#.utf8),
+    fileName: "no-label.json"
+), nil, "페이지: label 이 없으면 읽지 못한 파일")
+expectEqual(PageAlerts.parse(
+    data: Data(#"{"page_id":"p4","worktree":"w","url":"file:///x","label":"L"}"#.utf8),
+    fileName: "no-date.json"
+), nil, "페이지: created_at 이 없으면 읽지 못한 파일")
+expectEqual(
+    PageAlerts.parse(data: Data("{ nope".utf8), fileName: "broken.json"),
+    nil,
+    "페이지: 깨진 JSON 은 읽지 못한 파일"
+)
+
+let pageDirectoryPath = (NSTemporaryDirectory() as NSString)
+    .appendingPathComponent("pulse-pages-\(UUID().uuidString)")
+try? FileManager.default.createDirectory(atPath: pageDirectoryPath, withIntermediateDirectories: true)
+func writePageFile(_ name: String, _ contents: String) {
+    try? contents.write(
+        toFile: (pageDirectoryPath as NSString).appendingPathComponent(name),
+        atomically: true,
+        encoding: .utf8
+    )
+}
+writePageFile("late.json", #"""
+{"page_id":"p9","worktree":"w","url":"file:///late.html","label":"늦은","created_at":"2026-10-30T09:00:00Z"}
+"""#)
+writePageFile("early.json", #"""
+{"page_id":"p1","worktree":"w","url":"file:///early.html","label":"이른","created_at":"2026-10-30T07:00:00Z"}
+"""#)
+writePageFile(".hidden.json", #"""
+{"page_id":"p5","worktree":"w","url":"file:///hidden.html","label":"숨김","created_at":"2026-10-30T06:00:00Z"}
+"""#)
+writePageFile("draft.json.tmp", #"""
+{"page_id":"p6","worktree":"w","url":"file:///draft.html","label":"임시","created_at":"2026-10-30T06:00:00Z"}
+"""#)
+writePageFile("missing.json", #"{"page_id":"p7"}"#)
+writePageFile("broken.json", "{")
+
+let loadedPages = PageAlerts.load(directory: URL(fileURLWithPath: pageDirectoryPath))
+expectEqual(loadedPages.alerts.map(\.fileName), ["early.json", "late.json"], "페이지: 오래된 순 정렬, 숨김·tmp 무시")
+expectEqual(loadedPages.unreadableFiles, ["broken.json", "missing.json"], "페이지: 읽지 못한 파일 목록")
+expectEqual(loadedPages.directoryUnreadable, false, "페이지: 디렉터리 읽음")
+
+let missingPages = PageAlerts.load(
+    directory: URL(fileURLWithPath: pageDirectoryPath + "-missing")
+)
+expectEqual(missingPages.alerts.count, 0, "페이지: 디렉터리가 없으면 0건")
+expectEqual(missingPages.unreadableFiles.count, 0, "페이지: 디렉터리가 없으면 오류 아님")
+expectEqual(missingPages.directoryUnreadable, false, "페이지: 없는 디렉터리는 읽기 실패가 아니다")
+
+let sameTimeJSON = #"""
+{"page_id":"%PAGE_ID%","worktree":"w","url":"file:///x.html","label":"%LABEL%","created_at":"2026-10-30T08:00:00Z"%EXTRA%}
+"""#
+func pageAlert(_ pageId: String, _ label: String, _ extra: String, fileName: String) -> PageAlert? {
+    let json = sameTimeJSON
+        .replacingOccurrences(of: "%PAGE_ID%", with: pageId)
+        .replacingOccurrences(of: "%LABEL%", with: label)
+        .replacingOccurrences(of: "%EXTRA%", with: extra)
+    return PageAlerts.parse(data: Data(json.utf8), fileName: fileName)
+}
+let pageItem = DisplayItem(
+    session: Session(sessionId: "s1", bucket: "working", orcaTerminal: "h1"),
+    group: .working,
+    now: utcDate(2026, 10, 30)
+)
+let matchAlerts = [
+    pageAlert("m2", "둘째 페이지", #","session_id":"s1","terminal_handle":"h1""#, fileName: "m2.json"),
+    pageAlert("m1", "첫 페이지", #","session_id":"s1""#, fileName: "m1.json"),
+    pageAlert("m3", "셋째 페이지", #","terminal_handle":"h1""#, fileName: "m3.json"),
+    pageAlert("m4", "다른 세션", #","session_id":"s2","terminal_handle":"h1""#, fileName: "m4.json"),
+    pageAlert("m5", "다른 터미널", #","terminal_handle":"h2""#, fileName: "m5.json"),
+].compactMap { $0 }
+let matchedPages = PageAlerts.alerts(for: pageItem, in: matchAlerts)
+expectEqual(matchedPages.map(\.pageId), ["m1", "m2", "m3"], "페이지: session_id 우선, 없으면 terminal_handle")
+expectEqual(PageAlerts.rowText(for: matchedPages), "첫 페이지 +2", "페이지: 행 문구")
+expectEqual(PageAlerts.rowText(for: [matchedPages[0]]), "첫 페이지", "페이지: 한 장이면 문구만")
+expectEqual(PageAlerts.tabTarget(in: matchAlerts)?.pageId, "m1", "페이지: Tab 대상은 가장 오래된 항목")
+expectEqual(PageAlerts.tabTarget(in: [])?.pageId, nil, "페이지: 비면 Tab 대상 없음")
+
+expectEqual(
+    PageAlerts.directory(environment: ["PULSE_PAGES_DIR": "/tmp/pulse-pages"]).path,
+    "/tmp/pulse-pages",
+    "페이지: PULSE_PAGES_DIR 경로"
+)
+let defaultPagePath = ("~/.pulse/pages" as NSString).expandingTildeInPath
+expectEqual(PageAlerts.directory(environment: [:]).path, defaultPagePath, "페이지: 기본 디렉터리")
+expectEqual(PageAlerts.directory(environment: ["PULSE_PAGES_DIR": " "]).path, defaultPagePath,
+            "페이지: 빈 PULSE_PAGES_DIR 은 기본값")
+expectEqual(
+    PageAlerts.directory(environment: ["PULSE_PAGES_DIR": "~/pages"]).path,
+    ("~/pages" as NSString).expandingTildeInPath,
+    "페이지: 물결표 확장"
+)
+
+expectEqual(SafeLink.fileURL("file:///tmp/a%20b.html")?.path, "/tmp/a b.html", "페이지 링크: file 주소")
+expectEqual(SafeLink.fileURL("https://example.com/a"), nil, "페이지 링크: https 는 기본 앱 경로가 아니다")
+expectEqual(SafeLink.fileURL("javascript:alert(1)"), nil, "페이지 링크: 다른 스킴 거부")
+
+try? FileManager.default.removeItem(atPath: pageDirectoryPath)
+
+L10n.language = .ko
+expectEqual(L10n.pagesToRead(3), "읽을 페이지 3", "문구: 읽을 페이지 수")
+expectEqual(L10n.unreadablePageFile("x.json"), "읽지 못한 페이지 파일: x.json", "문구: 읽지 못한 파일")
+expectEqual(L10n.pageOpenFailed, "Orca 에서 이 페이지를 열지 못했어요", "문구: 페이지 열기 실패")
+expectEqual(L10n.dismissPage("배포"), "닫기: 배포", "문구: 페이지 닫기")
+expectEqual(L10n.dismissAllPages, "모두 닫기", "문구: 페이지 모두 닫기")
+expectEqual(L10n.dismissSessionPages, "이 세션 페이지 모두 닫기", "문구: 세션 페이지 모두 닫기")
+expectEqual(L10n.shortcutOpen, "↩ 열기", "문구: 열기 힌트")
+expectEqual(L10n.shortcutOrca, "⌥↩ Orca", "문구: Orca 힌트")
+expectEqual(L10n.shortcutMultiplexer("herdr"), "⌥↩ herdr 패널", "문구: 멀티플렉서 힌트")
+expectEqual(L10n.shortcutPage, "⇧↩ 페이지", "문구: 페이지 힌트")
+expectEqual(L10n.shortcutDismiss, "⌫ 확인", "문구: 확인 힌트")
+expectEqual(L10n.keyTab, "Tab", "문구: Tab 키캡")
+
+L10n.language = .en
+expectEqual(L10n.pagesToRead(1), "1 to read", "영어 페이지: 읽을 페이지 수")
+expectEqual(L10n.unreadablePageFile("x.json"), "Unreadable page file: x.json", "영어 페이지: 읽지 못한 파일")
+expectEqual(L10n.pageOpenFailed, "Couldn't open this page in Orca", "영어 페이지: 열기 실패")
+expectEqual(L10n.dismissPage("Deploy"), "Dismiss: Deploy", "영어 페이지: 닫기")
+expectEqual(L10n.dismissAllPages, "Dismiss all", "영어 페이지: 모두 닫기")
+expectEqual(L10n.dismissSessionPages, "Dismiss this session's pages", "영어 페이지: 세션 페이지 모두 닫기")
+expectEqual(L10n.shortcutPage, "⇧↩ Page", "영어 페이지: 페이지 힌트")
+L10n.language = .ko
+
 print("selftest: \(checks) checks, \(failures) failures")
 exit(failures == 0 ? 0 : 1)

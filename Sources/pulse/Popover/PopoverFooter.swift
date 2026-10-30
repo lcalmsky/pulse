@@ -30,6 +30,10 @@ struct PopoverFooter: View {
                 ) {
                     model.togglePanel()
                 }
+                if state.shortcutHintsVisible {
+                    ShortcutKeycap(text: L10n.keySettings)
+                        .padding(.trailing, 2)
+                }
                 PopoverIconButton(
                     symbol: "gearshape",
                     help: L10n.viewSettingsShortcut,

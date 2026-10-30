@@ -40,6 +40,9 @@ final class AppModel: ObservableObject {
     /// 세 줄 창을 넘겨 전체 단계를 보는 세션.
     @Published private(set) var fullSteps: Set<String> = []
     @Published private(set) var checklists: [String: ChecklistSnapshot] = [:]
+    /// 사용자가 꼭 읽어야 할 페이지. 오래된 것이 먼저다.
+    @Published private(set) var pageAlerts: [PageAlert] = []
+    @Published private(set) var unreadablePageFiles: [String] = []
 
     private static let acknowledgedKey = "acknowledgedDoneKeys"
 
@@ -52,6 +55,7 @@ final class AppModel: ObservableObject {
     private let failureGrace: TimeInterval = 15
     private let pollInterval: TimeInterval = 3
     private let localSource = LocalSessionSource()
+    private let pageSource = PageAlertSource()
     private let localQueue = DispatchQueue(label: "dev.pulse.local-sessions", qos: .userInitiated)
     private lazy var notificationCenter = AttentionNotificationCenter(model: self)
 
@@ -273,10 +277,21 @@ final class AppModel: ObservableObject {
         localQueue.async { [weak self] in
             guard let self else { return }
             let result = Result { try self.localSource.read(now: Date()) }
+            let pages = self.pageSource.read()
             DispatchQueue.main.async {
                 self.localReading = false
+                self.applyPages(pages)
                 self.applyLocal(result)
             }
+        }
+    }
+
+    private func applyPages(_ result: PageAlertReadResult) {
+        if pageAlerts != result.alerts {
+            pageAlerts = result.alerts
+        }
+        if unreadablePageFiles != result.unreadableFiles {
+            unreadablePageFiles = result.unreadableFiles
         }
     }
 
@@ -536,6 +551,58 @@ final class AppModel: ObservableObject {
                     self.showNotice(L10n.progressPageNotOpened)
                 }
             }
+        }
+    }
+
+    // MARK: - 페이지 알림
+
+    var oldestPageAlert: PageAlert? { pageAlerts.first }
+
+    func pages(for item: DisplayItem) -> [PageAlert] {
+        PageAlerts.alerts(for: item, in: pageAlerts)
+    }
+
+    func openPage(_ alert: PageAlert) {
+        OrcaLauncher.openPage(alert) { [weak self] opened in
+            guard let self else { return }
+            guard opened else {
+                self.showNotice(L10n.pageOpenFailed)
+                return
+            }
+            self.onPanelFocusRelease?()
+            self.removePageFiles([alert.fileName])
+        }
+    }
+
+    func dismissPage(_ alert: PageAlert) {
+        removePageFiles([alert.fileName])
+    }
+
+    func dismissUnreadablePage(_ fileName: String) {
+        removePageFiles([fileName])
+    }
+
+    func dismissAllPages() {
+        removePageFiles(pageAlerts.map(\.fileName) + unreadablePageFiles)
+    }
+
+    func dismissPages(_ alerts: [PageAlert]) {
+        removePageFiles(alerts.map(\.fileName))
+    }
+
+    private func removePageFiles(_ names: [String]) {
+        guard !names.isEmpty else { return }
+        for name in names {
+            pageSource.remove(fileName: name)
+        }
+        let removed = Set(names)
+        let keptAlerts = pageAlerts.filter { !removed.contains($0.fileName) }
+        if keptAlerts != pageAlerts {
+            pageAlerts = keptAlerts
+        }
+        let keptUnreadable = unreadablePageFiles.filter { !removed.contains($0) }
+        if keptUnreadable != unreadablePageFiles {
+            unreadablePageFiles = keptUnreadable
         }
     }
 

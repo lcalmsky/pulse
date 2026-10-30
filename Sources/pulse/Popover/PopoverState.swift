@@ -1,10 +1,12 @@
 import Combine
+import Foundation
 import PulseCore
 
 final class PopoverState: ObservableObject {
     @Published var filter: SessionFilter = .all
     @Published var selectedIndex: Int?
     @Published var optionDown = false
+    @Published var shortcutHintsVisible = false
     @Published var settingsOpen = false
     /// 키보드로 단계 펼침을 바꾼 뒤 선택 행을 다시 보이게 하라는 요청. 값이 커지면 팝오버가 최소한으로 스크롤한다.
     @Published var revealRequest = 0
@@ -15,14 +17,33 @@ final class PopoverState: ObservableObject {
     @Published var searchFocusRequest = 0
     /// Space 로 마지막에 연 답 대기 세션. 다음 Space 가 그다음 후보로 가게 한다.
     var lastReplyJumpSessionId: String?
+    private var optionHoldWork: DispatchWorkItem?
 
     func reset() {
         selectedIndex = nil
-        optionDown = false
+        setOptionDown(false)
         settingsOpen = false
         query = ""
         searchFocused = false
         lastReplyJumpSessionId = nil
+    }
+
+    func setOptionDown(_ down: Bool) {
+        if optionDown != down {
+            optionDown = down
+        }
+        optionHoldWork?.cancel()
+        optionHoldWork = nil
+        guard down else {
+            if shortcutHintsVisible { shortcutHintsVisible = false }
+            return
+        }
+        guard !shortcutHintsVisible else { return }
+        let work = DispatchWorkItem { [weak self] in
+            self?.shortcutHintsVisible = true
+        }
+        optionHoldWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
     func select(_ filter: SessionFilter) {

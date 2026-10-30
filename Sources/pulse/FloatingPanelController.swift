@@ -106,7 +106,7 @@ final class FloatingPanelController: NSObject {
                 return event
             }
             if event.type == .flagsChanged {
-                state.optionDown = event.modifierFlags.contains(.option)
+                state.setOptionDown(event.modifierFlags.contains(.option))
                 return event
             }
             return keyboard.handle(event) ? nil : event

@@ -226,6 +226,42 @@ public enum L10n {
         pick("진행 페이지를 열지 못했어요", "Could not open the progress page")
     }
 
+    // MARK: - 페이지 알림
+
+    public static func pagesToRead(_ count: Int) -> String {
+        pick("읽을 페이지 \(count)", "\(count) to read")
+    }
+
+    public static func unreadablePageFile(_ name: String) -> String {
+        pick("읽지 못한 페이지 파일: \(name)", "Unreadable page file: \(name)")
+    }
+
+    public static var pageOpenFailed: String {
+        pick("Orca 에서 이 페이지를 열지 못했어요", "Couldn't open this page in Orca")
+    }
+
+    public static func dismissPage(_ label: String) -> String {
+        pick("닫기: \(label)", "Dismiss: \(label)")
+    }
+
+    public static var dismissAllPages: String { pick("모두 닫기", "Dismiss all") }
+
+    public static var dismissSessionPages: String {
+        pick("이 세션 페이지 모두 닫기", "Dismiss this session's pages")
+    }
+
+    public static var keySpace: String { "Space" }
+    public static var keyShiftSpace: String { "⇧Space" }
+    public static var keyTab: String { "Tab" }
+    public static var keySettings: String { "⌘," }
+    public static var shortcutOpen: String { pick("↩ 열기", "↩ Open") }
+    public static var shortcutOrca: String { pick("⌥↩ Orca", "⌥↩ Orca") }
+    public static func shortcutMultiplexer(_ kind: String) -> String {
+        pick("⌥↩ \(kind) 패널", "⌥↩ \(kind) pane")
+    }
+    public static var shortcutPage: String { pick("⇧↩ 페이지", "⇧↩ Page") }
+    public static var shortcutDismiss: String { pick("⌫ 확인", "⌫ Dismiss") }
+
     // MARK: - 명령줄
 
     public static var usage: String {

@@ -151,6 +151,20 @@ struct KeyHint: View {
     }
 }
 
+struct ShortcutKeycap: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundColor(PopoverPalette.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .overlay(Capsule().stroke(PopoverPalette.strokeHi, lineWidth: 1))
+            .fixedSize()
+    }
+}
+
 struct PopoverIconButton: View {
     let symbol: String
     let help: String

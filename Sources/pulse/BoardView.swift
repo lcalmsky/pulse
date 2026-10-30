@@ -91,7 +91,7 @@ struct BoardView: View {
     /// 머리글·검색 줄·되돌리기·오류 문구. 목록을 스크롤해도 창에 남는다.
     private var fixed: some View {
         VStack(alignment: .leading, spacing: boardSpacing) {
-            PopoverHeader(model: model, onClose: { model.hidePanel() })
+            PopoverHeader(model: model, state: state, onClose: { model.hidePanel() })
 
             if !state.query.isEmpty || state.searchFocused {
                 SessionSearchBar(model: model, state: state)
@@ -169,7 +169,8 @@ struct BoardView: View {
                         group: section.group,
                         model: model,
                         selected: isSelected(item),
-                        optionDown: state.optionDown
+                        optionDown: state.optionDown,
+                        shortcutHintsVisible: state.shortcutHintsVisible
                     )
                     .simultaneousGesture(TapGesture().onEnded { select(item) })
                     .padding(.horizontal, 8)

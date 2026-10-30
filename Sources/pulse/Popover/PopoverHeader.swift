@@ -4,7 +4,12 @@ import SwiftUI
 /// 팝오버와 플로팅 패널이 함께 쓰는 머리글. 제목 줄 아래에 그룹별 뱃지를 둔다.
 struct PopoverHeader: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var state: PopoverState
     let onClose: () -> Void
+
+    private var showsPages: Bool {
+        model.pageAlerts.count + model.unreadablePageFiles.count > 0
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -35,12 +40,38 @@ struct PopoverHeader: View {
             .padding(.bottom, 4)
 
             if model.sessionsUnavailable {
-                Color.clear.frame(height: 8)
+                if showsPages {
+                    HStack(spacing: 6) {
+                        Spacer(minLength: 0)
+                        HeaderPageBadge(model: model)
+                        if state.shortcutHintsVisible {
+                            ShortcutKeycap(text: L10n.keyTab)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
+                } else {
+                    Color.clear.frame(height: 8)
+                }
             } else {
                 HStack(spacing: 6) {
                     badge(.attention)
+                    if state.shortcutHintsVisible {
+                        ShortcutKeycap(text: L10n.keySpace)
+                    }
                     badge(.working)
                     badge(.done)
+                    if state.shortcutHintsVisible {
+                        ShortcutKeycap(text: L10n.keyShiftSpace)
+                    }
+                    Spacer(minLength: 0)
+                    if showsPages {
+                        HeaderPageBadge(model: model)
+                        if state.shortcutHintsVisible {
+                            ShortcutKeycap(text: L10n.keyTab)
+                        }
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 4)
