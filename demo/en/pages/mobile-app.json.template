@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "page_id": "4d7c1a8e-2b6f-4e39-9a51-7c8d2e4f6a9b",
+  "worktree": "00000000-0000-0000-0000-000000000000::/Users/demo/mobile-app",
+  "url": "file:///tmp/pulse-demo/mobile-app-permission-prompts.html",
+  "label": "Permission prompt options",
+  "created_at": "__ISO_M3__",
+  "session_id": "__SESSION_ID__",
+  "session_name": "ios-push"
+}

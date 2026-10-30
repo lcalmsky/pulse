@@ -91,6 +91,25 @@ func runDemoFixtureChecks() {
     expectEqual(billing?.placeText, "billing-worker", "데모: billing-worker 완료 행의 위치")
     expectEqual(billing?.keyTag, "billing", "데모: billing-worker 완료 행의 세션 이름")
 
+    let pages = PageAlerts.load(directory: basicDirectory.appendingPathComponent("pages"))
+    expectEqual(pages.alerts.count, 2, "데모: 페이지 파일 2개")
+    expectEqual(pages.unreadableFiles, [], "데모: 읽지 못한 페이지 파일 없음")
+    let demoSessionIds = Set(grouped.allItems.map(\.sessionId))
+    expect(
+        pages.alerts.allSatisfy { $0.sessionId.map(demoSessionIds.contains) == true },
+        "데모: 페이지가 데모 세션과 매칭"
+    )
+    expectEqual(
+        pages.alerts.first { $0.sessionId == "8c3f2d5e-4f6a-4b7c-9d8e-3f4a5b6c7d8e" }?.label,
+        "권한 요청 비교표",
+        "데모: mobile-app 페이지 라벨"
+    )
+    expectEqual(
+        pages.alerts.first { $0.sessionId == "6a1f0b3c-2d4e-4f5a-9b6c-1d2e3f4a5b6c" }?.label,
+        "백오프 설계안",
+        "데모: api-server 페이지 라벨"
+    )
+
     guard demoRender(script, directory: manyDirectory, many: true, language: nil, keepers: keepers) else { return }
     let manyNow = Date()
     let manyGrouped = Grouping.group(
@@ -132,6 +151,18 @@ func runDemoFixtureChecks() {
     let englishDocs = englishGrouped.done.first { $0.sessionId == "9d4a3e6f-5a7b-4c8d-8e9f-4a5b6c7d8e9f" }
     expectEqual(englishDocs?.title, "Add sidebar navigation and a search box to every docs page", "데모: 영어 묶음 docs-site 완료 행의 긴 제목")
     expectEqual(englishDocs?.multiplexer?.kind, .herdr, "데모: 영어 묶음 docs-site 의 herdr 배지")
+    let englishPages = PageAlerts.load(directory: englishBasicDirectory.appendingPathComponent("pages"))
+    expectEqual(englishPages.alerts.count, 2, "데모: 영어 페이지 파일 2개")
+    expectEqual(
+        englishPages.alerts.first { $0.sessionId == "8c3f2d5e-4f6a-4b7c-9d8e-3f4a5b6c7d8e" }?.label,
+        "Permission prompt options",
+        "데모: 영어 mobile-app 페이지 라벨"
+    )
+    expectEqual(
+        englishPages.alerts.first { $0.sessionId == "6a1f0b3c-2d4e-4f5a-9b6c-1d2e3f4a5b6c" }?.label,
+        "Backoff design",
+        "데모: 영어 api-server 페이지 라벨"
+    )
     expectEqual(demoHangulFiles(englishBasicDirectory), [], "데모: 영어 기본 묶음에 한글 없음")
 
     guard demoRender(script, directory: englishManyDirectory, many: true, language: "en", keepers: keepers) else { return }
@@ -156,7 +187,7 @@ func runDemoFixtureChecks() {
     let englishRoot = repository.appendingPathComponent("demo/en")
     let koreanRoot = repository.appendingPathComponent("demo")
     let englishFiles = demoFiles(under: englishRoot)
-    expectEqual(englishFiles.count, 25, "데모: 영어판 템플릿 수")
+    expectEqual(englishFiles.count, 27, "데모: 영어판 템플릿 수")
     for relative in englishFiles {
         expectEqual(
             demoLineCount(englishRoot.appendingPathComponent(relative)),

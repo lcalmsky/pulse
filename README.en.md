@@ -57,6 +57,7 @@ The list is ordered **attention → working → done**.
 - **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
 - **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
 - **Multiplexer badge** sessions started inside herdr or tmux get a `herdr` or `tmux` badge before the location on attention cards and on working and done rows. On hovering a working or done row, the Orca button becomes a jump-to-pane button
+- **Page alerts** when an external tool leaves a page you must read, a purple `N to read` badge appears on the right of the header and the session row shows the page title as `title +N`. Clicking the badge or the label on the row opens the page directly when there is one, and shows an oldest-first menu when there are several. The file format is under Page alert files below
 - **Header and footer** the header has the three group counts and the GitHub star and collapse buttons, and the footer has the refresh time and the floating panel, settings, and quit buttons
 - **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
@@ -78,6 +79,7 @@ Keeps the same list as the popover **in a separate window.** You can drag it and
 - Its height follows the content and, once the content exceeds 70 percent of the screen height, only the list scrolls inside
 - When you set the window size yourself, it uses that height as is; only the list scrolls and the header and search bar stay at the top
 - Appears on every Space
+- It shares the popover's header, so the page alert badge appears there too
 - Hide it with the close button in the header or `⌃⌥P`
 - A single click or `⌃⌥P` lets you drive it from the keyboard without bringing another app forward, using the same keys as the popover. When there is no search or selection left to clear, `Esc` returns keyboard focus to the app you came from
 
@@ -188,6 +190,9 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 | `⌥↩` | Jump straight to the Orca terminal. While `⌥` is held, rows show `→ Go to Orca`. For herdr or tmux sessions it jumps to the pane and rows show `→ Go to herdr pane` |
 | `Space` | Open the session that has waited longest for a reply. Press again to move to the next longest-waiting one. Stall sessions are skipped. Works only while the search text is empty. Holding `⌃⌥` sends it to the macOS input source switch instead, so release the keys after `⌃⌥P` |
 | `⇧Space` | Open the finished session that ended longest ago and acknowledge it. Press again for the next oldest one. Use `Undo` on the toast to bring it back |
+| `Tab` | Open the oldest page. Pressing it again moves to the next oldest one |
+| `⇧↩` | Open the selected row's page. If that row has no page, Pulse just beeps |
+| `⌥` (0.4 s) | Holding it shows shortcut hints on the header chips, page badge, selected row, and footer |
 | `⌫` | Acknowledge. Done items are hidden, and a stall is moved to working for ten minutes. When the search line is open it deletes search text |
 | `Esc` | Close the search first if it is open, then settings if they are open, otherwise close the popover |
 | `⌘,` | Open and close settings |
@@ -258,11 +263,53 @@ Every 3 seconds it reads the session files and groups them by state. Waiting for
 - The session list comes from `<config root>/sessions/<pid>.json`. Only interactive CLI sessions (whose `entrypoint` is `cli`) are included, and only while their process is alive. The `<pid>.<hash>.key` files in the same folder are not read.
 - The title, last answer, last tool, compaction count, background task count, and PR link are built from the last 256 KB of the `<config root>/projects/<project>/<session>.jsonl` transcript. Background tasks count backgrounded shells, async agents, and monitors, and drop out when their completion notice arrives or `TaskStop` stops them. Completion notices that arrived mid-turn and sit only in the queue also count.
 - The deadhd state file is read from `/tmp/deadhd-state/<sessionId>.json`, and `DEADHD_STATE_DIR` changes the directory.
+- Page alert files are read from `~/.pulse/pages/*.json`, and `PULSE_PAGES_DIR` changes the directory. They are reread every three seconds along with the session files. Dotfiles and files that do not end in `.json` are ignored, and a file that cannot be read stays in the badge menu as `Unreadable page file: <name>`.
 - When a session closes and its session file disappears, it is removed from the list on the next refresh. The done list shows only items from the last 12 hours, and the view draws up to 5.
 - Notifications are not sent during the first list read after launch, while the popover or floating panel is open, or while the setting is off. Sessions that were already in that state are not announced later either.
 - Notification decisions, card insertion, and away transitions are written to the system log (subsystem `io.github.lcalmsky.pulse`, category `notify`).
 
 </details>
+
+<br>
+
+## Page alert files
+
+This is the contract an external tool uses to tell Pulse about **pages you must read.** Open the page in an Orca browser tab, then leave a file at `~/.pulse/pages/<page_id>.json`. Pulse rereads the directory every three seconds and shows the header badge and a page label on the session row. The `PULSE_PAGES_DIR` environment variable changes the directory.
+
+Write to a temporary file whose name starts with a dot, then move it into place with `mv`. Pulse ignores dotfiles and files that do not end in `.json`, so it never reads a file that is still being written.
+
+```json
+{
+  "version": 1,
+  "page_id": "6f0c2a9e-1b3d-4c5e-8a7b-2d9e0f1a3b4c",
+  "worktree": "3f8a1c2d-4b5e-6f70-8291-a3b4c5d6e7f8::/Users/demo/projects/api-server",
+  "url": "file:///tmp/pages/backoff.html",
+  "label": "Backoff design",
+  "created_at": "2026-10-30T09:41:00Z",
+  "terminal_handle": "t-2f91",
+  "session_id": "6a1f0b3c-2d4e-4f5a-9b6c-1d2e3f4a5b6c",
+  "session_name": "api"
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `version` | ✓ | Format version, currently `1`. When omitted, the reader treats it as `1` |
+| `page_id` | ✓ | Page id used to find the Orca tab |
+| `worktree` | ✓ | Orca worktree id, `<repo-id>::<path>` |
+| `url` | ✓ | Page address. When Orca cannot open it, only a `file` address is opened in the default app |
+| `label` | ✓ | Title shown in the badge and menus |
+| `created_at` | ✓ | ISO 8601 time. Alerts are sorted oldest first |
+| `terminal_handle` | | Attaches the page to a session running in the same Orca terminal |
+| `session_id` | | Session id. When present, only this value is used to find the session |
+| `session_name` | | Session name shown as a subtitle in the menu |
+
+- Sessions are matched by `session_id` first, then by `terminal_handle` for a session in the same Orca terminal. When both are absent the page attaches to no row.
+- When several files share the same `worktree` and `url`, the newest file is shown as the representative, and opening or dismissing it removes every file in the group.
+- Clicking the badge or the page label on a row opens the page directly when there is one, and shows an oldest-first menu when there are several. Holding `⌥` in the menu turns items into `Dismiss`; the header menu ends with `Dismiss all` and a session menu has `Dismiss this session's pages`.
+- It opens in this order: switch the Orca terminal, switch the tab by `page_id`, create a tab with the same URL, then the default app. When it cannot open, it briefly shows `Couldn't open this page in Orca`.
+- Opening or dismissing a file deletes it. Nothing expires on its own. Pulse does not notice a tab you close or look at directly in Orca, so the file stays in the list while it exists.
+- A file that cannot be read is not deleted; it stays in the badge menu as `Unreadable page file: <name>`.
 
 <br>
 

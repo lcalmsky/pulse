@@ -87,7 +87,7 @@ render_file() {
     local template="$1" output="$2" pid="$3" sid="$4" now="$5"
     local spec label offset
     local args=(-e "s|__PID__|$pid|g" -e "s|__SESSION_ID__|$sid|g" -e "s|__DATA_DIR__|$data_dir|g")
-    for spec in NOW:0 S30:30 M1:60 M2:120 M3:180 M4:240 M5:300 M8:480 M9:540 M12:720 M22:1320 M35:2100; do
+    for spec in NOW:0 S30:30 M1:60 M2:120 M3:180 M4:240 M5:300 M8:480 M9:540 M11:660 M12:720 M22:1320 M35:2100; do
         label="${spec%%:*}"
         offset="${spec#*:}"
         args+=(-e "s|__ISO_${label}__|$(iso_at $((now - offset)))|g")
@@ -147,7 +147,7 @@ render_into() {
         echo "render: 비어 있지 않은 디렉터리입니다 · $out" >&2
         return 1
     fi
-    mkdir -p "$out/sessions" "$out/projects" "$out/deadhd-state" "$data_dir"
+    mkdir -p "$out/sessions" "$out/projects" "$out/deadhd-state" "$out/pages" "$data_dir"
     local keepers="$out/.demo-keepers"
     : > "$keepers"
 
@@ -188,6 +188,11 @@ render_into() {
             render_file "$template" \
                 "$data_dir/$key.json" "$pid" "$sid" "$now"
         fi
+        if [[ -f "$demo_root/pages/$key.json.template" || -f "$locale_root/pages/$key.json.template" ]]; then
+            template="$(require_localized "pages/$key.json.template")" || return 1
+            render_file "$template" \
+                "$out/pages/$key.json" "$pid" "$sid" "$now"
+        fi
         index=$((index + 1))
     done < "$sessions"
 }
@@ -199,7 +204,7 @@ start() {
     if (( dry_run )); then
         local lang_env=""
         [[ -n "$lang" ]] && lang_env="PULSE_LANG=$lang "
-        echo "${lang_env}CLAUDE_CONFIG_DIR=\"$run_dir\" DEADHD_STATE_DIR=\"$state_dir\" \"$app_bin\" &"
+        echo "${lang_env}CLAUDE_CONFIG_DIR=\"$run_dir\" DEADHD_STATE_DIR=\"$state_dir\" PULSE_PAGES_DIR=\"$run_dir/pages\" \"$app_bin\" &"
         return 0
     fi
 
@@ -226,7 +231,7 @@ start() {
     render_into "$run_dir" "$sessions"
     # fire 가 start 가 고른 언어를 따르도록 남긴다.
     echo "${lang:-ko}" > "$run_dir/lang"
-    env ${lang:+PULSE_LANG="$lang"} CLAUDE_CONFIG_DIR="$run_dir" DEADHD_STATE_DIR="$state_dir" "$app_bin" &
+    env ${lang:+PULSE_LANG="$lang"} CLAUDE_CONFIG_DIR="$run_dir" DEADHD_STATE_DIR="$state_dir" PULSE_PAGES_DIR="$run_dir/pages" "$app_bin" &
     echo "$!" > "$pid_file"
     echo "데모 Pulse 시작 · CLAUDE_CONFIG_DIR=$run_dir · 언어=${lang:-ko}"
 }

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "page_id": "9e2b5d1f-3c7a-4b8e-8f60-1a2b3c4d5e6f",
+  "worktree": "00000000-0000-0000-0000-000000000000::/Users/demo/api-server",
+  "url": "file:///tmp/pulse-demo/api-server-backoff-design.html",
+  "label": "백오프 설계안",
+  "created_at": "__ISO_M11__",
+  "session_id": "__SESSION_ID__",
+  "session_name": "api"
+}
