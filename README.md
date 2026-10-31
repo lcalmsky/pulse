@@ -260,7 +260,7 @@ Pulse 는 시스템 알림을 쓰지 않아 알림 권한을 묻지 않습니다
 <details>
 <summary>읽는 곳과 규칙</summary>
 
-- 설정 루트는 `CLAUDE_CONFIG_DIR` 환경 변수가 있으면 그 디렉터리, 없으면 `~/.claude` 입니다.
+- 설정 루트는 `CLAUDE_CONFIG_DIR` 환경 변수가 있으면 그 디렉터리, 없으면 `~/.claude` 입니다. 실행 중인 Claude 프로세스가 `CLAUDE_CONFIG_DIR` 로 지정한 다른 설정 디렉터리의 `sessions` 폴더도 함께 읽으므로, 계정마다 설정 디렉터리를 따로 주는 런처로 띄운 세션도 목록에 나옵니다.
 - 세션 목록은 `<설정 루트>/sessions/<pid>.json` 에서 읽습니다. 대화형 CLI 세션(`entrypoint` 가 `cli`)만 올리고, 프로세스가 살아 있는 세션만 남깁니다. 같은 폴더의 `<pid>.<hash>.key` 는 읽지 않습니다.
 - 제목, 마지막 답, 마지막 도구, 압축 수, 백그라운드 작업 수, PR 링크는 `<설정 루트>/projects/<프로젝트>/<세션>.jsonl` 트랜스크립트의 마지막 256KB 에서 만듭니다. 백그라운드 작업은 뒤로 넘긴 셸, 비동기 에이전트, 모니터를 세고, 완료 알림이 오거나 `TaskStop` 으로 멈추면 뺍니다. 턴 도중에 끝나 대기열에만 남은 완료 알림도 셉니다.
 - deadhd 상태 파일은 `/tmp/deadhd-state/<sessionId>.json` 에서 읽고, `DEADHD_STATE_DIR` 로 디렉터리를 바꿀 수 있습니다.

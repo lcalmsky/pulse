@@ -260,7 +260,7 @@ Every 3 seconds it reads the session files and groups them by state. Waiting for
 <details>
 <summary>Where it reads and the rules</summary>
 
-- The config root is the directory named by the `CLAUDE_CONFIG_DIR` environment variable if it is set, otherwise `~/.claude`.
+- The config root is the directory named by the `CLAUDE_CONFIG_DIR` environment variable if it is set, otherwise `~/.claude`. Pulse also reads the `sessions` folder of every config directory that a running Claude process was started with, so sessions launched by a launcher that gives each account its own `CLAUDE_CONFIG_DIR` also appear.
 - The session list comes from `<config root>/sessions/<pid>.json`. Only interactive CLI sessions (whose `entrypoint` is `cli`) are included, and only while their process is alive. The `<pid>.<hash>.key` files in the same folder are not read.
 - The title, last answer, last tool, compaction count, background task count, and PR link are built from the last 256 KB of the `<config root>/projects/<project>/<session>.jsonl` transcript. Background tasks count backgrounded shells, async agents, and monitors, and drop out when their completion notice arrives or `TaskStop` stops them. Completion notices that arrived mid-turn and sit only in the queue also count.
 - The deadhd state file is read from `/tmp/deadhd-state/<sessionId>.json`, and `DEADHD_STATE_DIR` changes the directory.
