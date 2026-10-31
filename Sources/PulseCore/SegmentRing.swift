@@ -46,3 +46,11 @@ public enum MenuBarCounter: Equatable {
         }
     }
 }
+
+/// 메뉴 막대 아이콘 모서리에 붙는 읽을 페이지 배지 문구. 두 자리부터는 아이콘 크기에 맞춰 줄인다.
+public enum MenuBarPageBadge {
+    public static func text(count: Int) -> String? {
+        guard count > 0 else { return nil }
+        return count > 9 ? "9+" : "\(count)"
+    }
+}

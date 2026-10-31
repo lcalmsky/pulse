@@ -8,6 +8,7 @@ enum MenuBarIcon {
     static func image(
         counts: GroupedSessions.Counts,
         unavailable: Bool,
+        pages: Int,
         appearance: NSAppearance
     ) -> NSImage {
         let scale: CGFloat = 4
@@ -18,6 +19,7 @@ enum MenuBarIcon {
             appearance.performAsCurrentDrawingAppearance {
                 NSGraphicsContext.current?.cgContext.scaleBy(x: scale, y: scale)
                 draw(counts: counts, unavailable: unavailable)
+                drawPageBadge(count: pages)
             }
             return true
         }
@@ -78,6 +80,32 @@ enum MenuBarIcon {
         }
 
         drawWave(center: center, radius: radius, color: .labelColor)
+    }
+
+    private static func drawPageBadge(count: Int) {
+        guard let text = MenuBarPageBadge.text(count: count) else { return }
+        let label = NSAttributedString(string: text, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 7.5, weight: .bold),
+            .foregroundColor: NSColor.white,
+        ])
+        let textSize = label.size()
+        let height: CGFloat = 10
+        let width = max(textSize.width + 4, height)
+        let rect = NSRect(x: size - width, y: size - height, width: width, height: height)
+
+        // 메뉴 막대 배경은 벽지에 따라 바뀌므로 테두리 색을 칠하지 않고 링을 지워 배지와 떼어 놓는다.
+        if let context = NSGraphicsContext.current {
+            context.saveGraphicsState()
+            context.compositingOperation = .clear
+            let gap: CGFloat = 1.3
+            let cut = rect.insetBy(dx: -gap, dy: -gap)
+            NSBezierPath(roundedRect: cut, xRadius: cut.height / 2, yRadius: cut.height / 2).fill()
+            context.restoreGraphicsState()
+        }
+
+        NSColor.systemPurple.setFill()
+        NSBezierPath(roundedRect: rect, xRadius: height / 2, yRadius: height / 2).fill()
+        label.draw(at: NSPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2))
     }
 
     private static func drawWave(center: NSPoint, radius: CGFloat, color: NSColor) {

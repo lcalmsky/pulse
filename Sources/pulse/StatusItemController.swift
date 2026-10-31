@@ -11,7 +11,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var keyMonitor: Any?
     private var lastClose = Date.distantPast
     private var appearanceObservation: NSKeyValueObservation?
-    private var drawnState: (counts: GroupedSessions.Counts, unavailable: Bool, appearance: NSAppearance.Name)?
+    private var drawnState: (counts: GroupedSessions.Counts, unavailable: Bool, pages: Int, appearance: NSAppearance.Name)?
 
     private lazy var popover: NSPopover = {
         let popover = NSPopover()
@@ -48,6 +48,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.dataChanged() }
             .store(in: &cancellables)
+        model.$pageAlerts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.dataChanged() }
+            .store(in: &cancellables)
+        model.$unreadablePageFiles
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.dataChanged() }
+            .store(in: &cancellables)
         // groups 는 값이 같으면 발행하지 않으므로, 매 틱 발행되는 lastSuccess 로 외형 변화를 확인한다.
         model.$lastSuccess
             .receive(on: DispatchQueue.main)
@@ -80,6 +88,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         let state = (counts: model.groups.counts,
                      unavailable: model.sessionsUnavailable,
+                     pages: pageCount,
                      appearance: button.effectiveAppearance.name)
         // 아이콘은 버튼 외형으로 그리므로 외형 이름도 키에 넣어 라이트·다크 전환을 다음 틱에 반영한다.
         if let drawnState, drawnState == state { return }
@@ -95,7 +104,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         )
         drawnState = (counts: model.groups.counts,
                       unavailable: model.sessionsUnavailable,
+                      pages: pageCount,
                       appearance: button.effectiveAppearance.name)
+    }
+
+    /// 팝오버 머리글의 「읽을 페이지 N」과 같은 수다.
+    private var pageCount: Int {
+        model.pageAlerts.count + model.unreadablePageFiles.count
     }
 
     private func updateIcon() {
@@ -103,6 +118,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.image = MenuBarIcon.image(
             counts: model.groups.counts,
             unavailable: model.sessionsUnavailable,
+            pages: pageCount,
             appearance: button.effectiveAppearance
         )
     }

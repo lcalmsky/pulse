@@ -1896,6 +1896,12 @@ expectEqual(MenuBarCounter.make(attention: 0, working: 3), .working(3), "메뉴 
 expectEqual(MenuBarCounter.make(attention: 0, working: 0), .none, "메뉴 숫자: 둘 다 없으면 없음")
 expectEqual(MenuBarCounter.none.count, nil, "메뉴 숫자: 없음은 숫자가 없다")
 expectEqual(MenuBarCounter.attention(4).count, 4, "메뉴 숫자: 확인 필요 개수")
+expectEqual(MenuBarPageBadge.text(count: 0), nil, "페이지 배지: 0건이면 없음")
+expectEqual(MenuBarPageBadge.text(count: -1), nil, "페이지 배지: 음수면 없음")
+expectEqual(MenuBarPageBadge.text(count: 1), "1", "페이지 배지: 한 자리")
+expectEqual(MenuBarPageBadge.text(count: 9), "9", "페이지 배지: 9 는 그대로")
+expectEqual(MenuBarPageBadge.text(count: 10), "9+", "페이지 배지: 10 부터 9+")
+expectEqual(MenuBarPageBadge.text(count: 12), "9+", "페이지 배지: 두 자리는 9+")
 
 let noStops = PulseGlyph.stops(counts: GroupedSessions.Counts())
 expect(noStops.isEmpty, "파형 색: 세션이 없으면 정지점 없음")
