@@ -15,18 +15,21 @@ final class LocalSessionSource {
     private static let stateFileLimit = 1024 * 1024
     private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "session")
 
-    private let root: URL
+    private let primaryRoot: String
+    private let home = NSHomeDirectory()
+    private let rootDiscovery = ConfigRootDiscovery()
     private let stateDirectory: URL
     private let fileManager = FileManager.default
     private var transcriptPaths: [String: URL] = [:]
+    private var sessionRoots: [String: URL] = [:]
     private var summaries = TranscriptSummaryCache()
     private var transcriptMisses: [String: TranscriptMiss] = [:]
     private var loggedStatuses: [String: String] = [:]
     private var processFacts: [String: (pid: Int, handle: String?, multiplexer: MultiplexerPane?)] = [:]
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
-        let configured = environment["CLAUDE_CONFIG_DIR"] ?? "~/.claude"
-        root = URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath)
+        let configured = environment["CLAUDE_CONFIG_DIR"] ?? ""
+        primaryRoot = configured.isEmpty ? "~/.claude" : configured
         stateDirectory = URL(
             fileURLWithPath: NSString(
                 string: DeadhdState.stateDirectory(environment: environment)
@@ -35,43 +38,79 @@ final class LocalSessionSource {
     }
 
     func read(now: Date) throws -> [Session] {
-        let directory = root.appendingPathComponent("sessions").path
-        let names: [String]
-        do {
-            names = try fileManager.contentsOfDirectory(atPath: directory)
-        } catch {
-            throw LocalSessionReadError.sessionsDirectoryUnreadable(error)
-        }
-
+        let roots = currentRoots()
         var sessions: [Session] = []
-        for name in names where LocalSessions.isSessionFileName(name) {
-            let url = root.appendingPathComponent("sessions").appendingPathComponent(name)
-            guard let data = try? Data(contentsOf: url),
-                  let record = LocalSessions.parseRecord(data),
-                  LocalSessions.shouldInclude(record),
-                  isProcessAlive(record.pid)
-            else { continue }
+        var seenSessionIds: Set<String> = []
+        var primaryError: Error?
+        var readableRoots = 0
 
-            let summary = transcriptSummary(for: record, now: now)
-            logStatusChange(record, summary: summary)
-            let facts = processFacts(for: record)
-            sessions.append(LocalSessions.makeSession(
-                record: record,
-                summary: summary,
-                now: now,
-                home: NSHomeDirectory(),
-                deadhd: deadhdState(for: record),
-                orcaTerminal: facts.handle,
-                multiplexer: facts.multiplexer
-            ))
+        for (index, root) in roots.enumerated() {
+            let directory = root.appendingPathComponent("sessions")
+            let names: [String]
+            do {
+                names = try fileManager.contentsOfDirectory(atPath: directory.path)
+            } catch {
+                if index == 0 { primaryError = error }
+                continue
+            }
+            readableRoots += 1
+
+            for name in names where LocalSessions.isSessionFileName(name) {
+                let url = directory.appendingPathComponent(name)
+                guard let data = try? Data(contentsOf: url),
+                      let record = LocalSessions.parseRecord(data),
+                      LocalSessions.shouldInclude(record),
+                      isProcessAlive(record.pid),
+                      seenSessionIds.insert(record.sessionId).inserted
+                else { continue }
+
+                sessionRoots[record.sessionId] = root
+                let summary = transcriptSummary(for: record, now: now)
+                logStatusChange(record, summary: summary)
+                let facts = processFacts(for: record)
+                sessions.append(LocalSessions.makeSession(
+                    record: record,
+                    summary: summary,
+                    now: now,
+                    home: home,
+                    deadhd: deadhdState(for: record),
+                    orcaTerminal: facts.handle,
+                    multiplexer: facts.multiplexer
+                ))
+            }
         }
+        if readableRoots == 0, let primaryError {
+            throw LocalSessionReadError.sessionsDirectoryUnreadable(primaryError)
+        }
+
         let sessionIds = Set(sessions.map(\.sessionId))
         summaries.retain(only: sessionIds)
         transcriptPaths = transcriptPaths.filter { sessionIds.contains($0.key) }
+        sessionRoots = sessionRoots.filter { sessionIds.contains($0.key) }
         transcriptMisses = transcriptMisses.filter { sessionIds.contains($0.key) }
         loggedStatuses = loggedStatuses.filter { sessionIds.contains($0.key) }
         processFacts = processFacts.filter { sessionIds.contains($0.key) }
         return sessions
+    }
+
+    /// 설정 루트는 매번 다시 구한다. 새 런처가 언제든 뜰 수 있다.
+    private func currentRoots() -> [URL] {
+        let merged = ConfigRoots.merge(
+            primary: primaryRoot,
+            discovered: rootDiscovery.discoveredRoots(),
+            home: home
+        )
+        guard let primary = merged.first else { return [] }
+        var roots = [URL(fileURLWithPath: primary)]
+        for path in merged.dropFirst() {
+            var isDirectory: ObjCBool = false
+            let sessions = URL(fileURLWithPath: path).appendingPathComponent("sessions").path
+            guard fileManager.fileExists(atPath: sessions, isDirectory: &isDirectory),
+                  isDirectory.boolValue
+            else { continue }
+            roots.append(URL(fileURLWithPath: path))
+        }
+        return roots
     }
 
     private func logStatusChange(_ record: LocalSessionRecord, summary: TranscriptSummary) {
@@ -165,6 +204,7 @@ final class LocalSessionSource {
         }
 
         let fileName = record.sessionId + ".jsonl"
+        guard let root = sessionRoots[record.sessionId] else { return nil }
         let projects = root.appendingPathComponent("projects")
         if let cwd = record.cwd {
             let slug = LocalSessions.projectSlug(forCwd: cwd)

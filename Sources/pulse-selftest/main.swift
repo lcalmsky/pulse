@@ -3715,6 +3715,51 @@ expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: procArg
 expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: Data([1, 0])), nil, "프로세스 환경: 잘린 버퍼")
 expectEqual(ProcessEnvironment.value("ORCA_TERMINAL_HANDLE", inProcArgs: procArgs(argc: 9, ["/bin/claude", "claude"])), nil, "프로세스 환경: 인자 수보다 짧은 버퍼")
 expectEqual(
+    ConfigRoots.merge(
+        primary: "/Users/me/.claude",
+        discovered: ["/opt/launcher/profile-a/home", "/opt/launcher/profile-b/home"],
+        home: "/Users/me"
+    ),
+    ["/Users/me/.claude", "/opt/launcher/profile-a/home", "/opt/launcher/profile-b/home"],
+    "설정 루트: 주 루트 먼저, 발견 순서 유지"
+)
+expectEqual(
+    ConfigRoots.merge(
+        primary: "~/.claude",
+        discovered: ["~/launcher/profile-a/home"],
+        home: "/Users/me"
+    ),
+    ["/Users/me/.claude", "/Users/me/launcher/profile-a/home"],
+    "설정 루트: 물결표 확장"
+)
+expectEqual(
+    ConfigRoots.merge(
+        primary: "/Users/me/.claude",
+        discovered: ["/Users/me/.claude/", "/opt/launcher/profile-a/home/"],
+        home: "/Users/me"
+    ),
+    ["/Users/me/.claude", "/opt/launcher/profile-a/home"],
+    "설정 루트: 끝 슬래시와 주 루트 중복 제거"
+)
+expectEqual(
+    ConfigRoots.merge(
+        primary: "/opt/launcher/profile-a/home",
+        discovered: ["/opt/launcher/./profile-a/../profile-a/home"],
+        home: "/Users/me"
+    ),
+    ["/opt/launcher/profile-a/home"],
+    "설정 루트: 점 경로 표준화"
+)
+expectEqual(
+    ConfigRoots.merge(
+        primary: "",
+        discovered: ["  ", "/opt/launcher/profile-a/home"],
+        home: "/Users/me"
+    ),
+    ["/opt/launcher/profile-a/home"],
+    "설정 루트: 빈 문자열 제거"
+)
+expectEqual(
     LocalSessions.makeSession(
         record: LocalSessionRecord(pid: 1, sessionId: "s", cwd: "/a", status: "idle"),
         summary: TranscriptSummary(),
