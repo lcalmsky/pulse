@@ -1,8 +1,8 @@
 class Pulse < Formula
   desc "Menu bar app that shows Claude Code session progress"
   homepage "https://github.com/lcalmsky/pulse"
-  url "https://github.com/lcalmsky/pulse/archive/refs/tags/v0.11.0.tar.gz"
-  sha256 "b58011e253bc6f4b9972e79bfe524210da3e06313ca7ac1e76661e2ff3605a47"
+  url "https://github.com/lcalmsky/pulse/archive/refs/tags/v0.12.0.tar.gz"
+  sha256 "a0b4b73b613456562c606fa22eff3470a722d1a7174b6abb72269778e4f5355c"
   head "https://github.com/lcalmsky/pulse.git", branch: "main"
 
   depends_on :macos
