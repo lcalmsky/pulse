@@ -38,7 +38,7 @@ A small ring with a heartbeat line appears in the menu bar. Click the ring or pr
 
 | What you see | Meaning |
 |---|---|
-| Colored segments of the ring | Share of 🟠 attention · 🔵 working · 🟢 done sessions. Empty shares leave only the track |
+| Colored segments of the ring | Share of 🟢 done · 🔵 working · 🟠 attention sessions, drawn clockwise from 12 o'clock in that order so the page badge never covers attention. Empty shares leave only the track |
 | Number beside the ring | Attention count in orange. When there is none, working count in gray. When both are zero, no number is drawn |
 | Dimmed ring and `Read failed` | Session files could not be read |
 | Purple badge at the top right of the icon | Number of pages to read. Same count as `to read` in the popover header, shortened to `9+` from 10. Not drawn when there are none |
