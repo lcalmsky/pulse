@@ -54,10 +54,11 @@ enum MenuBarIcon {
             working: counts.working,
             done: counts.done
         )
+        // 오른쪽 위 페이지 배지가 링의 첫 구간을 지우므로, 확인 필요를 마지막에 두어 가려지지 않게 한다.
         let segments: [(Double, NSColor)] = [
-            (ratio.attention, .systemOrange),
-            (ratio.working, .systemBlue),
             (ratio.done, .systemGreen),
+            (ratio.working, .systemBlue),
+            (ratio.attention, .systemOrange),
         ]
         let circumference = 2 * CGFloat.pi * radius
         var offset = 0.0
