@@ -2579,6 +2579,168 @@ expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: (1 << 16) | (1 << 23)), 0,
             "단축키 조합: capsLock 과 function 은 버린다")
 expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: 0), 0, "단축키 조합: 수식키 없음")
 
+// MARK: - 목록 단축키
+
+expectEqual(KeyAction.allCases.count, 16, "목록 단축키: 동작 16개")
+expectEqual(KeyMap.default.binding(for: .selectPrevious).displayString, "↑", "목록 단축키: 위 항목")
+expectEqual(KeyMap.default.binding(for: .selectNext).displayString, "↓", "목록 단축키: 아래 항목")
+expectEqual(KeyMap.default.binding(for: .selectFirst).displayString, "⌥↑", "목록 단축키: 첫 항목")
+expectEqual(KeyMap.default.binding(for: .selectLast).displayString, "⌥↓", "목록 단축키: 마지막 항목")
+expectEqual(KeyMap.default.binding(for: .expandSteps).displayString, "→", "목록 단축키: 단계 펼치기")
+expectEqual(KeyMap.default.binding(for: .collapseSteps).displayString, "←", "목록 단축키: 단계 접기")
+expectEqual(KeyMap.default.binding(for: .expandAllSteps).displayString, "⌥→", "목록 단축키: 단계 모두 펼치기")
+expectEqual(KeyMap.default.binding(for: .collapseAllSteps).displayString, "⌥←", "목록 단축키: 단계 모두 접기")
+expectEqual(KeyMap.default.binding(for: .open).displayString, "↩", "목록 단축키: 열기")
+expectEqual(KeyMap.default.binding(for: .openInTerminal).displayString, "⌥↩", "목록 단축키: 터미널로 이동")
+expectEqual(KeyMap.default.binding(for: .openRowPage).displayString, "⇧↩", "목록 단축키: 페이지 열기")
+expectEqual(KeyMap.default.binding(for: .jumpToReply).displayString, "Space", "목록 단축키: 답 대기")
+expectEqual(KeyMap.default.binding(for: .jumpToDone).displayString, "⇧Space", "목록 단축키: 완료")
+expectEqual(KeyMap.default.binding(for: .openOldestPage).displayString, "Tab", "목록 단축키: 가장 오래된 페이지")
+expectEqual(KeyMap.default.binding(for: .acknowledge).displayString, "⌫", "목록 단축키: 확인 처리")
+expectEqual(KeyMap.default.binding(for: .toggleSettings).displayString, "⌘,", "목록 단축키: 설정 열고 닫기")
+expectEqual(KeyMap.default.isDefault, true, "목록 단축키: 기본값 판정")
+
+expectEqual(KeyMap.default.action(keyCode: 126, modifiers: 0), .selectPrevious, "목록 단축키 조회: ↑")
+expectEqual(
+    KeyMap.default.action(keyCode: 126, modifiers: HotKeyBinding.optionModifier),
+    .selectFirst,
+    "목록 단축키 조회: ⌥↑"
+)
+expectEqual(KeyMap.default.action(keyCode: 126, modifiers: HotKeyBinding.shiftModifier), nil,
+            "목록 단축키 조회: ⇧↑ 는 비어 있다")
+expectEqual(KeyMap.default.action(keyCode: 76, modifiers: 0), .open, "목록 단축키 조회: 키패드 Enter")
+expectEqual(KeyMap.default.action(keyCode: 117, modifiers: 0), .acknowledge,
+            "목록 단축키 조회: Forward Delete")
+expectEqual(
+    KeyMap.default.action(
+        keyCode: 49,
+        modifiers: HotKeyBinding.controlModifier | HotKeyBinding.optionModifier
+    ),
+    nil,
+    "목록 단축키 조회: ⌃⌥Space 는 기본과 다르다"
+)
+
+expectEqual(HotKeyBinding.normalizedKeyCode(76), 36, "목록 단축키: 키패드 Enter 정규화")
+expectEqual(HotKeyBinding.normalizedKeyCode(117), 51, "목록 단축키: Forward Delete 정규화")
+expectEqual(HotKeyBinding.normalizedKeyCode(126), 126, "목록 단축키: 그 밖의 코드는 그대로")
+
+let xKey = HotKeyBinding(keyCode: 7, modifiers: 0)
+let customKeyMap = KeyMap.default.setting(xKey, for: .acknowledge)
+expectEqual(customKeyMap.binding(for: .acknowledge), xKey, "목록 단축키: 하나만 바꾼다")
+expectEqual(customKeyMap.rawDictionary, ["acknowledge": "7:0"], "목록 단축키: 바뀐 것만 저장")
+expectEqual(KeyMap.default.rawDictionary.isEmpty, true, "목록 단축키: 기본값은 저장하지 않는다")
+expectEqual(KeyMap(rawDictionary: customKeyMap.rawDictionary), customKeyMap, "목록 단축키: 저장값 왕복")
+let invalidKeyMap = KeyMap(rawDictionary: [
+    "nope": "0:0",
+    "acknowledge": "53:0",
+    "openOldestPage": "1:0",
+])
+expectEqual(
+    invalidKeyMap.binding(for: .openOldestPage),
+    HotKeyBinding(keyCode: 1, modifiers: 0),
+    "목록 단축키: 아는 동작은 읽는다"
+)
+expectEqual(
+    invalidKeyMap.binding(for: .acknowledge),
+    KeyAction.acknowledge.defaultBinding,
+    "목록 단축키: 무효 값은 기본값"
+)
+expectEqual(invalidKeyMap.binding(for: .open), KeyAction.open.defaultBinding,
+            "목록 단축키: 모르는 동작은 무시")
+expectEqual(KeyMap(rawDictionary: nil), .default, "목록 단축키: 저장값이 없으면 기본값")
+expectEqual(
+    KeyMap.default.setting(HotKeyBinding(keyCode: 76, modifiers: 0), for: .open).binding(for: .open),
+    HotKeyBinding(keyCode: 36, modifiers: 0),
+    "목록 단축키: 저장할 때 키패드 Enter 를 맞춘다"
+)
+let customOpen = KeyMap.default.setting(HotKeyBinding(keyCode: 31, modifiers: 0), for: .open)
+expectEqual(customOpen.resetting(.open), .default, "목록 단축키: 한 동작만 기본값으로 되돌린다")
+expectEqual(customOpen.resetting(.open).rawDictionary, [:], "목록 단축키: 되돌리면 저장할 값이 없다")
+expectEqual(
+    KeyMap.default.conflict(
+        for: HotKeyBinding(keyCode: 76, modifiers: 0),
+        assigningTo: .acknowledge,
+        globalHotKey: .default
+    ),
+    .action(.open),
+    "목록 단축키: 키패드 Enter 도 ↩ 와 겹친다"
+)
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 49, modifiers: 0)), true, "검색 양보: Space")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 49, modifiers: HotKeyBinding.shiftModifier)), true,
+            "검색 양보: ⇧Space")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 48, modifiers: 0)), true, "검색 양보: Tab")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 51, modifiers: 0)), true, "검색 양보: ⌫")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 38, modifiers: 0)), true, "검색 양보: 수식키 없는 J")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 38, modifiers: HotKeyBinding.controlModifier)), false,
+            "검색 양보: ⌃J 는 양보하지 않는다")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 43, modifiers: HotKeyBinding.commandModifier)), false,
+            "검색 양보: ⌘, 는 양보하지 않는다")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 125, modifiers: 0)), false, "검색 양보: ↓ 는 결과를 다룬다")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 36, modifiers: 0)), false, "검색 양보: ↩ 는 결과를 연다")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 76, modifiers: 0)), false, "검색 양보: 키패드 Enter")
+expectEqual(KeyMap.yieldsToSearch(HotKeyBinding(keyCode: 122, modifiers: 0)), false, "검색 양보: F1")
+
+expectEqual(HotKeyBinding(keyCode: 7, modifiers: 0).isValidListKey, true, "목록 키: 수식키 없는 X")
+expectEqual(HotKeyBinding(keyCode: 7, modifiers: HotKeyBinding.shiftModifier).isValidListKey, true,
+            "목록 키: ⇧ 만 있어도 된다")
+expectEqual(HotKeyBinding(keyCode: 53, modifiers: 0).isValidListKey, false, "목록 키: Esc 는 못 쓴다")
+expectEqual(HotKeyBinding(keyCode: 53, modifiers: HotKeyBinding.commandModifier).isValidListKey, false,
+            "목록 키: ⌘Esc 도 못 쓴다")
+expectEqual(HotKeyBinding(keyCode: 54, modifiers: 0).isValidListKey, false, "목록 키: 모르는 코드")
+expectEqual(HotKeyBinding(keyCode: 7, modifiers: 0x4000).isValidListKey, false,
+            "목록 키: 지원하지 않는 수식키")
+expectEqual(HotKeyBinding(keyCode: 76, modifiers: 0).isValidListKey, true, "목록 키: 키패드 Enter")
+expectEqual(HotKeyBinding(listRawValue: "76:0"), HotKeyBinding(keyCode: 36, modifiers: 0),
+            "목록 키: 저장 원문의 키패드 Enter 정규화")
+expectEqual(HotKeyBinding(listRawValue: "7:0"), xKey, "목록 키: 원문 왕복")
+expectEqual(HotKeyBinding(listRawValue: "garbage"), nil, "목록 키: 잘못된 원문")
+expectEqual(HotKeyBinding(listRawValue: "54:0"), nil, "목록 키: 유효하지 않은 원문")
+
+expectEqual(
+    KeyMap.default.conflict(for: HotKeyBinding(keyCode: 126, modifiers: 0),
+                            assigningTo: .open, globalHotKey: .default),
+    .action(.selectPrevious),
+    "목록 단축키 충돌: 다른 동작과 겹친다"
+)
+expectEqual(
+    KeyMap.default.conflict(for: .default, assigningTo: .open, globalHotKey: .default),
+    .globalHotKey,
+    "목록 단축키 충돌: 전역 단축키와 겹친다"
+)
+expectEqual(
+    KeyMap.default.conflict(for: HotKeyBinding(keyCode: 126, modifiers: 0),
+                            assigningTo: .selectPrevious, globalHotKey: .default),
+    nil,
+    "목록 단축키 충돌: 자기 자신은 겹치지 않는다"
+)
+let globalTakenKeyMap = KeyMap.default.setting(.default, for: .toggleSettings)
+expectEqual(
+    globalTakenKeyMap.conflict(for: .default, assigningTo: nil, globalHotKey: .default),
+    .action(.toggleSettings),
+    "목록 단축키 충돌: 전역을 바꿀 때 목록과 겹친다"
+)
+expectEqual(
+    KeyMap.default.conflict(for: .default, assigningTo: nil, globalHotKey: .default),
+    nil,
+    "목록 단축키 충돌: 겹치지 않으면 없다"
+)
+
+expectEqual(AppSettings.keyMapKey, "keyBindings", "설정: 목록 단축키 키")
+expectEqual(AppSettings.default.keyMap, .default, "설정: 기본 목록 단축키")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil).keyMap, .default,
+            "설정: 목록 단축키 키가 없으면 기본값")
+expectEqual(
+    AppSettings(densityRaw: nil, themeRaw: nil, keyMapRaw: ["acknowledge": "7:0"])
+        .keyMap.binding(for: .acknowledge),
+    xKey,
+    "설정: 목록 단축키 저장값을 읽는다"
+)
+expectEqual(
+    AppSettings(densityRaw: nil, themeRaw: nil, keyMapRaw: ["acknowledge": "bogus"]).keyMap,
+    .default,
+    "설정: 무효 목록 단축키는 기본값"
+)
+
 // MARK: - 머리글 뱃지
 
 expectEqual(HeaderBadge.tone(for: .attention, count: 0), .muted, "머리글 뱃지: 빈 확인 필요는 흐리게")
@@ -4334,21 +4496,55 @@ expectEqual(L10n.pageOpenFailed, "Orca 에서 이 페이지를 열지 못했어�
 expectEqual(L10n.dismissPage("배포"), "닫기: 배포", "문구: 페이지 닫기")
 expectEqual(L10n.dismissAllPages, "모두 닫기", "문구: 페이지 모두 닫기")
 expectEqual(L10n.dismissSessionPages, "이 세션 페이지 모두 닫기", "문구: 세션 페이지 모두 닫기")
-expectEqual(L10n.shortcutOpen, "↩ 열기", "문구: 열기 힌트")
-expectEqual(L10n.shortcutOrca, "⌥↩ Orca", "문구: Orca 힌트")
-expectEqual(L10n.shortcutMultiplexer("herdr"), "⌥↩ herdr 패널", "문구: 멀티플렉서 힌트")
-expectEqual(L10n.shortcutPage, "⇧↩ 페이지", "문구: 페이지 힌트")
-expectEqual(L10n.shortcutDismiss, "⌫ 확인", "문구: 확인 힌트")
-expectEqual(L10n.keyTab, "Tab", "문구: Tab 키캡")
+expectEqual(L10n.shortcutOpen("↩"), "↩ 열기", "문구: 열기 힌트")
+expectEqual(L10n.shortcutOrca("⌥↩"), "⌥↩ Orca", "문구: Orca 힌트")
+expectEqual(L10n.shortcutMultiplexer("herdr", "⌥↩"), "⌥↩ herdr 패널", "문구: 멀티플렉서 힌트")
+expectEqual(L10n.shortcutPage("⇧↩"), "⇧↩ 페이지", "문구: 페이지 힌트")
+expectEqual(L10n.shortcutDismiss("⌫"), "⌫ 확인", "문구: 확인 힌트")
+expectEqual(L10n.keyTab("Tab"), "Tab", "문구: Tab 키캡")
+expectEqual(L10n.replyInOrcaShortcut("⌥↩"), "답하기 · Orca 에서 터미널 열기 (⌥↩)",
+            "문구: 답하기 힌트")
+expectEqual(L10n.openShortcut("↩"), "열기 (↩)", "문구: 열기 버튼 힌트")
+expectEqual(L10n.acknowledgeShortcut("⌫"), "확인 (⌫)", "문구: 확인 버튼 힌트")
+expectEqual(L10n.goToOrcaShortcut("⌥↩"), "Orca 로 이동 (⌥↩)", "문구: Orca 이동 힌트")
+expectEqual(L10n.multiplexerMoveShortcut("herdr", "⌥↩"), "herdr 패널로 이동 (⌥↩)",
+            "문구: 멀티플렉서 이동 힌트")
+expectEqual(L10n.viewSettingsShortcut("⌘,"), "보기 설정 (⌘,)", "문구: 설정 힌트")
+expectEqual(L10n.keySpace("Space"), "Space", "문구: Space 키캡")
+expectEqual(L10n.globalShortcut, "전역 단축키", "문구: 전역 단축키 이름")
+expectEqual(L10n.showAllShortcuts, "모든 단축키 보기", "문구: 단축키 모두 보기")
+expectEqual(L10n.hideShortcuts, "접기", "문구: 단축키 접기")
+expectEqual(L10n.resetAllShortcuts, "모두 기본값", "문구: 단축키 모두 기본값")
+expectEqual(L10n.shortcutConflictAction("열기"), "이미 ‘열기’ 에 쓰는 키예요", "문구: 동작 충돌")
+expectEqual(L10n.shortcutConflictGlobal, "전역 단축키와 같아요", "문구: 전역 충돌")
+expectEqual(KeyAction.selectPrevious.title, "위 항목", "문구: 동작 이름 위 항목")
+expectEqual(KeyAction.selectLast.title, "마지막 항목", "문구: 동작 이름 마지막 항목")
+expectEqual(KeyAction.openInTerminal.title, "터미널로 이동", "문구: 동작 이름 터미널로 이동")
+expectEqual(KeyAction.jumpToReply.title, "가장 오래 기다린 답", "문구: 동작 이름 답 대기")
+expectEqual(KeyAction.acknowledge.title, "확인 처리", "문구: 동작 이름 확인 처리")
+expectEqual(KeyAction.toggleSettings.title, "설정 열고 닫기", "문구: 동작 이름 설정")
 
 L10n.language = .en
+expectEqual(L10n.openShortcut("J"), "Open (J)", "영어 문구: 열기 버튼 힌트")
+expectEqual(L10n.acknowledgeShortcut("⌫"), "Dismiss (⌫)", "영어 문구: 확인 버튼 힌트")
+expectEqual(L10n.goToOrcaShortcut("⌥↩"), "Go to Orca (⌥↩)", "영어 문구: Orca 이동 힌트")
 expectEqual(L10n.pagesToRead(1), "1 to read", "영어 페이지: 읽을 페이지 수")
 expectEqual(L10n.unreadablePageFile("x.json"), "Unreadable page file: x.json", "영어 페이지: 읽지 못한 파일")
 expectEqual(L10n.pageOpenFailed, "Couldn't open this page in Orca", "영어 페이지: 열기 실패")
 expectEqual(L10n.dismissPage("Deploy"), "Dismiss: Deploy", "영어 페이지: 닫기")
 expectEqual(L10n.dismissAllPages, "Dismiss all", "영어 페이지: 모두 닫기")
 expectEqual(L10n.dismissSessionPages, "Dismiss this session's pages", "영어 페이지: 세션 페이지 모두 닫기")
-expectEqual(L10n.shortcutPage, "⇧↩ Page", "영어 페이지: 페이지 힌트")
+expectEqual(L10n.shortcutPage("⇧↩"), "⇧↩ Page", "영어 페이지: 페이지 힌트")
+expectEqual(L10n.globalShortcut, "Global shortcut", "영어 문구: 전역 단축키 이름")
+expectEqual(L10n.showAllShortcuts, "Show all shortcuts", "영어 문구: 단축키 모두 보기")
+expectEqual(L10n.hideShortcuts, "Hide", "영어 문구: 단축키 접기")
+expectEqual(L10n.resetAllShortcuts, "Reset all", "영어 문구: 단축키 모두 기본값")
+expectEqual(L10n.shortcutConflictAction("Open"), "Already used by ‘Open’", "영어 문구: 동작 충돌")
+expectEqual(L10n.shortcutConflictGlobal, "Same as the global shortcut", "영어 문구: 전역 충돌")
+expectEqual(KeyAction.selectPrevious.title, "Previous item", "영어 문구: 동작 이름 위 항목")
+expectEqual(KeyAction.openInTerminal.title, "Go to terminal", "영어 문구: 동작 이름 터미널로 이동")
+expectEqual(KeyAction.jumpToReply.title, "Longest-waiting reply", "영어 문구: 동작 이름 답 대기")
+expectEqual(KeyAction.toggleSettings.title, "Toggle settings", "영어 문구: 동작 이름 설정")
 L10n.language = .ko
 
 print("selftest: \(checks) checks, \(failures) failures")

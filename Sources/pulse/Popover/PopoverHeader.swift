@@ -45,7 +45,7 @@ struct PopoverHeader: View {
                         Spacer(minLength: 0)
                         HeaderPageBadge(model: model)
                         if state.shortcutHintsVisible {
-                            ShortcutKeycap(text: L10n.keyTab)
+                            ShortcutKeycap(text: L10n.keyTab(model.shortcut(.openOldestPage)))
                         }
                     }
                     .padding(.horizontal, 14)
@@ -58,18 +58,18 @@ struct PopoverHeader: View {
                 HStack(spacing: 6) {
                     badge(.attention)
                     if state.shortcutHintsVisible {
-                        ShortcutKeycap(text: L10n.keySpace)
+                        ShortcutKeycap(text: L10n.keySpace(model.shortcut(.jumpToReply)))
                     }
                     badge(.working)
                     badge(.done)
                     if state.shortcutHintsVisible {
-                        ShortcutKeycap(text: L10n.keyShiftSpace)
+                        ShortcutKeycap(text: L10n.keyShiftSpace(model.shortcut(.jumpToDone)))
                     }
                     Spacer(minLength: 0)
                     if showsPages {
                         HeaderPageBadge(model: model)
                         if state.shortcutHintsVisible {
-                            ShortcutKeycap(text: L10n.keyTab)
+                            ShortcutKeycap(text: L10n.keyTab(model.shortcut(.openOldestPage)))
                         }
                     }
                 }

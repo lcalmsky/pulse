@@ -5,6 +5,11 @@ struct PopoverView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: PopoverState
     var onClose: () -> Void = {}
+    /// 설정 시트의 높이. 시트는 overlay 라 팝오버 크기에 들어가지 않으므로, 열려 있는 동안 이 높이로 팝오버를 늘린다.
+    @State private var settingsSheetHeight: CGFloat = 0
+
+    private static let settingsSheetTop: CGFloat = 58
+    private static let settingsSheetBottom: CGFloat = 12
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,11 +28,19 @@ struct PopoverView: View {
                 }
             }
 
+            Spacer(minLength: 0)
             PopoverFooter(model: model, state: state)
         }
         .frame(width: model.density == .compact ? 340 : 400)
+        .frame(
+            minHeight: state.settingsOpen
+                ? settingsSheetHeight + Self.settingsSheetTop + Self.settingsSheetBottom
+                : nil,
+            alignment: .top
+        )
         .background(PopoverBackground())
         .overlay(alignment: .topTrailing) { settingsSheet }
+        .onPreferenceChange(SettingsSheetHeightKey.self) { settingsSheetHeight = $0 }
         .overlay(alignment: .bottom) { toast }
         .animation(.easeOut(duration: 0.18), value: model.recentAcknowledgedCount)
         .onAppear { state.selectedIndex = nil }
@@ -141,7 +154,12 @@ struct PopoverView: View {
     private var settingsSheet: some View {
         if state.settingsOpen {
             SettingsSheet(model: model, state: state)
-                .padding(.top, 58)
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: SettingsSheetHeightKey.self, value: geometry.size.height)
+                    }
+                )
+                .padding(.top, Self.settingsSheetTop)
                 .padding(.trailing, 12)
         }
     }
@@ -159,5 +177,13 @@ struct PopoverView: View {
             }
         }
         .padding(.bottom, 46)
+    }
+}
+
+private struct SettingsSheetHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

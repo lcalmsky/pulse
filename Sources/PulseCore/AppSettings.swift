@@ -29,6 +29,7 @@ public struct AppSettings: Equatable {
     public static let attentionAlertKey = "attentionAlert"
     public static let doneAlertKey = "doneAlert"
     public static let hotKeyKey = "hotKey"
+    public static let keyMapKey = "keyBindings"
     /// 이전 불리언 키. 새 키가 없을 때 이행용으로만 읽는다.
     public static let attentionNotificationsKey = "attentionNotifications"
     public static let doneNotificationsKey = "doneNotifications"
@@ -38,6 +39,7 @@ public struct AppSettings: Equatable {
     public var attentionAlert: AttentionAlert
     public var doneAlert: DoneAlert
     public var hotKey: HotKeyBinding
+    public var keyMap: KeyMap
 
     public static let `default` = AppSettings()
 
@@ -46,13 +48,15 @@ public struct AppSettings: Equatable {
         theme: ThemePreference = .system,
         attentionAlert: AttentionAlert = .cardAndSound,
         doneAlert: DoneAlert = .card,
-        hotKey: HotKeyBinding = .default
+        hotKey: HotKeyBinding = .default,
+        keyMap: KeyMap = .default
     ) {
         self.density = density
         self.theme = theme
         self.attentionAlert = attentionAlert
         self.doneAlert = doneAlert
         self.hotKey = hotKey
+        self.keyMap = keyMap
     }
 
     /// 저장된 원문을 읽는다. 새 키가 알려진 값이면 그것을, 아니면 이전 불리언을, 둘 다 없으면 기본값을 쓴다.
@@ -63,7 +67,8 @@ public struct AppSettings: Equatable {
         doneAlertRaw: String? = nil,
         legacyAttention: Bool? = nil,
         legacyDone: Bool? = nil,
-        hotKeyRaw: String? = nil
+        hotKeyRaw: String? = nil,
+        keyMapRaw: [String: String]? = nil
     ) {
         self.init(
             density: densityRaw.flatMap(Density.init(rawValue:)) ?? .rich,
@@ -74,7 +79,8 @@ public struct AppSettings: Equatable {
             doneAlert: doneAlertRaw.flatMap(DoneAlert.init(rawValue:))
                 ?? legacyDone.map { $0 ? .card : .off }
                 ?? .card,
-            hotKey: hotKeyRaw.flatMap(HotKeyBinding.init(rawValue:)) ?? .default
+            hotKey: hotKeyRaw.flatMap(HotKeyBinding.init(rawValue:)) ?? .default,
+            keyMap: KeyMap(rawDictionary: keyMapRaw)
         )
     }
 }

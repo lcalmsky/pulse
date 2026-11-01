@@ -22,7 +22,7 @@ public enum L10n {
         preferredLanguages: Locale.preferredLanguages
     )
 
-    private static func pick(_ ko: String, _ en: String) -> String {
+    static func pick(_ ko: String, _ en: String) -> String {
         language == .en ? en : ko
     }
 
@@ -210,11 +210,13 @@ public enum L10n {
         pick("질문·권한 대기는 미룰 수 없어요", "Questions and permission requests can't be snoozed")
     }
     public static var replyInOrca: String { pick("답하기 · Orca 에서 터미널 열기", "Reply · open the terminal in Orca") }
-    public static var replyInOrcaShortcut: String {
-        pick("답하기 · Orca 에서 터미널 열기 (⌥↩)", "Reply · open the terminal in Orca (⌥↩)")
+    public static func replyInOrcaShortcut(_ keys: String) -> String {
+        pick("답하기 · Orca 에서 터미널 열기 (\(keys))", "Reply · open the terminal in Orca (\(keys))")
     }
-    public static var openShortcut: String { pick("열기 (↩)", "Open (↩)") }
-    public static var acknowledgeShortcut: String { pick("확인 (⌫)", "Dismiss (⌫)") }
+    public static func openShortcut(_ keys: String) -> String { pick("열기 (\(keys))", "Open (\(keys))") }
+    public static func acknowledgeShortcut(_ keys: String) -> String {
+        pick("확인 (\(keys))", "Dismiss (\(keys))")
+    }
     public static var openProgressPage: String { pick("브라우저에서 진행 페이지 열기", "Open the progress page in the browser") }
     public static var progressPageNotCreated: String {
         pick(
@@ -250,17 +252,17 @@ public enum L10n {
         pick("이 세션 페이지 모두 닫기", "Dismiss this session's pages")
     }
 
-    public static var keySpace: String { "Space" }
-    public static var keyShiftSpace: String { "⇧Space" }
-    public static var keyTab: String { "Tab" }
-    public static var keySettings: String { "⌘," }
-    public static var shortcutOpen: String { pick("↩ 열기", "↩ Open") }
-    public static var shortcutOrca: String { pick("⌥↩ Orca", "⌥↩ Orca") }
-    public static func shortcutMultiplexer(_ kind: String) -> String {
-        pick("⌥↩ \(kind) 패널", "⌥↩ \(kind) pane")
+    public static func keySpace(_ keys: String) -> String { keys }
+    public static func keyShiftSpace(_ keys: String) -> String { keys }
+    public static func keyTab(_ keys: String) -> String { keys }
+    public static func keySettings(_ keys: String) -> String { keys }
+    public static func shortcutOpen(_ keys: String) -> String { pick("\(keys) 열기", "\(keys) Open") }
+    public static func shortcutOrca(_ keys: String) -> String { pick("\(keys) Orca", "\(keys) Orca") }
+    public static func shortcutMultiplexer(_ kind: String, _ keys: String) -> String {
+        pick("\(keys) \(kind) 패널", "\(keys) \(kind) pane")
     }
-    public static var shortcutPage: String { pick("⇧↩ 페이지", "⇧↩ Page") }
-    public static var shortcutDismiss: String { pick("⌫ 확인", "⌫ Dismiss") }
+    public static func shortcutPage(_ keys: String) -> String { pick("\(keys) 페이지", "\(keys) Page") }
+    public static func shortcutDismiss(_ keys: String) -> String { pick("\(keys) 확인", "\(keys) Dismiss") }
 
     // MARK: - 명령줄
 
@@ -288,7 +290,9 @@ public enum L10n {
     public static func unknownOption(_ option: String) -> String {
         pick("pulse: 알 수 없는 옵션 \(option)", "pulse: unknown option \(option)")
     }
-    public static var goToOrcaShortcut: String { pick("Orca 로 이동 (⌥↩)", "Go to Orca (⌥↩)") }
+    public static func goToOrcaShortcut(_ keys: String) -> String {
+        pick("Orca 로 이동 (\(keys))", "Go to Orca (\(keys))")
+    }
     public static var goToOrcaArrow: String { pick("→ Orca 로 이동", "→ Go to Orca") }
     public static func openPR(_ label: String) -> String { pick("PR \(label) 열기", "Open PR \(label)") }
     public static func openKey(_ key: String) -> String { pick("\(key) 열기", "Open \(key)") }
@@ -302,7 +306,9 @@ public enum L10n {
     public static var close: String { pick("닫기", "Close") }
     public static var hideFloatingWindow: String { pick("플로팅 창 숨기기", "Hide floating window") }
     public static var showFloatingWindow: String { pick("플로팅 창 보기", "Show floating window") }
-    public static var viewSettingsShortcut: String { pick("보기 설정 (⌘,)", "View settings (⌘,)") }
+    public static func viewSettingsShortcut(_ keys: String) -> String {
+        pick("보기 설정 (\(keys))", "View settings (\(keys))")
+    }
     public static var quit: String { pick("종료", "Quit") }
     public static func updated(_ relative: String) -> String { pick("\(relative) 갱신", "Updated \(relative)") }
     public static var notUpdatedYet: String { pick("갱신 전", "Not updated yet") }
@@ -360,8 +366,8 @@ public enum L10n {
     public static func multiplexerMove(_ kind: String) -> String {
         pick("\(kind) 패널로 이동", "Go to \(kind) pane")
     }
-    public static func multiplexerMoveShortcut(_ kind: String) -> String {
-        pick("\(kind) 패널로 이동 (⌥↩)", "Go to \(kind) pane (⌥↩)")
+    public static func multiplexerMoveShortcut(_ kind: String, _ keys: String) -> String {
+        pick("\(kind) 패널로 이동 (\(keys))", "Go to \(kind) pane (\(keys))")
     }
 
     // MARK: - 설정 시트
@@ -413,5 +419,38 @@ public enum L10n {
     }
     public static var shortcutHint: String {
         pick("한 번: 팝오버 · 열린 채로 한 번 더: 플로팅 패널", "Once: popover · Twice: floating panel")
+    }
+    public static var globalShortcut: String { pick("전역 단축키", "Global shortcut") }
+    public static var showAllShortcuts: String { pick("모든 단축키 보기", "Show all shortcuts") }
+    public static var hideShortcuts: String { pick("접기", "Hide") }
+    public static var resetAllShortcuts: String { pick("모두 기본값", "Reset all") }
+    public static func shortcutConflictAction(_ title: String) -> String {
+        pick("이미 ‘\(title)’ 에 쓰는 키예요", "Already used by ‘\(title)’")
+    }
+    public static var shortcutConflictGlobal: String {
+        pick("전역 단축키와 같아요", "Same as the global shortcut")
+    }
+}
+
+public extension KeyAction {
+    var title: String {
+        switch self {
+        case .selectPrevious: return L10n.pick("위 항목", "Previous item")
+        case .selectNext: return L10n.pick("아래 항목", "Next item")
+        case .selectFirst: return L10n.pick("첫 항목", "First item")
+        case .selectLast: return L10n.pick("마지막 항목", "Last item")
+        case .expandSteps: return L10n.pick("단계 펼치기", "Expand steps")
+        case .collapseSteps: return L10n.pick("단계 접기", "Collapse steps")
+        case .expandAllSteps: return L10n.pick("단계 모두 펼치기", "Expand all steps")
+        case .collapseAllSteps: return L10n.pick("단계 모두 접기", "Collapse all steps")
+        case .open: return L10n.pick("열기", "Open")
+        case .openInTerminal: return L10n.pick("터미널로 이동", "Go to terminal")
+        case .openRowPage: return L10n.pick("페이지 열기", "Open page")
+        case .jumpToReply: return L10n.pick("가장 오래 기다린 답", "Longest-waiting reply")
+        case .jumpToDone: return L10n.pick("가장 오래된 완료", "Oldest finished")
+        case .openOldestPage: return L10n.pick("가장 오래된 페이지", "Oldest page")
+        case .acknowledge: return L10n.pick("확인 처리", "Dismiss")
+        case .toggleSettings: return L10n.pick("설정 열고 닫기", "Toggle settings")
+        }
     }
 }

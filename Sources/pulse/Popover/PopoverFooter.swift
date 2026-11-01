@@ -19,7 +19,7 @@ struct PopoverFooter: View {
 
                 Spacer(minLength: 4)
 
-                Text("⌃⌥P")
+                Text(model.hotKey.displayString)
                     .font(.system(size: 11))
                     .foregroundColor(PopoverPalette.secondary)
                     .padding(.trailing, 4)
@@ -31,12 +31,12 @@ struct PopoverFooter: View {
                     model.togglePanel()
                 }
                 if state.shortcutHintsVisible {
-                    ShortcutKeycap(text: L10n.keySettings)
+                    ShortcutKeycap(text: L10n.keySettings(model.shortcut(.toggleSettings)))
                         .padding(.trailing, 2)
                 }
                 PopoverIconButton(
                     symbol: "gearshape",
-                    help: L10n.viewSettingsShortcut,
+                    help: L10n.viewSettingsShortcut(model.shortcut(.toggleSettings)),
                     selected: state.settingsOpen
                 ) {
                     state.settingsOpen.toggle()

@@ -9,11 +9,13 @@ final class PopoverState: ObservableObject {
     @Published var shortcutHintsVisible = false
     @Published var settingsOpen = false {
         didSet {
-            if !settingsOpen { stopHotKeyRecording() }
+            if !settingsOpen { stopShortcutRecording() }
         }
     }
-    @Published private(set) var recordingHotKey = false
-    @Published private(set) var hotKeyNeedsModifier = false
+    @Published private(set) var recordingTarget: ShortcutTarget?
+    @Published private(set) var shortcutNeedsModifier = false
+    /// 설정 시트의 목록 단축키 펼침.
+    @Published var shortcutsExpanded = false
     /// 녹화 상태가 바뀔 때 핫키를 잠그거나 푸는 쪽이 연결한다.
     var onHotKeyRecording: ((Bool) -> Void)?
     /// 키보드로 단계 펼침을 바꾼 뒤 선택 행을 다시 보이게 하라는 요청. 값이 커지면 팝오버가 최소한으로 스크롤한다.
@@ -28,7 +30,7 @@ final class PopoverState: ObservableObject {
     private var optionHoldWork: DispatchWorkItem?
 
     func reset() {
-        stopHotKeyRecording()
+        stopShortcutRecording()
         selectedIndex = nil
         setOptionDown(false)
         settingsOpen = false
@@ -37,23 +39,23 @@ final class PopoverState: ObservableObject {
         lastReplyJumpSessionId = nil
     }
 
-    func startHotKeyRecording() {
-        guard !recordingHotKey else { return }
-        recordingHotKey = true
-        hotKeyNeedsModifier = false
+    func startShortcutRecording(_ target: ShortcutTarget) {
+        guard recordingTarget != target else { return }
+        recordingTarget = target
+        shortcutNeedsModifier = false
         onHotKeyRecording?(true)
     }
 
-    /// 수식키 없이 누른 키를 받았을 때 녹화는 유지하고 안내만 바꾼다.
-    func markHotKeyNeedsModifier() {
-        guard recordingHotKey, !hotKeyNeedsModifier else { return }
-        hotKeyNeedsModifier = true
+    /// 전역 단축키 녹화에서 수식키 없이 누른 키를 받았을 때 녹화는 유지하고 안내만 바꾼다.
+    func markShortcutNeedsModifier() {
+        guard recordingTarget != nil, !shortcutNeedsModifier else { return }
+        shortcutNeedsModifier = true
     }
 
-    func stopHotKeyRecording() {
-        guard recordingHotKey else { return }
-        recordingHotKey = false
-        hotKeyNeedsModifier = false
+    func stopShortcutRecording() {
+        guard recordingTarget != nil else { return }
+        recordingTarget = nil
+        shortcutNeedsModifier = false
         onHotKeyRecording?(false)
     }
 

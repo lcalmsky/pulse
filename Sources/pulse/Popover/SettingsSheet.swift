@@ -136,13 +136,19 @@ struct SettingsSheet: View {
                 .padding(.horizontal, 2)
                 .padding(.bottom, 12)
 
+            Text(L10n.shortcut)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(PopoverPalette.tertiary)
+                .padding(.horizontal, 2)
+                .padding(.bottom, 6)
+
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Text(L10n.shortcut)
+                    Text(L10n.globalShortcut)
                         .font(.system(size: 12))
                         .foregroundColor(PopoverPalette.secondary)
                     Spacer(minLength: 0)
-                    if state.recordingHotKey {
+                    if state.recordingTarget == .globalHotKey {
                         KeyHint(L10n.shortcutRecording, accent: true)
                     } else {
                         KeyHint(model.hotKey.displayString)
@@ -153,8 +159,8 @@ struct SettingsSheet: View {
                                 .font(.system(size: 11))
                         }
                         Button(L10n.shortcutChange) {
-                            model.clearHotKeyRejected()
-                            state.startHotKeyRecording()
+                            model.clearShortcutFeedback()
+                            state.startShortcutRecording(.globalHotKey)
                         }
                             .buttonStyle(.link)
                             .font(.system(size: 11))
@@ -164,6 +170,8 @@ struct SettingsSheet: View {
                     .font(.system(size: 11))
                     .foregroundColor(shortcutDescriptionColor)
                     .fixedSize(horizontal: false, vertical: true)
+
+                shortcutList
             }
             .padding(.horizontal, 2)
         }
@@ -180,9 +188,62 @@ struct SettingsSheet: View {
         .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
     }
 
+    @ViewBuilder
+    private var shortcutList: some View {
+        if state.shortcutsExpanded {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(KeyAction.allCases, id: \.self) { action in
+                        let binding = model.keyMap.binding(for: action)
+                        ShortcutRow(
+                            title: action.title,
+                            binding: binding,
+                            recording: state.recordingTarget == .action(action),
+                            isDefault: binding == action.defaultBinding,
+                            startRecording: {
+                                model.clearShortcutFeedback()
+                                state.startShortcutRecording(.action(action))
+                            },
+                            reset: { model.resetKeyBinding(action) }
+                        )
+                    }
+                }
+            }
+            .frame(maxHeight: 300)
+
+            HStack(spacing: 8) {
+                Button(L10n.hideShortcuts) { state.shortcutsExpanded = false }
+                    .buttonStyle(.link)
+                    .font(.system(size: 11))
+                Spacer(minLength: 0)
+                if model.keyMap != .default || model.hotKey != .default {
+                    Button(L10n.resetAllShortcuts) { model.resetAllShortcuts() }
+                        .buttonStyle(.link)
+                        .font(.system(size: 11))
+                }
+            }
+            .padding(.top, 2)
+        } else {
+            Button(L10n.showAllShortcuts) { state.shortcutsExpanded = true }
+                .buttonStyle(.link)
+                .font(.system(size: 11))
+        }
+    }
+
     private var shortcutDescription: String {
-        if state.recordingHotKey {
-            return state.hotKeyNeedsModifier ? L10n.shortcutNeedsModifier : L10n.shortcutRecordingHint
+        if let target = state.recordingTarget {
+            if target == .globalHotKey, state.shortcutNeedsModifier {
+                return L10n.shortcutNeedsModifier
+            }
+            return L10n.shortcutRecordingHint
+        }
+        switch model.shortcutConflict {
+        case let .action(action):
+            return L10n.shortcutConflictAction(action.title)
+        case .globalHotKey:
+            return L10n.shortcutConflictGlobal
+        case nil:
+            break
         }
         if let rejected = model.hotKeyRejected {
             return L10n.shortcutTaken(rejected.displayString)
@@ -194,11 +255,55 @@ struct SettingsSheet: View {
     }
 
     private var shortcutDescriptionColor: Color {
-        if state.recordingHotKey {
-            return state.hotKeyNeedsModifier ? PopoverPalette.attention : PopoverPalette.secondary
+        if state.recordingTarget != nil {
+            return state.shortcutNeedsModifier ? PopoverPalette.attention : PopoverPalette.secondary
         }
-        let failed = model.hotKeyUnavailable || model.hotKeyRejected != nil
+        let failed = model.hotKeyUnavailable
+            || model.hotKeyRejected != nil
+            || model.shortcutConflict != nil
         return PopoverPalette.tertiary.opacity(failed ? 0.6 : 1)
+    }
+}
+
+private struct ShortcutRow: View {
+    let title: String
+    let binding: HotKeyBinding
+    let recording: Bool
+    let isDefault: Bool
+    let startRecording: () -> Void
+    let reset: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(action: startRecording) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 11.5))
+                        .foregroundColor(PopoverPalette.secondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    if recording {
+                        KeyHint(L10n.shortcutRecording, accent: true)
+                    } else {
+                        KeyHint(binding.displayString)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if !recording, !isDefault {
+                Button(action: reset) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundColor(PopoverPalette.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help(L10n.shortcutReset)
+            }
+        }
+        .padding(.horizontal, 2)
+        .padding(.vertical, 2)
     }
 }
 

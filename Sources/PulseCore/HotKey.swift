@@ -34,6 +34,16 @@ public struct HotKeyBinding: Equatable {
         guard isValid else { return nil }
     }
 
+    /// 목록 단축키 저장 원문. 전역 단축키와 달리 수식키가 없어도 된다.
+    public init?(listRawValue: String) {
+        let parts = listRawValue.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              let keyCode = UInt32(parts[0]),
+              let modifiers = UInt32(parts[1]) else { return nil }
+        self.init(keyCode: Self.normalizedKeyCode(keyCode), modifiers: modifiers)
+        guard isValidListKey else { return nil }
+    }
+
     public var rawValue: String { "\(keyCode):\(modifiers)" }
 
     /// ⇧ 만으로는 단축키가 되지 않는다. 등록할 수 없는 조합은 저장하지 않는다.
@@ -41,6 +51,23 @@ public struct HotKeyBinding: Equatable {
         modifiers & ~Self.supportedModifiers == 0
             && modifiers & Self.actionModifiers != 0
             && Self.keyName(for: keyCode) != nil
+    }
+
+    /// 목록 키는 수식키 없이도 되고 Esc 는 쓰지 않는다.
+    public var isValidListKey: Bool {
+        let normalized = Self.normalizedKeyCode(keyCode)
+        return modifiers & ~Self.supportedModifiers == 0
+            && normalized != 53
+            && Self.keyName(for: normalized) != nil
+    }
+
+    /// 키패드 Enter 와 Forward Delete 는 기존 목록 키 처리와 같은 동작으로 맞춘다.
+    public static func normalizedKeyCode(_ keyCode: UInt32) -> UInt32 {
+        switch keyCode {
+        case 76: return 36
+        case 117: return 51
+        default: return keyCode
+        }
     }
 
     public var displayString: String {
@@ -112,7 +139,7 @@ public struct HotKeyBinding: Equatable {
         case 45: return "N"
         case 46: return "M"
         case 47: return "."
-        case 48: return "⇥"
+        case 48: return "Tab"
         case 49: return "Space"
         case 50: return "`"
         case 51: return "⌫"

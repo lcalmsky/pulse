@@ -94,7 +94,7 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "arrow.up.forward.square",
-                    help: L10n.openShortcut,
+                    help: L10n.openShortcut(model.shortcut(.open)),
                     enabled: item.isActionable,
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
@@ -104,8 +104,9 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
-                    help: item.multiplexer.map { L10n.multiplexerMoveShortcut($0.kind.rawValue) }
-                        ?? L10n.replyInOrcaShortcut,
+                    help: item.multiplexer.map {
+                        L10n.multiplexerMoveShortcut($0.kind.rawValue, model.shortcut(.openInTerminal))
+                    } ?? L10n.replyInOrcaShortcut(model.shortcut(.openInTerminal)),
                     enabled: showsOrca,
                     symbolSize: 13,
                     restingFill: PopoverPalette.attention,
@@ -213,8 +214,9 @@ struct SessionRowView: View {
                 if showsOrca {
                     PopoverIconButton(
                         symbol: "arrow.up.forward.square",
-                        help: item.multiplexer.map { L10n.multiplexerMoveShortcut($0.kind.rawValue) }
-                            ?? L10n.goToOrcaShortcut,
+                        help: item.multiplexer.map {
+                            L10n.multiplexerMoveShortcut($0.kind.rawValue, model.shortcut(.openInTerminal))
+                        } ?? L10n.goToOrcaShortcut(model.shortcut(.openInTerminal)),
                         symbolSize: 13
                     ) {
                         model.openInOrca(item)
@@ -519,7 +521,7 @@ struct SessionRowView: View {
                 if item.isActionable {
                     PopoverIconButton(
                         symbol: "arrow.up.forward.square",
-                        help: L10n.openShortcut,
+                        help: L10n.openShortcut(model.shortcut(.open)),
                         symbolSize: 13,
                         restingFill: PopoverPalette.rowHover,
                         restingGlyph: PopoverPalette.text
@@ -529,7 +531,7 @@ struct SessionRowView: View {
                 }
                 PopoverIconButton(
                     symbol: "checkmark",
-                    help: L10n.acknowledgeShortcut,
+                    help: L10n.acknowledgeShortcut(model.shortcut(.acknowledge)),
                     symbolSize: 13,
                     restingFill: PopoverPalette.rowHover,
                     restingGlyph: PopoverPalette.text
@@ -569,18 +571,18 @@ struct SessionRowView: View {
     }
 
     private var shortcutHintText: String {
-        var parts: [String] = [L10n.shortcutOpen]
+        var parts: [String] = [L10n.shortcutOpen(model.shortcut(.open))]
         if showsOrca {
             if let kind = item.multiplexer?.kind.rawValue {
-                parts.append(L10n.shortcutMultiplexer(kind))
+                parts.append(L10n.shortcutMultiplexer(kind, model.shortcut(.openInTerminal)))
             } else {
-                parts.append(L10n.shortcutOrca)
+                parts.append(L10n.shortcutOrca(model.shortcut(.openInTerminal)))
             }
         }
         if !sessionPages.isEmpty {
-            parts.append(L10n.shortcutPage)
+            parts.append(L10n.shortcutPage(model.shortcut(.openRowPage)))
         }
-        parts.append(L10n.shortcutDismiss)
+        parts.append(L10n.shortcutDismiss(model.shortcut(.acknowledge)))
         return parts.joined(separator: " · ")
     }
 

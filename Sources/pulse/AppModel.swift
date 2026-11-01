@@ -38,6 +38,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var hotKeyUnavailable = false
     /// 직전 변경이 다른 앱과 겹쳐 실패한 조합. 성공하면 지운다.
     @Published private(set) var hotKeyRejected: HotKeyBinding?
+    @Published private(set) var keyMap: KeyMap
+    /// 직전 목록 단축키 변경이 겹쳐 저장되지 않은 이유. 녹화를 시작하면 지운다.
+    @Published private(set) var shortcutConflict: ShortcutConflict?
     /// 단계를 펼친 세션. 팝오버와 플로팅 패널이 같은 펼침을 본다.
     @Published private(set) var expandedSteps: Set<String> = []
     /// 세 줄 창을 넘겨 전체 단계를 보는 세션.
@@ -102,13 +105,15 @@ final class AppModel: ObservableObject {
             doneAlertRaw: defaults.string(forKey: AppSettings.doneAlertKey),
             legacyAttention: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool,
             legacyDone: defaults.object(forKey: AppSettings.doneNotificationsKey) as? Bool,
-            hotKeyRaw: defaults.string(forKey: AppSettings.hotKeyKey)
+            hotKeyRaw: defaults.string(forKey: AppSettings.hotKeyKey),
+            keyMapRaw: defaults.dictionary(forKey: AppSettings.keyMapKey) as? [String: String]
         )
         density = settings.density
         theme = settings.theme
         attentionAlert = settings.attentionAlert
         doneAlert = settings.doneAlert
         hotKey = settings.hotKey
+        keyMap = settings.keyMap
 
         acknowledgements = DoneAcknowledgements(
             keys: Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
@@ -163,6 +168,14 @@ final class AppModel: ObservableObject {
 
     func setHotKey(_ value: HotKeyBinding) {
         guard value.isValid, value != hotKey else { return }
+        if case let .action(action)? = keyMap.conflict(
+            for: value,
+            assigningTo: nil,
+            globalHotKey: hotKey
+        ) {
+            shortcutConflict = .action(action)
+            return
+        }
         guard onHotKeyChange?(value) == true else {
             hotKeyRejected = value
             return
@@ -171,15 +184,60 @@ final class AppModel: ObservableObject {
         defaults.set(value.rawValue, forKey: AppSettings.hotKeyKey)
         hotKeyUnavailable = false
         hotKeyRejected = nil
+        shortcutConflict = nil
     }
 
     func resetHotKey() {
         setHotKey(.default)
     }
 
-    /// 새 조합을 받기 시작하면 이전 충돌 안내를 지운다. 취소한 뒤에 안내가 남지 않게 한다.
-    func clearHotKeyRejected() {
+    /// 새 조합을 받기 시작하면 이전 안내를 지운다. 취소한 뒤에 안내가 남지 않게 한다.
+    func clearShortcutFeedback() {
         hotKeyRejected = nil
+        shortcutConflict = nil
+    }
+
+    func setKeyBinding(_ value: HotKeyBinding, for action: KeyAction) {
+        guard value.isValidListKey else { return }
+        let normalized = HotKeyBinding(
+            keyCode: HotKeyBinding.normalizedKeyCode(value.keyCode),
+            modifiers: value.modifiers
+        )
+        guard normalized != keyMap.binding(for: action) else { return }
+        if let conflict = keyMap.conflict(
+            for: normalized,
+            assigningTo: action,
+            globalHotKey: hotKey
+        ) {
+            shortcutConflict = conflict
+            return
+        }
+        keyMap = keyMap.setting(normalized, for: action)
+        persistKeyMap()
+        shortcutConflict = nil
+    }
+
+    func resetKeyBinding(_ action: KeyAction) {
+        guard keyMap.binding(for: action) != action.defaultBinding else { return }
+        keyMap = keyMap.resetting(action)
+        persistKeyMap()
+        shortcutConflict = nil
+    }
+
+    func resetAllShortcuts() {
+        keyMap = .default
+        persistKeyMap()
+        shortcutConflict = nil
+        resetHotKey()
+    }
+
+    /// 화면에 보여 줄 키. 목록 동작과 전역 단축키가 바인딩을 따른다.
+    func shortcut(_ action: KeyAction) -> String {
+        keyMap.binding(for: action).displayString
+    }
+
+    private func persistKeyMap() {
+        defaults.set(keyMap.rawDictionary, forKey: AppSettings.keyMapKey)
     }
 
     func updateNotificationPermission(_ value: NotificationPermission) {
