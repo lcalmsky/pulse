@@ -28,7 +28,7 @@ brew install lcalmsky/pulse/pulse
 brew services start lcalmsky/pulse/pulse
 ```
 
-A small ring with a heartbeat line appears in the menu bar. Click the ring or press `⌃⌥P` to open the popover.
+A small ring with a heartbeat line appears in the menu bar. Click the ring or press `⌃⌥P` to open the popover. You can change the hotkey in Settings.
 
 <br>
 
@@ -120,7 +120,7 @@ On macOS 26 and later it uses Liquid Glass, and on earlier versions a blur backg
 <td width="42%" valign="top"><img src="docs/images/settings.en.png" alt="Settings sheet" width="360"></td>
 <td valign="top">
 
-Open it with the gear button or `⌘,`. Change the density, theme, and notifications here, and check the hotkey status.
+Open it with the gear button or `⌘,`. Change the density, theme, notifications, and hotkey here.
 
 | Item | Choice |
 |---|---|
@@ -128,7 +128,7 @@ Open it with the gear button or `⌘,`. Change the density, theme, and notificat
 | Theme | System · Light · Dark. In Light, an extra light layer sits on the glass so text behind the popover does not show through |
 | When attention is needed | `Card and sound` · `Card only` · `Off` |
 | When a task finishes | `Card` · `Off` |
-| Hotkey | `⌃⌥P`. Shown here when another app uses it |
+| Hotkey | `⌃⌥P` by default. Click `Change` and press a new combination to switch right away, or press `Esc` to cancel. The combination must include `⌘`, `⌃`, or `⌥`. If another app uses it, the previous hotkey stays and a note appears here. When it is not the default, `Reset` goes back to `⌃⌥P` |
 
 When **Reduce transparency** is on in System Settings › Accessibility › Display, the popover and cards draw a solid background instead of glass. A note and an `Open Settings` button then appear under Theme, and the button opens that settings pane. Reduce transparency applies to the whole system, so Pulse does not turn it off for you.
 
@@ -179,7 +179,7 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 
 | Key | Action |
 |---|---|
-| `⌃⌥P` | Global hotkey. Opens the popover. Pressing it again while the popover is open closes it and gives the floating panel keyboard focus. When only the panel is visible it gives the panel focus, and when the panel already has the keyboard it hides the panel |
+| `⌃⌥P` | Global hotkey. You can change it in Settings. Opens the popover. Pressing it again while the popover is open closes it and gives the floating panel keyboard focus. When only the panel is visible it gives the panel focus, and when the panel already has the keyboard it hides the panel |
 | `↑` `↓` | Move through items. Pressing past either end wraps around to the other side |
 | `⌥↑` `⌥↓` | Jump to the first or last item |
 | Typed characters | Typing a character without `⌘` or `⌃` in the popover or a floating panel that takes the keyboard opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels |
