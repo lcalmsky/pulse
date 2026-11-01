@@ -142,17 +142,28 @@ struct SettingsSheet: View {
                         .font(.system(size: 12))
                         .foregroundColor(PopoverPalette.secondary)
                     Spacer(minLength: 0)
-                    KeyHint("⌃⌥P")
-                        .opacity(model.hotKeyUnavailable ? 0.4 : 1)
+                    if state.recordingHotKey {
+                        KeyHint(L10n.shortcutRecording, accent: true)
+                    } else {
+                        KeyHint(model.hotKey.displayString)
+                            .opacity(model.hotKeyUnavailable ? 0.4 : 1)
+                        if model.hotKey != .default {
+                            Button(L10n.shortcutReset) { model.resetHotKey() }
+                                .buttonStyle(.link)
+                                .font(.system(size: 11))
+                        }
+                        Button(L10n.shortcutChange) {
+                            model.clearHotKeyRejected()
+                            state.startHotKeyRecording()
+                        }
+                            .buttonStyle(.link)
+                            .font(.system(size: 11))
+                    }
                 }
-                Text(
-                    model.hotKeyUnavailable
-                        ? L10n.shortcutTaken
-                        : L10n.shortcutHint
-                )
-                .font(.system(size: 11))
-                .foregroundColor(PopoverPalette.tertiary.opacity(model.hotKeyUnavailable ? 0.6 : 1))
-                .fixedSize(horizontal: false, vertical: true)
+                Text(shortcutDescription)
+                    .font(.system(size: 11))
+                    .foregroundColor(shortcutDescriptionColor)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 2)
         }
@@ -167,6 +178,27 @@ struct SettingsSheet: View {
                 .stroke(PopoverPalette.strokeHi, lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
+    }
+
+    private var shortcutDescription: String {
+        if state.recordingHotKey {
+            return state.hotKeyNeedsModifier ? L10n.shortcutNeedsModifier : L10n.shortcutRecordingHint
+        }
+        if let rejected = model.hotKeyRejected {
+            return L10n.shortcutTaken(rejected.displayString)
+        }
+        if model.hotKeyUnavailable {
+            return L10n.shortcutTaken(model.hotKey.displayString)
+        }
+        return L10n.shortcutHint
+    }
+
+    private var shortcutDescriptionColor: Color {
+        if state.recordingHotKey {
+            return state.hotKeyNeedsModifier ? PopoverPalette.attention : PopoverPalette.secondary
+        }
+        let failed = model.hotKeyUnavailable || model.hotKeyRejected != nil
+        return PopoverPalette.tertiary.opacity(failed ? 0.6 : 1)
     }
 }
 

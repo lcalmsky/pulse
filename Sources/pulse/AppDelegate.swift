@@ -29,8 +29,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onPanelFocusRequest = { [weak self] in self?.panelController?.focus() }
         model.onPanelFocusRelease = { [weak self] in self?.panelController?.releaseFocus() }
 
-        let hotKey = GlobalHotKey { [weak self] in self?.handleHotKey() }
+        let hotKey = GlobalHotKey(binding: model.hotKey) { [weak self] in self?.handleHotKey() }
         self.hotKey = hotKey
+        model.onHotKeyChange = { [weak self] binding in self?.hotKey?.update(to: binding) ?? false }
+        model.onHotKeyRecording = { [weak self] recording in
+            if recording {
+                self?.hotKey?.suspend()
+            } else if let hotKey = self?.hotKey {
+                // 시작할 때 등록에 실패했더라도 지금 등록됐으면 안내를 지운다.
+                self?.model.setHotKeyUnavailable(!hotKey.resume())
+            }
+        }
         model.setHotKeyUnavailable(!hotKey.register())
 
         model.start()

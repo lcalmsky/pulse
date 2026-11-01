@@ -2151,6 +2151,18 @@ expectEqual(AppSettings.attentionAlertKey, "attentionAlert", "설정: 확인 필
 expectEqual(AppSettings.doneAlertKey, "doneAlert", "설정: 끝남 알림 키")
 expectEqual(AppSettings.attentionNotificationsKey, "attentionNotifications", "설정: 이전 확인 필요 알림 키")
 expectEqual(AppSettings.doneNotificationsKey, "doneNotifications", "설정: 이전 끝남 알림 키")
+expectEqual(AppSettings.hotKeyKey, "hotKey", "설정: 단축키 키")
+expectEqual(AppSettings.default.hotKey, .default, "설정: 기본 단축키는 ⌃⌥P")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil).hotKey, .default, "설정: 단축키 키가 없으면 기본값")
+expectEqual(
+    AppSettings(densityRaw: nil, themeRaw: nil, hotKeyRaw: "40:768").hotKey,
+    HotKeyBinding(keyCode: 40, modifiers: HotKeyBinding.commandModifier | HotKeyBinding.shiftModifier),
+    "설정: 저장된 단축키를 읽는다"
+)
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, hotKeyRaw: "35:0").hotKey, .default,
+            "설정: 잘못된 단축키 원문은 기본값")
+expectEqual(AppSettings(densityRaw: nil, themeRaw: nil, hotKeyRaw: "garbage").hotKey, .default,
+            "설정: 형식이 틀린 단축키 원문은 기본값")
 
 let unknownSettings = AppSettings(densityRaw: "dense", themeRaw: "sepia")
 expectEqual(unknownSettings, AppSettings.default, "설정: 알 수 없는 값과 없는 값은 기본값")
@@ -2513,6 +2525,59 @@ expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true, panelKey
             "단축키: 팝오버가 열려 있고 패널이 떠 있으면 닫고 패널에 포커스를 준다")
 expectEqual(HotKeyRouting.action(popoverOpen: true, panelVisible: true, panelKey: true), .closePopoverAndFocusPanel,
             "단축키: 팝오버가 열려 있으면 패널의 키 창 여부와 상관없이 닫고 포커스를 준다")
+
+// MARK: - 단축키 조합
+
+expectEqual(
+    HotKeyBinding.default,
+    HotKeyBinding(keyCode: 35, modifiers: HotKeyBinding.controlModifier | HotKeyBinding.optionModifier),
+    "단축키 조합: 기본은 ⌃⌥P"
+)
+expectEqual(HotKeyBinding.default.displayString, "⌃⌥P", "단축키 조합: 기본 표시")
+expectEqual(HotKeyBinding.default.rawValue, "35:6144", "단축키 조합: 저장 원문")
+expectEqual(HotKeyBinding(rawValue: "35:6144"), .default, "단축키 조합: 원문 왕복")
+expectEqual(HotKeyBinding(rawValue: HotKeyBinding.default.rawValue), .default, "단축키 조합: 저장값 왕복")
+
+let commandShiftK = HotKeyBinding(
+    keyCode: 40,
+    modifiers: HotKeyBinding.commandModifier | HotKeyBinding.shiftModifier
+)
+expectEqual(commandShiftK.displayString, "⇧⌘K", "단축키 조합: ⌘⇧K 표시는 ⇧⌘ 순서")
+expectEqual(commandShiftK.rawValue, "40:768", "단축키 조합: ⌘⇧K 원문")
+let allModifiers = HotKeyBinding(
+    keyCode: 49,
+    modifiers: HotKeyBinding.controlModifier | HotKeyBinding.optionModifier
+        | HotKeyBinding.shiftModifier | HotKeyBinding.commandModifier
+)
+expectEqual(allModifiers.displayString, "⌃⌥⇧⌘Space", "단축키 조합: 수식키 순서와 Space")
+expectEqual(HotKeyBinding(keyCode: 126, modifiers: HotKeyBinding.controlModifier).displayString, "⌃↑",
+            "단축키 조합: 방향키 표시")
+expectEqual(HotKeyBinding(keyCode: 122, modifiers: HotKeyBinding.controlModifier).displayString, "⌃F1",
+            "단축키 조합: F 키 표시")
+
+for raw in ["", "abc", "35", "35:0", "35:512", "999:4096", "53:4096", "35:4096:1"] {
+    expectEqual(HotKeyBinding(rawValue: raw), nil, "단축키 조합: 잘못된 원문 '\(raw)'")
+}
+expectEqual(HotKeyBinding(rawValue: "54:4096"), nil, "단축키 조합: 수식키 코드는 표시 이름이 없다")
+expectEqual(HotKeyBinding(rawValue: "36:256"), HotKeyBinding(keyCode: 36, modifiers: HotKeyBinding.commandModifier),
+            "단축키 조합: Return 도 쓸 수 있다")
+
+expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: 1 << 17), HotKeyBinding.shiftModifier,
+            "단축키 조합: NSEvent shift")
+expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: 1 << 18), HotKeyBinding.controlModifier,
+            "단축키 조합: NSEvent control")
+expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: 1 << 19), HotKeyBinding.optionModifier,
+            "단축키 조합: NSEvent option")
+expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: 1 << 20), HotKeyBinding.commandModifier,
+            "단축키 조합: NSEvent command")
+expectEqual(
+    HotKeyBinding.carbonModifiers(cocoaFlags: (1 << 18) | (1 << 19)),
+    HotKeyBinding.controlModifier | HotKeyBinding.optionModifier,
+    "단축키 조합: NSEvent 여러 비트"
+)
+expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: (1 << 16) | (1 << 23)), 0,
+            "단축키 조합: capsLock 과 function 은 버린다")
+expectEqual(HotKeyBinding.carbonModifiers(cocoaFlags: 0), 0, "단축키 조합: 수식키 없음")
 
 // MARK: - 머리글 뱃지
 
@@ -3588,6 +3653,12 @@ let enEtaThree = DisplayItem(
 expectEqual(enEtaThree.etaText, "~3 min left", "영어 문구: 남은 3분")
 expectEqual(L10n.lockedAlertsGrouped, "Locked-screen alerts arrive as one card", "영어 문구: 잠긴 사이 알림 묶음")
 expectEqual(L10n.shortcutHint, "Once: popover · Twice: floating panel", "영어 문구: 단축키 설명")
+expectEqual(L10n.shortcutTaken("⌃⌥P"), "Another app is using ⌃⌥P", "영어 문구: 단축키 점유")
+expectEqual(L10n.shortcutChange, "Change", "영어 문구: 단축키 변경")
+expectEqual(L10n.shortcutReset, "Reset", "영어 문구: 단축키 기본값")
+expectEqual(L10n.shortcutRecording, "Press keys", "영어 문구: 단축키 녹화")
+expectEqual(L10n.shortcutRecordingHint, "Press a new combination. Esc to cancel", "영어 문구: 단축키 녹화 안내")
+expectEqual(L10n.shortcutNeedsModifier, "Include ⌘, ⌃, or ⌥", "영어 문구: 단축키 수식키 안내")
 expectEqual(L10n.reduceTransparencyOn, "Reduce transparency is on, so Pulse uses a solid background instead of glass", "영어 문구: 투명도 줄이기 안내")
 expectEqual(L10n.openDisplaySettings, "Open Settings", "영어 문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "영어 문구: GitHub 별 버튼")
@@ -3692,6 +3763,12 @@ expectEqual(TimePhrase.soFar(from: nil, to: now), nil, "카드 메타: 기준 �
 expectEqual(L10n.reduceTransparencyOn, "시스템의 투명도 줄이기가 켜져 있어 유리 대신 단색 배경으로 보여요", "문구: 투명도 줄이기 안내")
 expectEqual(L10n.openDisplaySettings, "설정 열기", "문구: 설정 열기")
 expectEqual(L10n.starOnGitHub, "Star on GitHub", "문구: GitHub 별 버튼은 한국어 화면에서도 영어")
+expectEqual(L10n.shortcutTaken("⌃⌥P"), "단축키 ⌃⌥P 를 다른 앱이 쓰고 있어요", "문구: 단축키 점유")
+expectEqual(L10n.shortcutChange, "변경", "문구: 단축키 변경")
+expectEqual(L10n.shortcutReset, "기본값", "문구: 단축키 기본값")
+expectEqual(L10n.shortcutRecording, "키를 누르세요", "문구: 단축키 녹화")
+expectEqual(L10n.shortcutRecordingHint, "새 조합을 누르세요. Esc 로 취소해요", "문구: 단축키 녹화 안내")
+expectEqual(L10n.shortcutNeedsModifier, "⌘, ⌃, ⌥ 중 하나를 함께 눌러 주세요", "문구: 단축키 수식키 안내")
 expectEqual(L10n.progressPageNotCreated.hasPrefix("진행 페이지를 만들지 못했어요"), true, "문구: 진행 페이지 생성 실패")
 expectEqual(L10n.progressPageNotOpened, "진행 페이지를 열지 못했어요", "문구: 진행 페이지 열기 실패")
 expectEqual(L10n.noReplySession, "답을 기다리는 세션이 없어요", "문구: 답할 세션 없음")

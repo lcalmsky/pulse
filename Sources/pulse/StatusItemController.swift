@@ -37,6 +37,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         updateStatusItem()
         updatePopoverAppearance()
+        state.onHotKeyRecording = { [weak self] recording in
+            self?.model.onHotKeyRecording?(recording)
+        }
 
         // @Published 는 값이 바뀌기 직전에 발행하므로 sink 안에서 model 을 읽으면 이전 값이다.
         // 다음 런루프로 미뤄 dataChanged 가 항상 바뀐 값을 읽게 한다.

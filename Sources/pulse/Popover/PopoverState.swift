@@ -7,7 +7,15 @@ final class PopoverState: ObservableObject {
     @Published var selectedIndex: Int?
     @Published var optionDown = false
     @Published var shortcutHintsVisible = false
-    @Published var settingsOpen = false
+    @Published var settingsOpen = false {
+        didSet {
+            if !settingsOpen { stopHotKeyRecording() }
+        }
+    }
+    @Published private(set) var recordingHotKey = false
+    @Published private(set) var hotKeyNeedsModifier = false
+    /// 녹화 상태가 바뀔 때 핫키를 잠그거나 푸는 쪽이 연결한다.
+    var onHotKeyRecording: ((Bool) -> Void)?
     /// 키보드로 단계 펼침을 바꾼 뒤 선택 행을 다시 보이게 하라는 요청. 값이 커지면 팝오버가 최소한으로 스크롤한다.
     @Published var revealRequest = 0
     @Published var query = ""
@@ -20,12 +28,33 @@ final class PopoverState: ObservableObject {
     private var optionHoldWork: DispatchWorkItem?
 
     func reset() {
+        stopHotKeyRecording()
         selectedIndex = nil
         setOptionDown(false)
         settingsOpen = false
         query = ""
         searchFocused = false
         lastReplyJumpSessionId = nil
+    }
+
+    func startHotKeyRecording() {
+        guard !recordingHotKey else { return }
+        recordingHotKey = true
+        hotKeyNeedsModifier = false
+        onHotKeyRecording?(true)
+    }
+
+    /// 수식키 없이 누른 키를 받았을 때 녹화는 유지하고 안내만 바꾼다.
+    func markHotKeyNeedsModifier() {
+        guard recordingHotKey, !hotKeyNeedsModifier else { return }
+        hotKeyNeedsModifier = true
+    }
+
+    func stopHotKeyRecording() {
+        guard recordingHotKey else { return }
+        recordingHotKey = false
+        hotKeyNeedsModifier = false
+        onHotKeyRecording?(false)
     }
 
     func setOptionDown(_ down: Bool) {

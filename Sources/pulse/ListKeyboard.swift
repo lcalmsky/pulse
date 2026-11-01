@@ -11,6 +11,25 @@ struct ListKeyboard {
     let close: () -> Void
 
     func handle(_ event: NSEvent) -> Bool {
+        // 녹화 중에는 다른 단축키가 끼어들지 않도록 모든 키를 여기서 가져간다.
+        if handlesSettings, state.recordingHotKey {
+            if event.keyCode == 53 {
+                state.stopHotKeyRecording()
+            } else {
+                let binding = HotKeyBinding(
+                    keyCode: UInt32(event.keyCode),
+                    modifiers: HotKeyBinding.carbonModifiers(cocoaFlags: event.modifierFlags.rawValue)
+                )
+                if binding.isValid {
+                    model.setHotKey(binding)
+                    state.stopHotKeyRecording()
+                } else {
+                    state.markHotKeyNeedsModifier()
+                }
+            }
+            return true
+        }
+
         if handlesSettings,
            event.modifierFlags.contains(.command),
            event.charactersIgnoringModifiers == "," {

@@ -399,7 +399,18 @@ public enum L10n {
         )
     }
     public static var shortcut: String { pick("단축키", "Shortcut") }
-    public static var shortcutTaken: String { pick("단축키 ⌃⌥P 를 다른 앱이 쓰고 있어요", "Another app is using ⌃⌥P") }
+    public static func shortcutTaken(_ keys: String) -> String {
+        pick("단축키 \(keys) 를 다른 앱이 쓰고 있어요", "Another app is using \(keys)")
+    }
+    public static var shortcutChange: String { pick("변경", "Change") }
+    public static var shortcutReset: String { pick("기본값", "Reset") }
+    public static var shortcutRecording: String { pick("키를 누르세요", "Press keys") }
+    public static var shortcutRecordingHint: String {
+        pick("새 조합을 누르세요. Esc 로 취소해요", "Press a new combination. Esc to cancel")
+    }
+    public static var shortcutNeedsModifier: String {
+        pick("⌘, ⌃, ⌥ 중 하나를 함께 눌러 주세요", "Include ⌘, ⌃, or ⌥")
+    }
     public static var shortcutHint: String {
         pick("한 번: 팝오버 · 열린 채로 한 번 더: 플로팅 패널", "Once: popover · Twice: floating panel")
     }

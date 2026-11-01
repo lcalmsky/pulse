@@ -132,15 +132,17 @@ struct PopoverBackground: View {
 
 struct KeyHint: View {
     private let text: String
+    private let accent: Bool
 
-    init(_ text: String) {
+    init(_ text: String, accent: Bool = false) {
         self.text = text
+        self.accent = accent
     }
 
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundColor(PopoverPalette.secondary)
+            .foregroundColor(accent ? PopoverPalette.selection : PopoverPalette.secondary)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 4).fill(PopoverPalette.glassHi))

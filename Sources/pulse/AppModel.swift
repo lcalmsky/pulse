@@ -34,7 +34,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var attentionAlert: AttentionAlert
     @Published private(set) var doneAlert: DoneAlert
     @Published private(set) var notificationPermission: NotificationPermission = .unknown
+    @Published private(set) var hotKey: HotKeyBinding
     @Published private(set) var hotKeyUnavailable = false
+    /// 직전 변경이 다른 앱과 겹쳐 실패한 조합. 성공하면 지운다.
+    @Published private(set) var hotKeyRejected: HotKeyBinding?
     /// 단계를 펼친 세션. 팝오버와 플로팅 패널이 같은 펼침을 본다.
     @Published private(set) var expandedSteps: Set<String> = []
     /// 세 줄 창을 넘겨 전체 단계를 보는 세션.
@@ -86,6 +89,10 @@ final class AppModel: ObservableObject {
     var onPanelFocusRequest: (() -> Void)?
     /// Orca 로 이동한 뒤 패널이 키 창으로 남아 입력을 가로채지 않게 한다.
     var onPanelFocusRelease: (() -> Void)?
+    /// 단축키 조합을 실제로 등록하는 쪽(AppDelegate)이 채운다. 실패하면 false.
+    var onHotKeyChange: ((HotKeyBinding) -> Bool)?
+    /// 녹화 동안 핫키를 내려 두라는 알림. 녹화가 끝나면 false 로 다시 등록하게 한다.
+    var onHotKeyRecording: ((Bool) -> Void)?
 
     init() {
         let settings = AppSettings(
@@ -94,12 +101,14 @@ final class AppModel: ObservableObject {
             attentionAlertRaw: defaults.string(forKey: AppSettings.attentionAlertKey),
             doneAlertRaw: defaults.string(forKey: AppSettings.doneAlertKey),
             legacyAttention: defaults.object(forKey: AppSettings.attentionNotificationsKey) as? Bool,
-            legacyDone: defaults.object(forKey: AppSettings.doneNotificationsKey) as? Bool
+            legacyDone: defaults.object(forKey: AppSettings.doneNotificationsKey) as? Bool,
+            hotKeyRaw: defaults.string(forKey: AppSettings.hotKeyKey)
         )
         density = settings.density
         theme = settings.theme
         attentionAlert = settings.attentionAlert
         doneAlert = settings.doneAlert
+        hotKey = settings.hotKey
 
         acknowledgements = DoneAcknowledgements(
             keys: Set(defaults.stringArray(forKey: Self.acknowledgedKey) ?? [])
@@ -150,6 +159,27 @@ final class AppModel: ObservableObject {
             publishCards()
             notificationCenter.removeDelivered(kind: .done)
         }
+    }
+
+    func setHotKey(_ value: HotKeyBinding) {
+        guard value.isValid, value != hotKey else { return }
+        guard onHotKeyChange?(value) == true else {
+            hotKeyRejected = value
+            return
+        }
+        hotKey = value
+        defaults.set(value.rawValue, forKey: AppSettings.hotKeyKey)
+        hotKeyUnavailable = false
+        hotKeyRejected = nil
+    }
+
+    func resetHotKey() {
+        setHotKey(.default)
+    }
+
+    /// 새 조합을 받기 시작하면 이전 충돌 안내를 지운다. 취소한 뒤에 안내가 남지 않게 한다.
+    func clearHotKeyRejected() {
+        hotKeyRejected = nil
     }
 
     func updateNotificationPermission(_ value: NotificationPermission) {
