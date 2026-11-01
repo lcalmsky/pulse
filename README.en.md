@@ -28,7 +28,7 @@ brew install lcalmsky/pulse/pulse
 brew services start lcalmsky/pulse/pulse
 ```
 
-A small ring with a heartbeat line appears in the menu bar. Click the ring or press `⌃⌥P` to open the popover. You can change the hotkey in Settings.
+A small ring with a heartbeat line appears in the menu bar. Click the ring or press `⌃⌥P` to open the popover. You can change every shortcut in Settings.
 
 <br>
 
@@ -128,7 +128,8 @@ Open it with the gear button or `⌘,`. Change the density, theme, notifications
 | Theme | System · Light · Dark. In Light, an extra light layer sits on the glass so text behind the popover does not show through |
 | When attention is needed | `Card and sound` · `Card only` · `Off` |
 | When a task finishes | `Card` · `Off` |
-| Hotkey | `⌃⌥P` by default. Click `Change` and press a new combination to switch right away, or press `Esc` to cancel. The combination must include `⌘`, `⌃`, or `⌥`. If another app uses it, the previous hotkey stays and a note appears here. When it is not the default, `Reset` goes back to `⌃⌥P` |
+| Global hotkey | `⌃⌥P` by default. Click `Change` and press a new combination to switch right away, or press `Esc` to cancel. The combination must include `⌘`, `⌃`, or `⌥`. If another app uses it, the previous hotkey stays and a note appears here. When it is not the default, `Reset` goes back to `⌃⌥P` |
+| All shortcuts | `Show all shortcuts` lists each action from the Keyboard table below. Click a row and press a new key to change it, or press `Esc` to cancel. Keys without modifiers are allowed. If another action or the global hotkey already uses the key, nothing is saved and a note says where it is used. A changed row's reset button restores that row, and `Reset all` restores every shortcut including the global hotkey. Row hints and tooltips show the keys you chose |
 
 When **Reduce transparency** is on in System Settings › Accessibility › Display, the popover and cards draw a solid background instead of glass. A note and an `Open Settings` button then appear under Theme, and the button opens that settings pane. Reduce transparency applies to the whole system, so Pulse does not turn it off for you.
 
@@ -176,6 +177,8 @@ Sessions that do not use deadhd are missing only the checklist and step expansio
 ## Usage
 
 ### Keyboard
+
+These are the default keys. Every key except `Esc`, holding `⌥`, and type-to-search can be changed under `Show all shortcuts` in Settings. An action bound to a letter, `Space`, `Tab`, or `⌫` without `⌘`, `⌃`, or `⌥` does not run while you are typing a search; the key goes into the search text instead.
 
 | Key | Action |
 |---|---|
