@@ -42,10 +42,9 @@ struct BoardView: View {
         panelHeight.available ?? maximumHeight
     }
 
-    /// 자동 크기일 때의 높이 상한. 패널 높이는 내용에 맞추되 화면의 70% 를 넘으면 목록이 그 안에서 스크롤한다.
+    /// 자동 크기일 때의 높이 상한. 패널이 놓인 화면의 70% 로, 컨트롤러가 화면이 바뀔 때마다 갱신한다.
     private var maximumHeight: CGFloat {
-        guard let screen = NSScreen.main else { return .greatestFiniteMagnitude }
-        return floor(screen.visibleFrame.height * 0.7)
+        panelHeight.maximum ?? .greatestFiniteMagnitude
     }
 
     private var listHeight: CGFloat {

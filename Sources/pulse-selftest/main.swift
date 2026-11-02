@@ -1198,18 +1198,23 @@ expectEqual(busy.message, nil, "상태 표: busy 에는 message 가 없다")
 expectEqual(Grouping.group(SessionsResponse(sessions: [busy]), now: now).working.count, 1, "상태 표: busy 는 진행중 그룹")
 
 let shell = localSession(status: "shell")
-expectEqual(shell.bucket, "done", "상태 표: shell 은 완료 버킷")
-expectEqual(shell.status, "idle", "상태 표: shell status 는 idle")
+expectEqual(shell.bucket, "working", "상태 표: shell 은 진행 버킷")
+expectEqual(shell.status, "background", "상태 표: shell status 는 background")
 let shellGroup = Grouping.group(SessionsResponse(sessions: [shell]), now: now)
-expectEqual(shellGroup.done.count, 1, "상태 표: shell 은 완료 그룹")
+expectEqual(shellGroup.working.count, 1, "상태 표: shell 은 진행 그룹")
 expectEqual(shellGroup.attention.count, 0, "상태 표: shell 은 확인 필요 그룹에 들지 않는다")
 let shellWithBackground = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
 )
 expectEqual(
-    Grouping.group(SessionsResponse(sessions: [shellWithBackground]), now: now).done.first?.backgroundTaskCount, 1,
-    "상태 표: shell 완료 행은 남은 백그라운드 작업 수를 넘긴다"
+    Grouping.group(SessionsResponse(sessions: [shellWithBackground]), now: now).working.first?.backgroundTaskCount, 1,
+    "상태 표: shell 진행 행은 남은 백그라운드 작업 수를 넘긴다"
+)
+expectEqual(
+    Grouping.group(SessionsResponse(sessions: [shellWithBackground]), now: now).working.first?.status,
+    "백그라운드 작업 기다리는 중",
+    "상태 표: shell 진행 행 문구"
 )
 
 let idle = localSession(status: "idle")
@@ -1230,7 +1235,7 @@ expectEqual(Grouping.group(SessionsResponse(sessions: [stalled]), now: now).atte
             "stall: 확인 필요 그룹으로 간다")
 
 let stallShell = localSession(status: "shell", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660)))
-expectEqual(stallShell.bucket, "done", "stall: shell 은 60분이 지나도 stall 이 아니라 완료")
+expectEqual(stallShell.bucket, "working", "stall: shell 은 60분이 지나도 stall 이 아니라 진행")
 
 let boundary = localSession(status: "busy", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-600)))
 expectEqual(boundary.bucket, "working", "stall: 정확히 10분이면 아직 working")
@@ -1245,41 +1250,41 @@ let shellBackground = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-1800), backgroundTasks: 1)
 )
-expectEqual(shellBackground.bucket, "done", "stall: 백그라운드 작업이 도는 shell 도 완료")
+expectEqual(shellBackground.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 진행")
 
 let shellBackgroundBoundary = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600), backgroundTasks: 1)
 )
-expectEqual(shellBackgroundBoundary.bucket, "done", "stall: 백그라운드 작업이 도는 shell 은 정확히 60분이어도 완료")
+expectEqual(shellBackgroundBoundary.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 정확히 60분이어도 진행")
 
 let shellBackgroundStalled = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
 )
-expectEqual(shellBackgroundStalled.bucket, "done", "stall: 백그라운드 작업이 도는 shell 은 60분이 넘어도 stall 아님")
+expectEqual(shellBackgroundStalled.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 60분이 넘어도 진행")
 
 let shellNoBackground = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 0)
 )
-expectEqual(shellNoBackground.bucket, "done", "stall: 셸을 띄운 줄이 꼬리 밖이라 개수가 0 이어도 shell 은 완료")
+expectEqual(shellNoBackground.bucket, "working", "stall: 개수가 0 이어도 shell 은 진행")
 let shellUncountedLong = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-1800), backgroundTasks: 0)
 )
-expectEqual(shellUncountedLong.bucket, "done", "stall: 개수가 0 인 shell 도 30분이면 완료")
+expectEqual(shellUncountedLong.bucket, "working", "stall: 개수가 0 인 shell 도 30분이면 진행")
 
 let busyWithBackground = localSession(
     status: "busy",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 1)
 )
-expectEqual(busyWithBackground.bucket, "working", "stall: busy 도 백그라운드 작업이 있으면 60분 기준")
+expectEqual(busyWithBackground.bucket, "working", "stall: 백그라운드 작업이 있는 busy 는 10분이 지나도 진행")
 let busyBackgroundStalled = localSession(
     status: "busy",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
 )
-expectEqual(busyBackgroundStalled.bucket, "stall", "stall: 백그라운드 작업이 도는 busy 도 60분이 넘으면 stall")
+expectEqual(busyBackgroundStalled.bucket, "working", "stall: 백그라운드 작업이 도는 busy 는 60분이 넘어도 진행")
 let busyNoBackgroundLong = localSession(
     status: "busy",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 0)
@@ -1287,9 +1292,8 @@ let busyNoBackgroundLong = localSession(
 expectEqual(busyNoBackgroundLong.bucket, "stall", "stall: 백그라운드 작업이 없는 busy 는 10분 기준")
 
 expectEqual(
-    Grouping.group(SessionsResponse(sessions: [busyBackgroundStalled]), now: now).attention.first?.status,
-    "백그라운드 작업 2분째 · 멈췄는지 확인해 보세요",
-    "stall: 백그라운드 작업이 있는 stall 은 백그라운드 작업 문구"
+    Grouping.group(SessionsResponse(sessions: [busyBackgroundStalled]), now: now).attention.count, 0,
+    "stall: 백그라운드 작업이 도는 busy 는 확인 필요에 들지 않는다"
 )
 
 // MARK: - 제목·시각·필드
@@ -3929,6 +3933,8 @@ expectEqual(enById["idle"]?.status, "Waiting for your reply", "영어 문구: id
 expectEqual(enById["stall"]?.status, "Background task for 7 minutes · npm test", "영어 문구: stall 백그라운드")
 expectEqual(enById["working"]?.status, "Running for 3 minutes · 테스트 실행", "영어 문구: working")
 expectEqual(enById["untracked"]?.status, "In progress", "영어 문구: untracked")
+expectEqual(Grouping.group(SessionsResponse(sessions: [localSession(status: "shell")]), now: now).working.first?.status,
+            "Waiting on background tasks", "영어 문구: shell 백그라운드 대기")
 expectEqual(enById["done"]?.status, "Finished", "영어 문구: done")
 expectEqual(enById["ended"]?.status, "Finished 5 minutes ago", "영어 문구: ended")
 
@@ -4636,6 +4642,64 @@ expectEqual(SafeLink.pageFileURL("javascript:alert(1)", isRegularFile: pageFileE
             "페이지 링크: 다른 스킴 거부")
 
 try? FileManager.default.removeItem(atPath: pageDirectoryPath)
+
+// MARK: - 화면 안 맞춤
+let visibleFrame = CGRect(x: 0, y: 0, width: 1728, height: 1085)
+let minimumPanelSize = CGSize(width: 340, height: 44)
+let tallPanel = CGRect(x: 1081, y: 0, width: 761, height: 1860)
+let fittedTall = ScreenFit.fit(frame: tallPanel, into: visibleFrame, minimumSize: minimumPanelSize)
+expectEqual(fittedTall.height, 1085, "화면 맞춤: 높이를 화면 안으로 줄인다")
+expect(fittedTall.minY >= visibleFrame.minY && fittedTall.maxY <= visibleFrame.maxY,
+       "화면 맞춤: 세로가 화면 안")
+expect(fittedTall.minX >= visibleFrame.minX && fittedTall.maxX <= visibleFrame.maxX,
+       "화면 맞춤: 가로가 화면 안")
+
+let secondVisible = CGRect(x: 1440, y: 70, width: 1920, height: 1010)
+let leftOfSecond = ScreenFit.fit(frame: CGRect(x: 1300, y: 20, width: 500, height: 400), into: secondVisible, minimumSize: minimumPanelSize)
+expectEqual(leftOfSecond.origin, CGPoint(x: 1440, y: 70), "화면 맞춤: 원점이 0 이 아닌 화면에서 왼쪽·아래로 넘친 창을 안으로 옮긴다")
+expectEqual(leftOfSecond.size, CGSize(width: 500, height: 400), "화면 맞춤: 옮기기만 할 때는 크기를 유지한다")
+
+let insidePanel = CGRect(x: 100, y: 100, width: 400, height: 300)
+expectEqual(ScreenFit.fit(frame: insidePanel, into: visibleFrame, minimumSize: minimumPanelSize), insidePanel,
+            "화면 맞춤: 이미 화면 안이면 그대로")
+
+let smallPanel = CGRect(x: 2000, y: 2000, width: 100, height: 20)
+let keptSmall = ScreenFit.fit(frame: smallPanel, into: visibleFrame, minimumSize: minimumPanelSize)
+expectEqual(keptSmall.size, minimumPanelSize, "화면 맞춤: 최소 크기 아래로 줄이지 않는다")
+expect(keptSmall.maxX <= visibleFrame.maxX && keptSmall.maxY <= visibleFrame.maxY,
+       "화면 맞춤: 최소 크기로 키운 창도 화면 안")
+
+let overflowPanel = CGRect(x: 1600, y: 100, width: 400, height: 300)
+let movedPanel = ScreenFit.fit(frame: overflowPanel, into: visibleFrame, minimumSize: minimumPanelSize)
+expectEqual(movedPanel.maxX, visibleFrame.maxX, "화면 맞춤: 오른쪽으로 넘치면 왼쪽으로 옮긴다")
+expectEqual(movedPanel.size, overflowPanel.size, "화면 맞춤: 화면 안에 드는 크기는 그대로")
+
+let leftScreen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+let rightScreen = CGRect(x: 1440, y: 0, width: 1920, height: 1080)
+let spanningPanel = CGRect(x: 1300, y: 100, width: 600, height: 400)
+expectEqual(ScreenFit.screenIndex(for: spanningPanel, screens: [leftScreen, rightScreen]), 1,
+            "화면 선택: 가장 많이 겹치는 화면")
+let apartPanel = CGRect(x: 4000, y: 4000, width: 100, height: 100)
+expectEqual(ScreenFit.screenIndex(for: apartPanel, screens: [leftScreen, rightScreen]), 1,
+            "화면 선택: 겹치는 화면이 없으면 중심이 가까운 화면")
+let farLeftPanel = CGRect(x: -1200, y: 400, width: 100, height: 100)
+expectEqual(ScreenFit.screenIndex(for: farLeftPanel, screens: [leftScreen, rightScreen]), 0,
+            "화면 선택: 왼쪽에 가까운 창은 왼쪽 화면")
+expectEqual(ScreenFit.screenIndex(for: apartPanel, screens: []), nil,
+            "화면 선택: 화면 목록이 비면 nil")
+
+let notchLeftArea = CGRect(x: 0, y: 950, width: 640, height: 30)
+let notchRightArea = CGRect(x: 1050, y: 950, width: 678, height: 30)
+expectEqual(ScreenFit.notchAnchorX(buttonMidX: 800, leftArea: notchLeftArea, rightArea: notchRightArea),
+            1062, "노치: 구간 안이면 오른쪽 영역에 기준점")
+expectEqual(ScreenFit.notchAnchorX(buttonMidX: 400, leftArea: notchLeftArea, rightArea: notchRightArea),
+            nil, "노치: 왼쪽 영역 안이면 nil")
+expectEqual(ScreenFit.notchAnchorX(buttonMidX: 1200, leftArea: notchLeftArea, rightArea: notchRightArea),
+            nil, "노치: 오른쪽 영역 안이면 nil")
+expectEqual(ScreenFit.notchAnchorX(buttonMidX: 800, leftArea: nil, rightArea: notchRightArea),
+            nil, "노치: 왼쪽 영역이 없으면 nil")
+expectEqual(ScreenFit.notchAnchorX(buttonMidX: 800, leftArea: notchLeftArea, rightArea: nil),
+            nil, "노치: 오른쪽 영역이 없으면 nil")
 
 L10n.language = .ko
 expectEqual(L10n.pagesToRead(3), "읽을 페이지 3", "문구: 읽을 페이지 수")

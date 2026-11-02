@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import PulseCore
 import SwiftUI
 
 /// 목록 패널과 알림 카드 패널이 함께 쓰는 borderless 창. 내용만 바꿔 끼운다.
@@ -22,7 +23,10 @@ final class FloatingPanelController: NSObject {
     private let defaults = UserDefaults.standard
     private var cancellables: Set<AnyCancellable> = []
     private var manualSize = false
-    private var programmaticSize: NSSize?
+    /// 앱이 창 프레임을 바꾸는 동안만 켠다. 창 알림은 setFrame 안에서 동기로 오므로, 이 동안 온 알림은 사용자 조작이 아니다.
+    private var applyingFrame = false
+    private var lastPressedFrameChange = Date.distantPast
+    private var dragEndCheck: DispatchWorkItem?
     private var listState: PopoverState?
     private var panelHeight: PanelContentHeight?
     private var keyMonitor: Any?
@@ -59,6 +63,15 @@ final class FloatingPanelController: NSObject {
         configureContent()
         restoreSize()
         restorePosition()
+        fitToScreen()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(screensChanged),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(panelScreenChanged),
+            name: NSWindow.didChangeScreenNotification, object: panel
+        )
 
         visible
             .sink { [weak self] visible in self?.setVisible(visible) }
@@ -253,6 +266,8 @@ final class FloatingPanelController: NSObject {
                 placeTopRight()
             }
             updateSize()
+            fitToScreen()
+            syncPanelHeight()
             panel.orderFrontRegardless()
         } else {
             panel.orderOut(nil)
@@ -280,22 +295,45 @@ final class FloatingPanelController: NSObject {
             let top = frame.maxY
             frame.size = NSSize(width: width, height: height)
             frame.origin.y = top - height
-            self.programmaticSize = frame.size
-            self.panel.setFrame(frame, display: true)
+            self.applyFrame { self.panel.setFrame(frame, display: true) }
+            self.fitToScreen()
         }
     }
 
     private var maximumContentHeight: CGFloat {
-        guard let screen = panel.screen ?? NSScreen.main else { return .greatestFiniteMagnitude }
+        guard let screen = currentScreen else { return .greatestFiniteMagnitude }
         return floor(screen.visibleFrame.height * 0.7)
     }
 
-    /// 사용자가 잡아 둔 창 높이를 뷰에 알린다. 자동 크기일 때는 nil 이라 뷰가 창 높이에 기대지 않는다.
+    /// 창과 가장 많이 겹치는 화면. 겹치는 화면이 없으면 창 중심에서 가장 가까운 화면이다.
+    private var currentScreen: NSScreen? {
+        let screens = NSScreen.screens
+        guard let index = ScreenFit.screenIndex(for: panel.frame, screens: screens.map(\.frame)) else {
+            return NSScreen.main ?? screens.first
+        }
+        return screens[index]
+    }
+
+    /// 저장된 프레임이 지금 화면 밖으로 나가 있으면 화면 안으로 맞춘다.
+    /// 맞춤으로 생긴 프레임은 저장하지 않아, 화면이 다시 넓어지면 저장된 크기로 돌아간다.
+    private func fitToScreen() {
+        guard let visible = currentScreen?.visibleFrame else { return }
+        let minimum = NSSize(width: options.minimumWidth, height: 44)
+        let fitted = ScreenFit.fit(frame: panel.frame, into: visible, minimumSize: minimum)
+        guard fitted != panel.frame else { return }
+        applyFrame { panel.setFrame(fitted, display: true) }
+    }
+
+    /// 사용자가 잡아 둔 창 높이와 자동 크기의 화면 상한을 뷰에 알린다.
     private func syncPanelHeight() {
         guard let panelHeight else { return }
         let value = manualSize ? panel.contentLayoutRect.height : nil
         if panelHeight.available != value {
             panelHeight.available = value
+        }
+        let maximum = maximumContentHeight
+        if panelHeight.maximum != maximum {
+            panelHeight.maximum = maximum
         }
     }
 
@@ -308,8 +346,7 @@ final class FloatingPanelController: NSObject {
         let height = max(44, CGFloat(defaults.double(forKey: "panelHeight")))
         var frame = panel.frame
         frame.size = NSSize(width: width, height: height)
-        programmaticSize = frame.size
-        panel.setFrame(frame, display: false)
+        applyFrame { panel.setFrame(frame, display: false) }
         manualSize = true
     }
 
@@ -325,7 +362,7 @@ final class FloatingPanelController: NSObject {
                 y: defaults.double(forKey: "panelOriginY")
             )
             if NSScreen.screens.contains(where: { $0.visibleFrame.contains(point) }) {
-                panel.setFrameOrigin(point)
+                applyFrame { panel.setFrameOrigin(point) }
                 return
             }
         }
@@ -335,32 +372,82 @@ final class FloatingPanelController: NSObject {
     private func placeByDefault() {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
-        panel.setFrameTopLeftPoint(
-            NSPoint(x: visible.maxX - panel.frame.width - 16, y: visible.maxY - 16)
-        )
+        // 저장된 위치가 지금 화면 밖이라 잠시 옮기는 것이라, 다시 그 화면이 붙으면 돌아가도록 저장하지 않는다.
+        let origin = NSPoint(x: visible.maxX - panel.frame.width - 16, y: visible.maxY - 16 - panel.frame.height)
+        applyFrame { panel.setFrameOrigin(origin) }
     }
 
     private func placeTopRight() {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let visible = screen.visibleFrame
-        panel.setFrameTopLeftPoint(
-            NSPoint(x: visible.maxX - panel.frame.width - 12, y: visible.maxY - 12)
-        )
+        applyFrame {
+            panel.setFrameTopLeftPoint(
+                NSPoint(x: visible.maxX - panel.frame.width - 12, y: visible.maxY - 12)
+            )
+        }
+    }
+
+    /// 화면 구성이 바뀌면 저장된 프레임을 다시 적용한 뒤 화면 안으로 맞춘다. 숨은 패널도 다음에 띄울 때 맞춰진다.
+    @objc private func screensChanged() {
+        if options.remembersFrame {
+            restoreSize()
+            restorePosition()
+            if !manualSize { updateSize() }
+            fitToScreen()
+        } else {
+            placeTopRight()
+        }
+        syncPanelHeight()
+    }
+
+    private func applyFrame(_ change: () -> Void) {
+        let previous = applyingFrame
+        applyingFrame = true
+        change()
+        applyingFrame = previous
+    }
+
+    /// 사용자가 끌어서 다른 화면으로 옮기는 중에도 오므로, 저장값을 다시 적용하지 않고 상한만 고친다.
+    @objc private func panelScreenChanged() {
+        syncPanelHeight()
+        if NSEvent.pressedMouseButtons == 0 { fitToScreen() }
+    }
+
+    /// 모니터를 뺄 때 macOS 가 창을 옮기거나 줄여도 같은 알림이 온다. 이 패널을 사용자가 바꾸는 길은 끌기뿐이라
+    /// 마우스 버튼이 눌린 동안의 변경과, 버튼을 뗀 직후 늦게 처리된 끌기의 마지막 변경만 사용자 값으로 저장한다.
+    private var isUserFrameChange: Bool {
+        guard !applyingFrame else { return false }
+        if NSEvent.pressedMouseButtons != 0 {
+            lastPressedFrameChange = Date()
+            scheduleDragEndFit()
+            return true
+        }
+        return Date().timeIntervalSince(lastPressedFrameChange) < 0.5
+    }
+
+    /// 끌기 도중에는 맞추지 않으므로, 버튼을 뗀 뒤 다른 화면에 놓인 패널을 그 화면 안으로 맞춘다.
+    private func scheduleDragEndFit() {
+        dragEndCheck?.cancel()
+        let check = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if NSEvent.pressedMouseButtons == 0 {
+                self.fitToScreen()
+            } else {
+                self.scheduleDragEndFit()
+            }
+        }
+        dragEndCheck = check
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: check)
     }
 
     @objc private func rememberPosition() {
+        guard isUserFrameChange else { return }
         defaults.set(Double(panel.frame.origin.x), forKey: "panelOriginX")
         defaults.set(Double(panel.frame.origin.y), forKey: "panelOriginY")
     }
 
     @objc private func rememberSize() {
-        if let expected = programmaticSize {
-            programmaticSize = nil
-            if abs(expected.width - panel.frame.width) < 0.5,
-               abs(expected.height - panel.frame.height) < 0.5 {
-                return
-            }
-        }
+        guard isUserFrameChange else { return }
         manualSize = true
         defaults.set(Double(panel.frame.width), forKey: "panelWidth")
         defaults.set(Double(panel.frame.height), forKey: "panelHeight")
@@ -371,6 +458,8 @@ final class FloatingPanelController: NSObject {
 /// 목록 패널이 내용에 내어 주는 높이. 사용자가 창 크기를 잡아 둔 동안만 값이 있다.
 final class PanelContentHeight: ObservableObject {
     @Published var available: CGFloat?
+    /// 패널이 놓인 화면의 70% 높이. 화면 구성이 바뀌면 컨트롤러가 다시 계산한다.
+    @Published var maximum: CGFloat?
 }
 
 /// borderless NSPanel 은 기본적으로 키 창이 되지 않는다. 목록 패널만 키 입력을 받는다.

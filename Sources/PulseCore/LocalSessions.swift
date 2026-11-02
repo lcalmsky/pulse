@@ -100,8 +100,6 @@ public struct TranscriptSummary: Equatable {
 
 public enum LocalSessions {
     public static let stallThreshold: TimeInterval = 10 * 60
-    /// 백그라운드 작업이 남은 busy 세션에 쓰는 기준. 트랜스크립트가 조용해도 작업이 도는 중일 수 있다.
-    public static let backgroundStallThreshold: TimeInterval = 60 * 60
     public static let replyTailLimit = 160
     public static let promptTitleLimit = 60
     public static let actionLabelLimit = 40
@@ -454,19 +452,20 @@ public enum LocalSessions {
                 message = L10n.waitingForReply
             }
         case "busy":
+            // 비동기 에이전트가 도는 동안은 턴이 끝나도 busy 로 남아 트랜스크립트가 오래 조용할 수 있다.
             let hasBackground = (summary.backgroundTasks ?? 0) > 0
-            let threshold = hasBackground ? backgroundStallThreshold : stallThreshold
-            if let last = summary.lastMeaningfulAt,
-               now.timeIntervalSince(last) > threshold {
+            if !hasBackground,
+               let last = summary.lastMeaningfulAt,
+               now.timeIntervalSince(last) > stallThreshold {
                 bucket = "stall"
             } else {
                 bucket = "working"
             }
             status = "working"
         case "shell":
-            // 셸만 남은 상태는 모델이 턴을 끝내고 사용자 차례라는 뜻이라 완료로 본다.
-            bucket = "done"
-            status = "idle"
+            // 턴은 끝났지만 백그라운드 작업이 끝나면 모델이 다시 깨어날 수 있어 진행으로 둔다.
+            bucket = "working"
+            status = "background"
         case "idle":
             bucket = "done"
             status = "idle"

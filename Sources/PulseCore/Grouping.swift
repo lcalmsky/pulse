@@ -312,8 +312,6 @@ public enum Grouping {
                    let name = clean(task.taskDescription) ?? clean(task.type),
                    let duration {
                     base = L10n.backgroundTaskFor(duration, name)
-                } else if let duration, (session.activity?.backgroundTasks ?? 0) > 0 {
-                    base = L10n.backgroundTaskCheckStuck(duration)
                 } else if let duration {
                     base = L10n.workingForCheckStuck(duration)
                 } else {
@@ -329,6 +327,8 @@ public enum Grouping {
             let base: String
             if session.bucket == "untracked" {
                 base = shown ?? L10n.inProgress
+            } else if session.status == "background" {
+                base = L10n.waitingOnBackground
             } else if let duration = TimePhrase.duration(from: session.elapsedReference, to: now) {
                 base = shown.map { "\(L10n.runningFor(duration)) · \($0)" } ?? L10n.runningFor(duration)
             } else {

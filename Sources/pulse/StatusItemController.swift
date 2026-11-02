@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import os
 import PulseCore
 import SwiftUI
 
@@ -12,6 +13,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var lastClose = Date.distantPast
     private var appearanceObservation: NSKeyValueObservation?
     private var drawnState: (counts: GroupedSessions.Counts, unavailable: Bool, pages: Int, appearance: NSAppearance.Name)?
+    private var notchAnchorWindow: NSWindow?
+    private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "popover")
 
     private lazy var popover: NSPopover = {
         let popover = NSPopover()
@@ -154,12 +157,61 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         state.reset()
         model.setPopoverVisible(true)
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        // 노치에 가린 아이콘은 보이지 않는 자리에서 띄우면 화살표가 노치를 가리키므로,
+        // 노치 오른쪽에 투명한 기준 창을 두고 그 창에 팝오버를 붙인다.
+        if let anchor = notchAnchor(for: button), let view = anchor.contentView {
+            popover.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+        } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async { [weak self] in
             self?.popover.contentViewController?.view.window?.makeKey()
         }
         installKeyMonitor()
+    }
+
+    /// 버튼이 노치 구간에 가려져 있으면 노치 오른쪽에 1pt 기준 창을 놓고 그 창을 돌려준다.
+    private func notchAnchor(for button: NSStatusBarButton) -> NSWindow? {
+        guard let window = button.window else { return nil }
+        let buttonOnScreen = window.convertToScreen(button.convert(button.bounds, to: nil))
+        let screen = NSScreen.screens.first {
+            $0.frame.contains(NSPoint(x: buttonOnScreen.midX, y: buttonOnScreen.midY))
+        } ?? window.screen ?? NSScreen.main
+        let anchorX = screen.flatMap {
+            ScreenFit.notchAnchorX(
+                buttonMidX: buttonOnScreen.midX,
+                leftArea: $0.auxiliaryTopLeftArea,
+                rightArea: $0.auxiliaryTopRightArea
+            )
+        }
+        Self.logger.info("팝오버 기준: 버튼 중심 x=\(Double(buttonOnScreen.midX), privacy: .public), 노치=\(anchorX != nil, privacy: .public), 기준 x=\(anchorX.map(Double.init) ?? Double(buttonOnScreen.midX), privacy: .public)")
+        guard let anchorX else { return nil }
+
+        let anchor = notchAnchorWindow ?? makeNotchAnchorWindow()
+        notchAnchorWindow = anchor
+        // 가려진 아이콘의 창 위치는 macOS 가 옮길 수 있어, 높이는 화면의 메뉴 막대 아래 끝에서 잡는다.
+        let menuBarBottom = screen.map { $0.visibleFrame.maxY } ?? buttonOnScreen.minY
+        anchor.setFrame(NSRect(x: anchorX, y: menuBarBottom, width: 1, height: 1), display: false)
+        anchor.orderFrontRegardless()
+        return anchor
+    }
+
+    private func makeNotchAnchorWindow() -> NSWindow {
+        let window = NotchAnchorWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.level = .statusBar
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isReleasedWhenClosed = false
+        return window
     }
 
     var isPopoverShown: Bool {
@@ -180,6 +232,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         lastClose = Date()
         state.reset()
         model.setPopoverVisible(false)
+        notchAnchorWindow?.orderOut(nil)
         removeKeyMonitor()
     }
 
@@ -214,4 +267,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         handlesSettings: true,
         close: { [weak self] in self?.popover.performClose(nil) }
     )
+}
+
+/// 메뉴 막대 높이에 놓아야 해서, 창을 화면 아래로 밀어 내리는 기본 제약을 받지 않는다.
+private final class NotchAnchorWindow: NSWindow {
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
 }
