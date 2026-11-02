@@ -55,11 +55,12 @@ A heartbeat line is drawn over the ring, and it is refreshed from a poll every t
 The list is ordered **attention → working → done**.
 
 - **Attention** shows how long it has been waiting and the last answer. A stall card shows a check-if-stuck message instead of the last answer. The buttons are wait 10 more minutes, open, and reply
-- **Working** shows a step bar, the remaining time, and what it is doing now. On hover, the progress page and go to Orca buttons appear
-- **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. If background tasks are still running after the turn ended, `bg N` appears at the right of that line. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
+- **Working** shows a step bar, the remaining time, and what it is doing now. A session whose turn ended with only background tasks left reads `Waiting on background tasks`. On hover, the progress page and go to Orca buttons appear
+- **Done** shows the latest five only and folds the rest into `N more`. A line under the title shows the location, session name, ticket key, and PR, so you can tell which session it is even when the title is long. If background tasks are still running after the turn ended, the counts by kind, such as `1 shell · 1 agent`, appear at the right of that line. A session whose turn ended before its deadhd checklist was finished keeps a step line on its done row, and you can click it to expand the steps
 - **Multiplexer badge** sessions started inside herdr or tmux get a `herdr` or `tmux` badge before the location on attention cards and on working and done rows. On hovering a working or done row, the Orca button becomes a jump-to-pane button
 - **Page alerts** when an external tool leaves a page you must read, a purple `N to read` badge appears on the right of the header and the session row shows the page title as `title +N`. Clicking the badge or the label on the row opens the page directly when there is one, and shows an oldest-first menu when there are several. The file format is under Page alert files below
 - **Header and footer** the header has the three group counts and the GitHub star and collapse buttons, and the footer has the refresh time and the floating panel, settings, and quit buttons
+- **Notch** when crowded menu bar icons push the Pulse icon behind the camera notch, the popover opens just right of the notch
 - **Search** typing without `⌘` or `⌃` opens a search line below the header. It searches titles, worktrees and branches, working directory names, keys, ticket keys, and PR labels, and every space-separated word must be present. It also finds done items folded out of view
 
 When there are no sessions it shows an empty state, and when sessions cannot be read it shows a `Retry now` banner.
@@ -79,6 +80,7 @@ Keeps the same list as the popover **in a separate window.** You can drag it and
 
 - Its height follows the content and, once the content exceeds 70 percent of the screen height, only the list scrolls inside
 - When you set the window size yourself, it uses that height as is; only the list scrolls and the header and search bar stay at the top
+- If the remembered size or position falls outside the current screen, it opens fitted inside the screen. It refits when a monitor is connected or disconnected, and keeps the remembered values so the original size comes back when the larger screen returns
 - Appears on every Space
 - It shares the popover's header, so the page alert badge appears there too
 - Hide it with the close button in the header or `⌃⌥P`
@@ -164,7 +166,7 @@ PULSE_LANG=en build/Pulse.app/Contents/MacOS/pulse &
 - **Current step** shows the step name and `~N min left`
 - **Steps** clicking the step line expands the previous, current, and next steps inside the row. On the selected row, `→` expands and pressing it again shows all steps, while `←` collapses them one at a time
 - **Progress page** the document button opens the deadhd progress page in a browser. Pulse uses `render.py` and `serve.py` from `~/.claude/skills/deadhd` when deadhd is installed there, and otherwise from the install path recorded in `~/.claude/plugins/installed_plugins.json` for the deadhd plugin. If the page cannot be created or opened, a short failure notice appears at the bottom of the popover and panel
-- **Activity** an activity line such as `1 compaction · 2 in background · Bash 12 seconds ago`
+- **Activity** an activity line such as `1 compaction · 2 shells · Bash 12 seconds ago`
 
 Sessions that do not use deadhd are missing only the checklist and step expansion.
 
@@ -258,7 +260,7 @@ Pulse does not use system notifications, so it never asks for notification permi
 
 ## How it works
 
-Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` is **working**, and `idle` or `shell` is **done**. A `shell` session has finished its turn with only background shells left, so it is treated as the user's turn, and the done row shows the remaining count as `bg N`. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. When unfinished background tasks remain, such as an async agent being awaited, the limit is extended to 60 minutes and the card reads `Background task for N minutes`.
+Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A `shell` session has finished its turn with only background tasks left. The model may wake when they finish, so it stays in working and reads `Waiting on background tasks`. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A session with unfinished background tasks is never treated as stalled, however long it runs, because a session keeps `busy` after its turn ends while an async agent runs.
 
 <details>
 <summary>Where it reads and the rules</summary>
@@ -266,7 +268,7 @@ Every 3 seconds it reads the session files and groups them by state. Waiting for
 - The config root is the directory named by the `CLAUDE_CONFIG_DIR` environment variable if it is set, otherwise `~/.claude`. Pulse also reads the `sessions` folder of every config directory that a running Claude process was started with, so sessions launched by a launcher that gives each account its own `CLAUDE_CONFIG_DIR` also appear.
 - The session list comes from `<config root>/sessions/<pid>.json`. Only interactive CLI sessions (whose `entrypoint` is `cli`) are included, and only while their process is alive. The `<pid>.<hash>.key` files in the same folder are not read.
 - The title, last answer, last tool, compaction count, and PR link are built from the last 256 KB of the `<config root>/projects/<project>/<session>.jsonl` transcript.
-- The background task count reads the same transcript incrementally from the start. It counts backgrounded shells, async agents, and monitors, and drops them when their completion notice arrives or `TaskStop` stops them. Completion notices that arrived mid-turn and sit only in the queue also count. Tasks started before the current Claude Code process are not counted, because after `--resume` the previous process's shells end without a completion notice. When the deadhd state file lists tasks, that list is used, minus tasks the transcript shows as finished.
+- The background task count reads the same transcript incrementally from the start. It counts backgrounded shells, async agents, and monitors, and drops them when their completion notice arrives or `TaskStop` stops them. Completion notices that arrived mid-turn and sit only in the queue also count. Tasks started before the current Claude Code process are not counted, because after `--resume` the previous process's shells end without a completion notice. When the deadhd state file lists tasks, that list is used, minus tasks the transcript shows as finished. Rows split the count into shells, agents, and monitors, such as `1 shell · 1 agent`. Claude Code's own footer `N shell` counts shells only, so the two differ while a background agent runs.
 - The deadhd state file is read from `/tmp/deadhd-state/<sessionId>.json`, and `DEADHD_STATE_DIR` changes the directory.
 - Page alert files are read from `~/.pulse/pages/*.json`, and `PULSE_PAGES_DIR` changes the directory. They are reread every three seconds along with the session files. Dotfiles and files that do not end in `.json` are ignored, and a file that cannot be read stays in the badge menu as `Unreadable page file: <name>`.
 - When a session closes and its session file disappears, it is removed from the list on the next refresh. The done list shows only items from the last 12 hours, and the view draws up to 5.
