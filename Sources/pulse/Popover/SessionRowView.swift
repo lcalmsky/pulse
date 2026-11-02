@@ -481,7 +481,7 @@ struct SessionRowView: View {
 
     @ViewBuilder
     private var doneMetaLine: some View {
-        if hasIdentityMeta || !sessionPages.isEmpty {
+        if hasIdentityMeta || doneBackgroundText != nil || !sessionPages.isEmpty {
             HStack(spacing: 10) {
                 multiplexerBadge
                 if let place = item.placeText {
@@ -503,6 +503,11 @@ struct SessionRowView: View {
                     }
                 }
                 Spacer(minLength: 0)
+                if let doneBackgroundText {
+                    Text(doneBackgroundText)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
                 if !sessionPages.isEmpty {
                     SessionPageBadge(model: model, item: item)
                 }
@@ -512,6 +517,10 @@ struct SessionRowView: View {
             .lineLimit(1)
             .padding(.leading, 22)
         }
+    }
+
+    private var doneBackgroundText: String? {
+        RowText.trail(backgroundTasks: item.backgroundTaskCount, lastTool: nil)
     }
 
     @ViewBuilder

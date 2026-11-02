@@ -1198,8 +1198,19 @@ expectEqual(busy.message, nil, "상태 표: busy 에는 message 가 없다")
 expectEqual(Grouping.group(SessionsResponse(sessions: [busy]), now: now).working.count, 1, "상태 표: busy 는 진행중 그룹")
 
 let shell = localSession(status: "shell")
-expectEqual(shell.bucket, "working", "상태 표: shell 은 working")
-expectEqual(shell.status, "working", "상태 표: shell status")
+expectEqual(shell.bucket, "done", "상태 표: shell 은 완료 버킷")
+expectEqual(shell.status, "idle", "상태 표: shell status 는 idle")
+let shellGroup = Grouping.group(SessionsResponse(sessions: [shell]), now: now)
+expectEqual(shellGroup.done.count, 1, "상태 표: shell 은 완료 그룹")
+expectEqual(shellGroup.attention.count, 0, "상태 표: shell 은 확인 필요 그룹에 들지 않는다")
+let shellWithBackground = localSession(
+    status: "shell",
+    summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
+)
+expectEqual(
+    Grouping.group(SessionsResponse(sessions: [shellWithBackground]), now: now).done.first?.backgroundTaskCount, 1,
+    "상태 표: shell 완료 행은 남은 백그라운드 작업 수를 넘긴다"
+)
 
 let idle = localSession(status: "idle")
 expectEqual(idle.bucket, "done", "상태 표: idle 은 완료 버킷")
@@ -1219,7 +1230,7 @@ expectEqual(Grouping.group(SessionsResponse(sessions: [stalled]), now: now).atte
             "stall: 확인 필요 그룹으로 간다")
 
 let stallShell = localSession(status: "shell", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660)))
-expectEqual(stallShell.bucket, "stall", "stall: shell 도 60분이 넘으면 stall")
+expectEqual(stallShell.bucket, "done", "stall: shell 은 60분이 지나도 stall 이 아니라 완료")
 
 let boundary = localSession(status: "busy", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-600)))
 expectEqual(boundary.bucket, "working", "stall: 정확히 10분이면 아직 working")
@@ -1228,36 +1239,36 @@ let noTranscript = localSession(status: "busy", summary: TranscriptSummary())
 expectEqual(noTranscript.bucket, "working", "stall: 트랜스크립트가 없으면 working")
 
 let staleIdle = localSession(status: "idle", summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600)))
-expectEqual(staleIdle.bucket, "done", "stall: stall 판정은 busy/shell 에만 적용")
+expectEqual(staleIdle.bucket, "done", "stall: stall 판정은 busy 에만 적용")
 
 let shellBackground = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-1800), backgroundTasks: 1)
 )
-expectEqual(shellBackground.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 30분이 지나도 working")
+expectEqual(shellBackground.bucket, "done", "stall: 백그라운드 작업이 도는 shell 도 완료")
 
 let shellBackgroundBoundary = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3600), backgroundTasks: 1)
 )
-expectEqual(shellBackgroundBoundary.bucket, "working", "stall: 백그라운드 작업이 도는 shell 은 정확히 60분이면 working")
+expectEqual(shellBackgroundBoundary.bucket, "done", "stall: 백그라운드 작업이 도는 shell 은 정확히 60분이어도 완료")
 
 let shellBackgroundStalled = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-3660), backgroundTasks: 1)
 )
-expectEqual(shellBackgroundStalled.bucket, "stall", "stall: 백그라운드 작업이 도는 shell 도 60분이 넘으면 stall")
+expectEqual(shellBackgroundStalled.bucket, "done", "stall: 백그라운드 작업이 도는 shell 은 60분이 넘어도 stall 아님")
 
 let shellNoBackground = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-660), backgroundTasks: 0)
 )
-expectEqual(shellNoBackground.bucket, "working", "stall: 셸을 띄운 줄이 꼬리 밖이라 개수가 0 이어도 shell 은 60분 기준")
+expectEqual(shellNoBackground.bucket, "done", "stall: 셸을 띄운 줄이 꼬리 밖이라 개수가 0 이어도 shell 은 완료")
 let shellUncountedLong = localSession(
     status: "shell",
     summary: TranscriptSummary(lastMeaningfulAt: now.addingTimeInterval(-1800), backgroundTasks: 0)
 )
-expectEqual(shellUncountedLong.bucket, "working", "stall: 개수가 0 인 shell 도 30분이면 working")
+expectEqual(shellUncountedLong.bucket, "done", "stall: 개수가 0 인 shell 도 30분이면 완료")
 
 let busyWithBackground = localSession(
     status: "busy",
@@ -1276,7 +1287,7 @@ let busyNoBackgroundLong = localSession(
 expectEqual(busyNoBackgroundLong.bucket, "stall", "stall: 백그라운드 작업이 없는 busy 는 10분 기준")
 
 expectEqual(
-    Grouping.group(SessionsResponse(sessions: [shellBackgroundStalled]), now: now).attention.first?.status,
+    Grouping.group(SessionsResponse(sessions: [busyBackgroundStalled]), now: now).attention.first?.status,
     "백그라운드 작업 2분째 · 멈췄는지 확인해 보세요",
     "stall: 백그라운드 작업이 있는 stall 은 백그라운드 작업 문구"
 )
