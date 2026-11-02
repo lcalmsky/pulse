@@ -357,15 +357,19 @@ extension Place: Decodable {
 }
 
 public struct BackgroundTask: Equatable {
+    /// deadhd 가 넣는 작업 id. 옛 상태 파일에는 없다.
+    public let id: String?
     public let type: String?
     public let taskDescription: String?
 
-    public init(type: String? = nil, taskDescription: String? = nil) {
+    public init(id: String? = nil, type: String? = nil, taskDescription: String? = nil) {
+        self.id = id
         self.type = type
         self.taskDescription = taskDescription
     }
 
     enum CodingKeys: String, CodingKey {
+        case id
         case type
         case taskDescription = "description"
     }
@@ -374,6 +378,7 @@ public struct BackgroundTask: Equatable {
 extension BackgroundTask: Decodable {
     public init(from decoder: Decoder) {
         let container = try? decoder.container(keyedBy: CodingKeys.self)
+        id = Lenient.string(container, .id)
         type = Lenient.string(container, .type)
         taskDescription = Lenient.string(container, .taskDescription)
     }

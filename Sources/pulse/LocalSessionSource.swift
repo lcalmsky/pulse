@@ -20,9 +20,21 @@ final class LocalSessionSource {
     private let rootDiscovery = ConfigRootDiscovery()
     private let stateDirectory: URL
     private let fileManager = FileManager.default
+    private struct LedgerFileIdentity: Equatable {
+        let path: String
+        let inode: UInt64
+        let device: UInt64
+    }
+
+    private struct LedgerEntry {
+        let identity: LedgerFileIdentity
+        var ledger: BackgroundLedger
+    }
+
     private var transcriptPaths: [String: URL] = [:]
     private var sessionRoots: [String: URL] = [:]
     private var summaries = TranscriptSummaryCache()
+    private var backgroundLedgers: [String: LedgerEntry] = [:]
     private var transcriptMisses: [String: TranscriptMiss] = [:]
     private var loggedStatuses: [String: String] = [:]
     private var processFacts: [String: (pid: Int, handle: String?, multiplexer: MultiplexerPane?)] = [:]
@@ -86,6 +98,7 @@ final class LocalSessionSource {
         let sessionIds = Set(sessions.map(\.sessionId))
         summaries.retain(only: sessionIds)
         transcriptPaths = transcriptPaths.filter { sessionIds.contains($0.key) }
+        backgroundLedgers = backgroundLedgers.filter { sessionIds.contains($0.key) }
         sessionRoots = sessionRoots.filter { sessionIds.contains($0.key) }
         transcriptMisses = transcriptMisses.filter { sessionIds.contains($0.key) }
         loggedStatuses = loggedStatuses.filter { sessionIds.contains($0.key) }
@@ -170,21 +183,57 @@ final class LocalSessionSource {
         guard let url = transcriptURL(for: record, now: now) else {
             return TranscriptSummary()
         }
+        var summary: TranscriptSummary
         let key = transcriptFileKey(url)
         if let key, let cached = summaries.summary(for: record.sessionId, key: key) {
-            return cached
+            summary = cached
+        } else {
+            guard let tail = readTail(url) else {
+                return TranscriptSummary()
+            }
+            summary = LocalSessions.summarizeTranscriptTail(
+                tail.data,
+                droppingPartialFirstLine: tail.truncated
+            )
+            if let key {
+                summaries.store(summary, key: key, for: record.sessionId)
+            }
         }
-        guard let tail = readTail(url) else {
-            return TranscriptSummary()
-        }
-        let summary = LocalSessions.summarizeTranscriptTail(
-            tail.data,
-            droppingPartialFirstLine: tail.truncated
-        )
-        if let key {
-            summaries.store(summary, key: key, for: record.sessionId)
-        }
+        let ledger = backgroundLedger(for: record, url: url)
+        summary.backgroundTasks = ledger.pendingCount(launchedSince: record.startedAt)
+        summary.completedBackgroundTaskIds = ledger.completedBackgroundTaskIds
         return summary
+    }
+
+    /// 트랜스크립트를 처음부터 이어 읽으며 장부를 만든다. 꼬리 요약에는 오래 전에 띄운 작업이 남지 않는다.
+    private func backgroundLedger(for record: LocalSessionRecord, url: URL) -> BackgroundLedger {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let inode = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value,
+              let size = (attributes[.size] as? NSNumber)?.uint64Value
+        else { return BackgroundLedger() }
+        let identity = LedgerFileIdentity(
+            path: url.path,
+            inode: inode,
+            device: (attributes[.systemNumber] as? NSNumber)?.uint64Value ?? 0
+        )
+
+        var entry = backgroundLedgers[record.sessionId]
+        if entry?.identity != identity || (entry?.ledger.consumedBytes ?? 0) > size {
+            entry = LedgerEntry(identity: identity, ledger: BackgroundLedger())
+        }
+
+        var ledger = entry?.ledger ?? BackgroundLedger()
+        if ledger.consumedBytes < size,
+           let handle = try? FileHandle(forReadingFrom: url) {
+            defer { try? handle.close() }
+            if (try? handle.seek(toOffset: ledger.consumedBytes)) != nil {
+                while let data = try? handle.read(upToCount: 1 << 20), !data.isEmpty {
+                    ledger.ingest(data)
+                }
+            }
+        }
+        backgroundLedgers[record.sessionId] = LedgerEntry(identity: identity, ledger: ledger)
+        return ledger
     }
 
     private func transcriptFileKey(_ url: URL) -> TranscriptFileKey? {

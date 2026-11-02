@@ -55,8 +55,10 @@ public struct TranscriptSummary: Equatable {
     public let pullRequest: PullRequestLink?
     /// 트랜스크립트 끝에서 센 압축 경계 레코드 수.
     public let compactions: Int?
-    /// 아직 완료 알림을 받지 못한 백그라운드 작업(셸, 비동기 에이전트, 모니터) 수.
-    public let backgroundTasks: Int?
+    /// 아직 완료 알림을 받지 못한 백그라운드 작업(셸, 비동기 에이전트, 모니터) 수. 꼬리 요약 값은 앱이 `BackgroundLedger` 의 전체 파일 값으로 덮어쓴다.
+    public var backgroundTasks: Int?
+    /// 완료 알림이나 TaskStop 으로 끝난 백그라운드 작업의 task id. deadhd 목록을 거를 때 쓴다.
+    public var completedBackgroundTaskIds: Set<String>
 
     public init(
         customTitle: String? = nil,
@@ -71,7 +73,8 @@ public struct TranscriptSummary: Equatable {
         pendingToolLabel: String? = nil,
         pullRequest: PullRequestLink? = nil,
         compactions: Int? = nil,
-        backgroundTasks: Int? = nil
+        backgroundTasks: Int? = nil,
+        completedBackgroundTaskIds: Set<String> = []
     ) {
         self.customTitle = customTitle
         self.agentName = agentName
@@ -87,6 +90,7 @@ public struct TranscriptSummary: Equatable {
         self.pullRequest = pullRequest
         self.compactions = compactions
         self.backgroundTasks = backgroundTasks
+        self.completedBackgroundTaskIds = completedBackgroundTaskIds
     }
 }
 
@@ -170,28 +174,19 @@ public enum LocalSessions {
         var resolvedToolUseIds: Set<String> = []
         var pullRequest: PullRequestLink?
         var compactions = 0
-        var backgroundToolUseIds: Set<String> = []
-        var backgroundTaskIds: [String: String] = [:]
-        var completedBackgroundToolUseIds: Set<String> = []
-        var completedTaskIds: Set<String> = []
+        var background = BackgroundLedger()
         var assistantTexts: [String] = []
 
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: false)
         let firstIndex = droppingPartialFirstLine && !lines.isEmpty ? 1 : 0
 
         for line in lines[firstIndex...] {
+            background.ingest(line: Data(line))
             guard let object = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
                   let type = object["type"] as? String
             else { continue }
 
             switch type {
-            case "queue-operation":
-                completedTaskIds.formUnion(taskNotificationValues(tag: "task-id", in: object["content"], terminalOnly: true))
-            case "attachment":
-                let attachment = object["attachment"] as? [String: Any]
-                if attachment?["type"] as? String == "queued_command" {
-                    completedTaskIds.formUnion(taskNotificationValues(tag: "task-id", in: attachment?["prompt"], terminalOnly: true))
-                }
             case "system":
                 if object["subtype"] as? String == "compact_boundary" {
                     compactions += 1
@@ -228,9 +223,6 @@ public enum LocalSessions {
                             let input = block["input"] as? [String: Any] ?? [:]
                             let id = nonEmpty(block["id"] as? String)
                             pendingToolUses.append((id: id, name: name, input: input))
-                            if input["run_in_background"] as? Bool == true, let id {
-                                backgroundToolUseIds.insert(id)
-                            }
                         }
                     default:
                         break
@@ -242,24 +234,11 @@ public enum LocalSessions {
                 }
                 let message = object["message"] as? [String: Any]
                 let blocks = message?["content"] as? [[String: Any]] ?? []
-                let result = object["toolUseResult"] as? [String: Any]
                 for block in blocks where block["type"] as? String == "tool_result" {
                     if let id = nonEmpty(block["tool_use_id"] as? String) {
                         resolvedToolUseIds.insert(id)
-                        let toolName = pendingToolUses.last { $0.id == id }?.name
-                        if let taskId = backgroundTaskId(fromToolResult: result, toolName: toolName) {
-                            backgroundToolUseIds.insert(id)
-                            backgroundTaskIds[id] = taskId
-                        }
                     }
                 }
-                if let stopped = nonEmpty(result?["task_id"] as? String) {
-                    completedTaskIds.insert(stopped)
-                }
-                completedBackgroundToolUseIds.formUnion(
-                    taskNotificationValues(tag: "tool-use-id", in: message?["content"])
-                )
-                completedTaskIds.formUnion(taskNotificationValues(tag: "task-id", in: message?["content"], terminalOnly: true))
             case "pr-link":
                 if let url = nonEmpty(object["prUrl"] as? String),
                    SafeLink.httpURL(url) != nil,
@@ -301,10 +280,8 @@ public enum LocalSessions {
             pendingToolLabel: pendingLabel,
             pullRequest: pullRequest,
             compactions: compactions,
-            backgroundTasks: backgroundToolUseIds.filter { id in
-                !completedBackgroundToolUseIds.contains(id)
-                    && !(backgroundTaskIds[id].map(completedTaskIds.contains) ?? false)
-            }.count
+            backgroundTasks: background.pendingCount(),
+            completedBackgroundTaskIds: background.completedBackgroundTaskIds
         )
     }
 
@@ -435,6 +412,17 @@ public enum LocalSessions {
 
     // MARK: - 화면 모델
 
+    /// deadhd 목록은 턴이 끝나야 갱신돼 이미 끝난 작업이 남는다. 장부가 아는 완료 id 는 걸러 낸다.
+    static func uncompletedBackgroundTasks(
+        _ tasks: [BackgroundTask],
+        completed: Set<String>
+    ) -> [BackgroundTask] {
+        tasks.filter { task in
+            guard let id = task.id else { return true }
+            return !completed.contains(id)
+        }
+    }
+
     public static func makeSession(
         record: LocalSessionRecord,
         summary: TranscriptSummary,
@@ -520,7 +508,12 @@ public enum LocalSessions {
             cwd: record.cwd,
             orcaTerminal: orcaTerminal,
             multiplexer: multiplexer,
-            backgroundTasks: deadhd?.hasBackgroundTasks == true ? deadhd?.backgroundTasks ?? [] : [],
+            backgroundTasks: deadhd?.hasBackgroundTasks == true
+                ? uncompletedBackgroundTasks(
+                    deadhd?.backgroundTasks ?? [],
+                    completed: summary.completedBackgroundTaskIds
+                )
+                : [],
             lastTool: lastTool,
             updatedAt: updatedAt,
             nowLabel: nowLabel,

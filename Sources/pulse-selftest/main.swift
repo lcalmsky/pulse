@@ -1886,6 +1886,90 @@ expectEqual(
     "트랜스크립트: 알림 블록 밖의 task-id 는 완료로 세지 않는다"
 )
 
+// MARK: - 백그라운드 장부
+
+let ledgerLaunchJSON = """
+{"type":"assistant","timestamp":"2026-10-20T11:10:00Z","message":{"content":[{"type":"tool_use","id":"toolu-led","name":"Bash","input":{"run_in_background":true}}]}}
+{"type":"user","timestamp":"2026-10-20T11:11:00Z","toolUseResult":{"backgroundTaskId":"bled"},"message":{"content":[{"type":"tool_result","tool_use_id":"toolu-led","content":"moved"}]}}
+""" + "\n"
+var ledger = BackgroundLedger()
+ledger.ingest(Data(ledgerLaunchJSON.utf8))
+expectEqual(ledger.pendingCount(), 1, "장부: 끝나지 않은 launch 는 1")
+expectEqual(ledger.isCompleted(taskId: "bled"), false, "장부: 끝나지 않은 작업은 완료가 아니다")
+
+var splitLedger = BackgroundLedger()
+let ledgerBytes = Data(ledgerLaunchJSON.utf8)
+let ledgerCut = ledgerBytes.count / 2
+splitLedger.ingest(ledgerBytes.prefix(ledgerCut))
+splitLedger.ingest(ledgerBytes.suffix(from: ledgerCut))
+expectEqual(splitLedger.pendingCount(), ledger.pendingCount(), "장부: 한 줄을 두 청크로 나눠 넣어도 같다")
+expectEqual(splitLedger.consumedBytes, UInt64(ledgerBytes.count), "장부: 나눠 넣어도 읽은 바이트는 같다")
+
+let ledgerDoneJSON = ledgerLaunchJSON + """
+{"type":"user","message":{"content":"<task-notification>\\n<task-id>bled</task-id>\\n<status>completed</status>\\n</task-notification>"}}
+""" + "\n"
+var doneLedger = BackgroundLedger()
+doneLedger.ingest(Data(ledgerDoneJSON.utf8))
+expectEqual(doneLedger.pendingCount(), 0, "장부: status 가 있는 task-id 알림은 완료")
+expectEqual(doneLedger.completedBackgroundTaskIds, Set(["bled"]), "장부: 완료 집합에 task id 를 남긴다")
+
+let ledgerEventJSON = ledgerLaunchJSON + """
+{"type":"user","message":{"content":"<task-notification>\\n<task-id>bled</task-id>\\n<summary>Monitor event</summary>\\n</task-notification>"}}
+""" + "\n"
+var eventLedger = BackgroundLedger()
+eventLedger.ingest(Data(ledgerEventJSON.utf8))
+expectEqual(eventLedger.pendingCount(), 1, "장부: status 가 없는 알림은 완료로 세지 않는다")
+
+let ledgerToolUseJSON = ledgerLaunchJSON + """
+{"type":"user","message":{"content":"<task-notification>\\n<tool-use-id>toolu-led</tool-use-id>\\n<status>completed</status>\\n</task-notification>"}}
+""" + "\n"
+var toolUseLedger = BackgroundLedger()
+toolUseLedger.ingest(Data(ledgerToolUseJSON.utf8))
+expectEqual(toolUseLedger.pendingCount(), 0, "장부: tool-use-id 알림은 완료")
+expectEqual(toolUseLedger.completedBackgroundTaskIds, Set(["bled"]), "장부: tool-use-id 완료도 task id 로 남긴다")
+
+let ledgerStopJSON = ledgerLaunchJSON + """
+{"type":"user","toolUseResult":{"task_id":"bled"},"message":{"content":[{"type":"tool_result","tool_use_id":"stop-1","content":"stopped"}]}}
+""" + "\n"
+var stopLedger = BackgroundLedger()
+stopLedger.ingest(Data(ledgerStopJSON.utf8))
+expectEqual(stopLedger.pendingCount(), 0, "장부: TaskStop 의 task_id 는 완료")
+
+expectEqual(ledger.pendingCount(launchedSince: utcDate(2026, 10, 20, 11, 11)), 0,
+            "장부: launchedSince 이전에 띄운 작업은 세지 않는다")
+expectEqual(ledger.pendingCount(launchedSince: utcDate(2026, 10, 20, 11, 0)), 1,
+            "장부: launchedSince 이후에 띄운 작업은 센다")
+
+let oldLaunchJSON = """
+{"type":"assistant","timestamp":"2026-10-20T08:20:00Z","message":{"content":[{"type":"tool_use","id":"old-shell","name":"Bash","input":{"run_in_background":true,"description":"relay server"}}]}}
+""" + "\n"
+let paddingLine = "{\"type\":\"system\",\"subtype\":\"note\",\"text\":\""
+    + String(repeating: "x", count: 1024) + "\"}\n"
+let longTranscriptData = Data((oldLaunchJSON + String(repeating: paddingLine, count: 300)).utf8)
+let longTail = longTranscriptData.suffix(256 * 1024)
+expectEqual(
+    LocalSessions.summarizeTranscriptTail(Data(longTail), droppingPartialFirstLine: true).backgroundTasks,
+    0,
+    "장부: 꼬리 요약만으로는 꼬리 밖 launch 를 못 본다"
+)
+var longLedger = BackgroundLedger()
+longLedger.ingest(longTranscriptData)
+expectEqual(longLedger.pendingCount(), 1, "장부: 전체를 ingest 하면 꼬리 밖 launch 도 센다")
+
+let ledgerFilterState = deadhdState("""
+{"sessionId":"local","backgroundTasks":[{"id":"bled","type":"shell","description":"relay server"},{"type":"shell","description":"watch"}]}
+""")
+expectEqual(ledgerFilterState?.backgroundTasks.first?.id, "bled", "상태 파일: 백그라운드 작업 id")
+let ledgerFilterSummary = TranscriptSummary(completedBackgroundTaskIds: ["bled"])
+expectEqual(
+    SessionActivity.make(state: ledgerFilterState, summary: ledgerFilterSummary)?.backgroundTasks,
+    1,
+    "장부: 완료된 id 의 deadhd 작업은 빼고 센다"
+)
+let ledgerFilterSession = localSession(status: "stall", summary: ledgerFilterSummary, deadhd: ledgerFilterState)
+expectEqual(ledgerFilterSession.backgroundTasks.map(\.taskDescription), ["watch"],
+            "장부: 카드에 쓰는 작업 목록에서도 완료된 id 를 뺀다")
+
 // MARK: - 팝오버 링과 숫자
 
 let ring = SegmentRatio.make(attention: 1, working: 2, done: 1)

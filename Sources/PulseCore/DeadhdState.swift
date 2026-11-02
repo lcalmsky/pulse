@@ -112,6 +112,7 @@ public struct DeadhdState: Equatable {
             hasBackgroundTasks: object["backgroundTasks"] is [Any],
             backgroundTasks: tasksObject.map {
                 BackgroundTask(
+                    id: string($0["id"]),
                     type: string($0["type"]),
                     taskDescription: string($0["description"])
                 )
@@ -213,7 +214,10 @@ public struct SessionActivity: Equatable {
     public static func make(state: DeadhdState?, summary: TranscriptSummary) -> SessionActivity? {
         let compactions = state?.hasCompactions == true ? state?.compactions?.count : summary.compactions
         let backgroundTasks = state?.hasBackgroundTasks == true
-            ? state?.backgroundTasks.count
+            ? LocalSessions.uncompletedBackgroundTasks(
+                state?.backgroundTasks ?? [],
+                completed: summary.completedBackgroundTaskIds
+            ).count
             : summary.backgroundTasks
         let transcriptTool = summary.lastToolName.map { LastTool(name: $0, at: summary.lastToolAt) }
         let stateTool = state?.lastTool.flatMap { $0.name == nil ? nil : $0 }
