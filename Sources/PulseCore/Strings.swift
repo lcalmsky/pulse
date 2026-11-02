@@ -170,8 +170,16 @@ public enum L10n {
     public static func compactions(_ count: Int) -> String {
         pick("압축 \(count)", plural(count, "compaction", "compactions"))
     }
-    public static func backgroundTasks(_ count: Int) -> String {
-        pick("백그라운드 \(count)", "\(count) in background")
+    public static func backgroundShells(_ count: Int) -> String {
+        pick("셸 \(count)", plural(count, "shell", "shells"))
+    }
+
+    public static func backgroundAgents(_ count: Int) -> String {
+        pick("에이전트 \(count)", plural(count, "agent", "agents"))
+    }
+
+    public static func backgroundMonitors(_ count: Int) -> String {
+        pick("모니터 \(count)", plural(count, "monitor", "monitors"))
     }
 
     // MARK: - 카드와 알림

@@ -203,27 +203,48 @@ public struct DeadhdState: Equatable {
 public struct SessionActivity: Equatable {
     public let compactions: Int?
     public let backgroundTasks: Int?
+    public let backgroundCounts: BackgroundCounts?
     public let lastTool: LastTool?
 
-    public init(compactions: Int? = nil, backgroundTasks: Int? = nil, lastTool: LastTool? = nil) {
+    public init(
+        compactions: Int? = nil,
+        backgroundTasks: Int? = nil,
+        backgroundCounts: BackgroundCounts? = nil,
+        lastTool: LastTool? = nil
+    ) {
         self.compactions = compactions
         self.backgroundTasks = backgroundTasks
+        self.backgroundCounts = backgroundCounts
         self.lastTool = lastTool
     }
 
     public static func make(state: DeadhdState?, summary: TranscriptSummary) -> SessionActivity? {
         let compactions = state?.hasCompactions == true ? state?.compactions?.count : summary.compactions
-        let backgroundTasks = state?.hasBackgroundTasks == true
-            ? LocalSessions.uncompletedBackgroundTasks(
+        let backgroundTasks: Int?
+        let backgroundCounts: BackgroundCounts?
+        if state?.hasBackgroundTasks == true {
+            let remaining = LocalSessions.uncompletedBackgroundTasks(
                 state?.backgroundTasks ?? [],
                 completed: summary.completedBackgroundTaskIds
-            ).count
-            : summary.backgroundTasks
+            )
+            backgroundTasks = remaining.count
+            backgroundCounts = BackgroundCounts(tasks: remaining)
+        } else {
+            backgroundTasks = summary.backgroundTasks
+            backgroundCounts = summary.backgroundCounts
+        }
         let transcriptTool = summary.lastToolName.map { LastTool(name: $0, at: summary.lastToolAt) }
         let stateTool = state?.lastTool.flatMap { $0.name == nil ? nil : $0 }
         let lastTool = stateTool ?? transcriptTool
-        guard compactions != nil || backgroundTasks != nil || lastTool != nil else { return nil }
-        return SessionActivity(compactions: compactions, backgroundTasks: backgroundTasks, lastTool: lastTool)
+        guard compactions != nil || backgroundTasks != nil || backgroundCounts != nil || lastTool != nil else {
+            return nil
+        }
+        return SessionActivity(
+            compactions: compactions,
+            backgroundTasks: backgroundTasks,
+            backgroundCounts: backgroundCounts,
+            lastTool: lastTool
+        )
     }
 
     public func line(now: Date) -> String? {
@@ -231,8 +252,8 @@ public struct SessionActivity: Equatable {
         if let compactions, compactions > 0 {
             parts.append(L10n.compactions(compactions))
         }
-        if let backgroundTasks, backgroundTasks > 0 {
-            parts.append(L10n.backgroundTasks(backgroundTasks))
+        if let background = RowText.backgroundSummary(backgroundCounts) {
+            parts.append(background)
         }
         if let lastTool, let name = lastTool.name {
             let label = RowText.toolLabel(name)

@@ -1630,7 +1630,7 @@ expectEqual(mergedItem?.clickAction, .cwd("/Users/a/proj"), "합치기: 행 탭�
 expectEqual(mergedItem?.isActionable, true, "합치기: cwd 가 있으면 누를 수 있다")
 expectEqual(mergedItem?.stepStates, ["done", "done", "done", "done", "done", "now", "left", "left", "left"],
             "합치기: 단계 상태를 항목에 넘긴다")
-expectEqual(mergedItem?.activityLine, "압축 1 · 백그라운드 2 · Bash 12초 전", "합치기: 활동 줄")
+expectEqual(mergedItem?.activityLine, "압축 1 · 셸 2 · Bash 12초 전", "합치기: 활동 줄")
 
 let staleSession = localSession(status: "busy", summary: deadhdSummary,
                                 statusUpdatedAt: now.addingTimeInterval(-40 * 60), deadhd: parsedState)
@@ -1665,9 +1665,10 @@ expectEqual(noPageSession.counts, nil, "상태 파일: counts 가 없으면 체�
 // MARK: - 활동 줄
 
 expectEqual(SessionActivity(compactions: 1, backgroundTasks: 2,
+                            backgroundCounts: BackgroundCounts(shells: 2),
                             lastTool: LastTool(name: "Bash", at: utcDate(2026, 10, 20, 11, 59, 48)))
         .line(now: now),
-    "압축 1 · 백그라운드 2 · Bash 12초 전", "활동 줄: 세 값을 가운뎃점으로 잇는다")
+    "압축 1 · 셸 2 · Bash 12초 전", "활동 줄: 세 값을 가운뎃점으로 잇는다")
 expectEqual(SessionActivity(compactions: 0, backgroundTasks: 0).line(now: now), nil,
             "활동 줄: 0 은 그리지 않는다")
 expectEqual(SessionActivity(compactions: 2, backgroundTasks: 0, lastTool: LastTool(name: "Read", at: nil))
@@ -1840,6 +1841,8 @@ let asyncJSON = """
 """
 let asyncSummary = LocalSessions.summarizeTranscriptTail(Data(asyncJSON.utf8), droppingPartialFirstLine: false)
 expectEqual(asyncSummary.backgroundTasks, 3, "트랜스크립트: 비동기 에이전트·뒤로 넘긴 셸·모니터도 백그라운드 작업")
+expectEqual(asyncSummary.backgroundCounts, BackgroundCounts(shells: 1, agents: 1, monitors: 1),
+            "트랜스크립트: 꼬리 요약도 종류별로 센다")
 
 let queuedJSON = asyncJSON + "\n" + """
 {"type":"queue-operation","operation":"enqueue","content":"<task-notification>\\n<task-id>a1</task-id>\\n<status>completed</status>\\n</task-notification>"}
@@ -1969,6 +1972,34 @@ expectEqual(
 let ledgerFilterSession = localSession(status: "stall", summary: ledgerFilterSummary, deadhd: ledgerFilterState)
 expectEqual(ledgerFilterSession.backgroundTasks.map(\.taskDescription), ["watch"],
             "장부: 카드에 쓰는 작업 목록에서도 완료된 id 를 뺀다")
+
+let ledgerKindsJSON = """
+{"type":"assistant","timestamp":"2026-10-20T11:00:00Z","message":{"content":[{"type":"tool_use","id":"shell-1","name":"Bash","input":{"run_in_background":true}},{"type":"tool_use","id":"agent-1","name":"Agent","input":{}},{"type":"tool_use","id":"monitor-1","name":"Monitor","input":{}}]}}
+{"type":"user","timestamp":"2026-10-20T11:01:00Z","toolUseResult":{"isAsync":true,"agentId":"a1"},"message":{"content":[{"type":"tool_result","tool_use_id":"agent-1","content":"launched"}]}}
+{"type":"user","timestamp":"2026-10-20T11:02:00Z","toolUseResult":{"taskId":"m1"},"message":{"content":[{"type":"tool_result","tool_use_id":"monitor-1","content":"watching"}]}}
+""" + "\n"
+var kindsLedger = BackgroundLedger()
+kindsLedger.ingest(Data(ledgerKindsJSON.utf8))
+expectEqual(kindsLedger.pendingCounts(), BackgroundCounts(shells: 1, agents: 1, monitors: 1),
+            "장부: Bash·에이전트·모니터 launch 를 종류별로 센다")
+expectEqual(kindsLedger.pendingCounts().total, kindsLedger.pendingCount(),
+            "장부: 종류별 합은 전체 개수와 같다")
+expectEqual(kindsLedger.pendingCounts(launchedSince: utcDate(2026, 10, 20, 11, 1)),
+            BackgroundCounts(agents: 1, monitors: 1),
+            "장부: launchedSince 필터는 종류별에도 적용된다")
+
+let kindState = deadhdState("""
+{"sessionId":"local","backgroundTasks":[{"id":"s1","type":"shell"},{"id":"t1","type":"teammate"},{"id":"m1","type":"monitor"}]}
+""")
+let kindActivity = SessionActivity.make(
+    state: kindState,
+    summary: TranscriptSummary(completedBackgroundTaskIds: ["t1"])
+)
+expectEqual(kindActivity?.backgroundCounts, BackgroundCounts(shells: 1, monitors: 1),
+            "활동 줄: deadhd 종류별 개수에서 완료 id 를 뺀다")
+expectEqual(kindActivity?.backgroundTasks, 2, "활동 줄: 합계도 완료 id 를 뺀다")
+expectEqual(kindActivity?.backgroundCounts?.total, kindActivity?.backgroundTasks,
+            "활동 줄: 종류별 합은 합계와 같다")
 
 // MARK: - 팝오버 링과 숫자
 
@@ -3048,10 +3079,21 @@ expectEqual(RowText.question(detail: "질문", replyTail: "답", status: "상태
 expectEqual(RowText.activity(lastSentence: "문장", nowLine: "지금 줄"), "문장", "행 문구: 마지막 문장이 먼저")
 expectEqual(RowText.activity(lastSentence: nil, nowLine: "▶ 검증"), nil, "행 문구: 단계 이름은 다시 쓰지 않는다")
 expectEqual(RowText.activity(lastSentence: nil, nowLine: "도구 실행"), "도구 실행", "행 문구: 지금 줄")
-expectEqual(RowText.trail(backgroundTasks: 2, lastTool: "Bash"), "bg 2 · Bash", "행 문구: 꼬리 둘 다")
-expectEqual(RowText.trail(backgroundTasks: 2, lastTool: nil), "bg 2", "행 문구: 꼬리 bg 만")
-expectEqual(RowText.trail(backgroundTasks: 0, lastTool: "Bash"), "Bash", "행 문구: bg 0 은 빼고")
-expectEqual(RowText.trail(backgroundTasks: nil, lastTool: nil), nil, "행 문구: 꼬리 없음")
+expectEqual(RowText.backgroundSummary(BackgroundCounts(shells: 1, agents: 1)), "셸 1 · 에이전트 1",
+            "행 문구: 종류별 백그라운드 문구")
+expectEqual(RowText.backgroundSummary(BackgroundCounts(shells: 2, monitors: 1)), "셸 2 · 모니터 1",
+            "행 문구: 종류별 순서와 0 인 종류 제외")
+expectEqual(RowText.backgroundSummary(BackgroundCounts()), nil, "행 문구: 모두 0 이면 없다")
+expectEqual(RowText.backgroundSummary(nil), nil, "행 문구: 종류별 값이 없으면 없다")
+expectEqual(RowText.trail(backgroundCounts: BackgroundCounts(shells: 2), lastTool: "Bash"),
+            "셸 2 · Bash", "행 문구: 꼬리 둘 다")
+expectEqual(RowText.trail(backgroundCounts: BackgroundCounts(shells: 2), lastTool: nil),
+            "셸 2", "행 문구: 꼬리 종류만")
+expectEqual(RowText.trail(backgroundCounts: BackgroundCounts(), lastTool: "Bash"),
+            "Bash", "행 문구: 0 은 빼고")
+expectEqual(RowText.trail(backgroundCounts: nil, lastTool: nil), nil, "행 문구: 꼬리 없음")
+expectEqual(RowText.trail(backgroundCounts: BackgroundCounts(shells: 1, agents: 1), lastTool: "Bash"),
+            "셸 1 · 에이전트 1 · Bash", "행 문구: 종류별 문구와 도구")
 expectEqual(RowText.toolLabel("mcp__example_server__read_thread"), "read_thread",
             "행 문구: mcp 도구는 도구 이름만 남긴다")
 expectEqual(RowText.toolLabel("Bash"), "Bash", "행 문구: mcp 가 아닌 도구는 그대로")
@@ -3059,12 +3101,13 @@ expectEqual(RowText.toolLabel("mcp__example_server"), "mcp__example_server",
             "행 문구: 구분자가 하나뿐이면 원문 유지")
 expectEqual(RowText.toolLabel("mcp__example_server__"), "mcp__example_server__",
             "행 문구: 도구 부분이 비면 원문 유지")
-expectEqual(RowText.trail(backgroundTasks: 2, lastTool: "mcp__example_server__read_thread"),
-            "bg 2 · read_thread", "행 문구: 긴 mcp 도구 이름도 도구 이름만")
+expectEqual(RowText.trail(backgroundCounts: BackgroundCounts(shells: 2),
+                          lastTool: "mcp__example_server__read_thread"),
+            "셸 2 · read_thread", "행 문구: 긴 mcp 도구 이름도 도구 이름만")
 expectEqual(
-    SessionActivity(backgroundTasks: 1,
+    SessionActivity(backgroundTasks: 1, backgroundCounts: BackgroundCounts(shells: 1),
                     lastTool: LastTool(name: "mcp__example_server__read_thread")).line(now: now),
-    "백그라운드 1 · read_thread",
+    "셸 1 · read_thread",
     "행 문구: 활동 줄의 mcp 도구도 도구 이름만"
 )
 
@@ -3078,12 +3121,17 @@ let richSession = Session(
     counts: SessionCounts(done: 4, left: 4, now: 1),
     total: 9,
     eta: now.addingTimeInterval(102 * 60),
-    activity: SessionActivity(backgroundTasks: 2, lastTool: LastTool(name: "Bash"))
+    activity: SessionActivity(
+        backgroundTasks: 2,
+        backgroundCounts: BackgroundCounts(shells: 2),
+        lastTool: LastTool(name: "Bash")
+    )
 )
 let richItem = DisplayItem(session: richSession, group: .working, now: now)
 expectEqual(richItem.counts, SessionCounts(done: 4, left: 4, now: 1), "행 표시: 체크리스트 개수")
 expectEqual(richItem.etaText, "약 102분 남음", "행 표시: 남은 시간")
 expectEqual(richItem.backgroundTaskCount, 2, "행 표시: 백그라운드 개수")
+expectEqual(richItem.backgroundCounts, BackgroundCounts(shells: 2), "행 표시: 백그라운드 종류별 개수")
 expectEqual(richItem.lastToolName, "Bash", "행 표시: 마지막 도구")
 let zeroTotalItem = DisplayItem(
     session: Session(sessionId: "zero", bucket: "working", counts: SessionCounts(done: 1), total: 0),
@@ -3964,9 +4012,14 @@ expectEqual(Checklist.parse(Data("{\"items\":[{}]}".utf8))?.first?.label, "Step 
             "영어 체크리스트: 이름이 없으면 순번")
 
 expectEqual(SessionActivity(compactions: 1, backgroundTasks: 2,
+                            backgroundCounts: BackgroundCounts(shells: 2),
                             lastTool: LastTool(name: "Bash", at: utcDate(2026, 10, 20, 11, 59, 48)))
         .line(now: now),
-    "1 compaction · 2 in background · Bash 12 seconds ago", "영어 활동 줄: 세 값을 가운뎃점으로 잇는다")
+    "1 compaction · 2 shells · Bash 12 seconds ago", "영어 활동 줄: 세 값을 가운뎃점으로 잇는다")
+expectEqual(RowText.backgroundSummary(BackgroundCounts(shells: 1, agents: 1)), "1 shell · 1 agent",
+            "영어 행 문구: 단수 종류별 문구")
+expectEqual(RowText.backgroundSummary(BackgroundCounts(shells: 2, monitors: 1)), "2 shells · 1 monitor",
+            "영어 행 문구: 복수형과 순서")
 expectEqual(SessionActivity(compactions: 2, backgroundTasks: 0, lastTool: LastTool(name: "Read", at: nil))
         .line(now: now), "2 compactions · Read", "영어 활동 줄: 복수형과 도구 이름만")
 

@@ -57,6 +57,8 @@ public struct TranscriptSummary: Equatable {
     public let compactions: Int?
     /// 아직 완료 알림을 받지 못한 백그라운드 작업(셸, 비동기 에이전트, 모니터) 수. 꼬리 요약 값은 앱이 `BackgroundLedger` 의 전체 파일 값으로 덮어쓴다.
     public var backgroundTasks: Int?
+    /// `backgroundTasks` 를 종류별로 나눈 값. 두 값의 합은 항상 `backgroundTasks` 와 같다.
+    public var backgroundCounts: BackgroundCounts?
     /// 완료 알림이나 TaskStop 으로 끝난 백그라운드 작업의 task id. deadhd 목록을 거를 때 쓴다.
     public var completedBackgroundTaskIds: Set<String>
 
@@ -74,6 +76,7 @@ public struct TranscriptSummary: Equatable {
         pullRequest: PullRequestLink? = nil,
         compactions: Int? = nil,
         backgroundTasks: Int? = nil,
+        backgroundCounts: BackgroundCounts? = nil,
         completedBackgroundTaskIds: Set<String> = []
     ) {
         self.customTitle = customTitle
@@ -90,6 +93,7 @@ public struct TranscriptSummary: Equatable {
         self.pullRequest = pullRequest
         self.compactions = compactions
         self.backgroundTasks = backgroundTasks
+        self.backgroundCounts = backgroundCounts
         self.completedBackgroundTaskIds = completedBackgroundTaskIds
     }
 }
@@ -281,6 +285,7 @@ public enum LocalSessions {
             pullRequest: pullRequest,
             compactions: compactions,
             backgroundTasks: background.pendingCount(),
+            backgroundCounts: background.pendingCounts(),
             completedBackgroundTaskIds: background.completedBackgroundTaskIds
         )
     }

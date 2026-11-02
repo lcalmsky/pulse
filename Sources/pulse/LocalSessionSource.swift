@@ -201,6 +201,7 @@ final class LocalSessionSource {
         }
         let ledger = backgroundLedger(for: record, url: url)
         summary.backgroundTasks = ledger.pendingCount(launchedSince: record.startedAt)
+        summary.backgroundCounts = ledger.pendingCounts(launchedSince: record.startedAt)
         summary.completedBackgroundTaskIds = ledger.completedBackgroundTaskIds
         return summary
     }

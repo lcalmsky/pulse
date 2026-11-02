@@ -146,8 +146,8 @@ struct SessionRowView: View {
     private var attentionMeta: String {
         var parts: [String] = []
         if let place = item.placeText { parts.append(place) }
-        if let background = item.backgroundTaskCount, background > 0 {
-            parts.append("bg \(background)")
+        if let background = RowText.backgroundSummary(item.backgroundCounts) {
+            parts.append(background)
         }
         return parts.joined(separator: " · ")
     }
@@ -359,7 +359,7 @@ struct SessionRowView: View {
                 }
                 Spacer(minLength: 0)
                 if let trail = RowText.trail(
-                    backgroundTasks: item.backgroundTaskCount,
+                    backgroundCounts: item.backgroundCounts,
                     lastTool: item.lastToolName
                 ) {
                     Text(trail)
@@ -394,7 +394,7 @@ struct SessionRowView: View {
 
     private var hasWorkingMeta: Bool {
         hasIdentityMeta
-            || RowText.trail(backgroundTasks: item.backgroundTaskCount, lastTool: item.lastToolName) != nil
+            || RowText.trail(backgroundCounts: item.backgroundCounts, lastTool: item.lastToolName) != nil
             || !item.isActionable
             || !sessionPages.isEmpty
     }
@@ -520,7 +520,7 @@ struct SessionRowView: View {
     }
 
     private var doneBackgroundText: String? {
-        RowText.trail(backgroundTasks: item.backgroundTaskCount, lastTool: nil)
+        RowText.trail(backgroundCounts: item.backgroundCounts, lastTool: nil)
     }
 
     @ViewBuilder

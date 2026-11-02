@@ -44,6 +44,7 @@ public struct DisplayItem: Equatable, Identifiable {
     public let stepStates: [String]?
     public let etaText: String?
     public let backgroundTaskCount: Int?
+    public let backgroundCounts: BackgroundCounts?
     public let lastToolName: String?
     /// 30분 넘게 갱신되지 않은 체크리스트. 진행률을 흐리게 그린다.
     public let progressStale: Bool
@@ -123,6 +124,7 @@ public struct DisplayItem: Equatable, Identifiable {
         self.stepStates = session.stepStates
         self.etaText = Grouping.etaText(session, now: now)
         self.backgroundTaskCount = session.activity?.backgroundTasks
+        self.backgroundCounts = session.activity?.backgroundCounts
         self.lastToolName = Grouping.nonEmpty(session.activity?.lastTool?.name)
         self.progressStale = session.dataAt.map { now.timeIntervalSince($0) > DeadhdState.staleInterval } ?? false
         self.blocked = (session.counts?.blocked ?? 0) > 0

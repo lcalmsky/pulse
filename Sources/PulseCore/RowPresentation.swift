@@ -118,8 +118,18 @@ public enum RowText {
         return tool.isEmpty ? name : String(tool)
     }
 
-    public static func trail(backgroundTasks: Int?, lastTool: String?) -> String? {
-        let background = backgroundTasks.flatMap { $0 > 0 ? "bg \($0)" : nil }
+    /// 백그라운드 작업을 셸·에이전트·모니터 순서로 잇는다. 0 인 종류는 빼고, 모두 없으면 nil.
+    public static func backgroundSummary(_ counts: BackgroundCounts?) -> String? {
+        guard let counts else { return nil }
+        var parts: [String] = []
+        if counts.shells > 0 { parts.append(L10n.backgroundShells(counts.shells)) }
+        if counts.agents > 0 { parts.append(L10n.backgroundAgents(counts.agents)) }
+        if counts.monitors > 0 { parts.append(L10n.backgroundMonitors(counts.monitors)) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    public static func trail(backgroundCounts: BackgroundCounts?, lastTool: String?) -> String? {
+        let background = backgroundSummary(backgroundCounts)
         switch (background, lastTool.map(toolLabel)) {
         case let (background?, tool?):
             return "\(background) · \(tool)"

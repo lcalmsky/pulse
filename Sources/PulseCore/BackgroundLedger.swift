@@ -1,5 +1,61 @@
 import Foundation
 
+/// 백그라운드 작업의 종류. 장부는 도구 이름으로, deadhd 는 상태 파일의 type 으로 판정한다.
+public enum BackgroundKind: Equatable {
+    case shell
+    case agent
+    case monitor
+
+    public static func fromToolName(_ name: String?) -> BackgroundKind {
+        switch name {
+        case "Bash": return .shell
+        case "Monitor": return .monitor
+        default: return .agent
+        }
+    }
+
+    public static func fromDeadhdType(_ type: String?) -> BackgroundKind {
+        switch type {
+        case "shell": return .shell
+        case "monitor": return .monitor
+        default: return .agent
+        }
+    }
+}
+
+public struct BackgroundCounts: Equatable {
+    public let shells: Int
+    public let agents: Int
+    public let monitors: Int
+
+    public init(shells: Int = 0, agents: Int = 0, monitors: Int = 0) {
+        self.shells = shells
+        self.agents = agents
+        self.monitors = monitors
+    }
+
+    public init(tasks: [BackgroundTask]) {
+        var counts = BackgroundCounts()
+        for task in tasks {
+            counts = counts.adding(BackgroundKind.fromDeadhdType(task.type))
+        }
+        self = counts
+    }
+
+    public var total: Int { shells + agents + monitors }
+
+    func adding(_ kind: BackgroundKind) -> BackgroundCounts {
+        switch kind {
+        case .shell:
+            return BackgroundCounts(shells: shells + 1, agents: agents, monitors: monitors)
+        case .agent:
+            return BackgroundCounts(shells: shells, agents: agents + 1, monitors: monitors)
+        case .monitor:
+            return BackgroundCounts(shells: shells, agents: agents, monitors: monitors + 1)
+        }
+    }
+}
+
 /// 트랜스크립트를 처음부터 이어 읽으며 백그라운드 작업의 시작과 끝을 적는 장부.
 /// 꼬리만 보면 오래 전에 띄운 셸이 빠지므로 파일 전체를 ingest 한다.
 public struct BackgroundLedger {
@@ -97,13 +153,23 @@ public struct BackgroundLedger {
     /// 아직 끝나지 않은 launch 수. `launchedSince` 보다 먼저 띄운 작업은 이전 프로세스의 것이라 뺀다.
     /// 시각을 모르는 launch 는 판단할 수 없으니 남긴다.
     public func pendingCount(launchedSince: Date? = nil) -> Int {
-        launches.reduce(0) { count, entry in
-            let (toolUseId, launch) = entry
-            guard !isCompleted(toolUseId: toolUseId, launch: launch) else { return count }
+        pendingLaunches(launchedSince: launchedSince).count
+    }
+
+    /// `pendingCount` 와 같은 기준으로 센 종류별 개수. 두 값의 합은 항상 `pendingCount` 와 같다.
+    public func pendingCounts(launchedSince: Date? = nil) -> BackgroundCounts {
+        pendingLaunches(launchedSince: launchedSince).reduce(BackgroundCounts()) { counts, entry in
+            counts.adding(BackgroundKind.fromToolName(toolUseNames[entry.key]))
+        }
+    }
+
+    private func pendingLaunches(launchedSince: Date?) -> [String: Launch] {
+        launches.filter { toolUseId, launch in
+            guard !isCompleted(toolUseId: toolUseId, launch: launch) else { return false }
             if let launchedSince, let launchedAt = launch.launchedAt, launchedAt < launchedSince {
-                return count
+                return false
             }
-            return count + 1
+            return true
         }
     }
 
