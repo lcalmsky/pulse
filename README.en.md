@@ -81,6 +81,7 @@ Keeps the same list as the popover **in a separate window.** You can drag it and
 - Its height follows the content and, once the content exceeds 70 percent of the screen height, only the list scrolls inside
 - When you set the window size yourself, it uses that height as is; only the list scrolls and the header and search bar stay at the top
 - If the remembered size or position falls outside the current screen, it opens fitted inside the screen. It refits when a monitor is connected or disconnected, and keeps the remembered values so the original size comes back when the larger screen returns
+- Window managers such as Rectangle can move and resize it, and it remembers the position and size they set
 - Appears on every Space
 - It shares the popover's header, so the page alert badge appears there too
 - Hide it with the close button in the header or `⌃⌥P`
