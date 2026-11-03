@@ -105,7 +105,7 @@ struct SessionRowView: View {
                 PopoverIconButton(
                     symbol: "arrowshape.turn.up.left",
                     help: item.multiplexer.map {
-                        L10n.multiplexerMoveShortcut($0.kind.rawValue, model.shortcut(.openInTerminal))
+                        L10n.multiplexerMoveShortcut($0.kind.displayName, model.shortcut(.openInTerminal))
                     } ?? L10n.replyInOrcaShortcut(model.shortcut(.openInTerminal)),
                     enabled: showsOrca,
                     symbolSize: 13,
@@ -215,7 +215,7 @@ struct SessionRowView: View {
                     PopoverIconButton(
                         symbol: "arrow.up.forward.square",
                         help: item.multiplexer.map {
-                            L10n.multiplexerMoveShortcut($0.kind.rawValue, model.shortcut(.openInTerminal))
+                            L10n.multiplexerMoveShortcut($0.kind.displayName, model.shortcut(.openInTerminal))
                         } ?? L10n.goToOrcaShortcut(model.shortcut(.openInTerminal)),
                         symbolSize: 13
                     ) {
@@ -582,7 +582,7 @@ struct SessionRowView: View {
     private var shortcutHintText: String {
         var parts: [String] = [L10n.shortcutOpen(model.shortcut(.open))]
         if showsOrca {
-            if let kind = item.multiplexer?.kind.rawValue {
+            if let kind = item.multiplexer?.kind.displayName {
                 parts.append(L10n.shortcutMultiplexer(kind, model.shortcut(.openInTerminal)))
             } else {
                 parts.append(L10n.shortcutOrca(model.shortcut(.openInTerminal)))
@@ -597,13 +597,13 @@ struct SessionRowView: View {
 
     /// 멀티플렉서 세션은 Orca 가 아니라 그 패널로 이동한다.
     private var openHintText: String {
-        guard let kind = item.multiplexer?.kind.rawValue else { return L10n.goToOrcaArrow }
+        guard let kind = item.multiplexer?.kind.displayName else { return L10n.goToOrcaArrow }
         return "→ " + L10n.multiplexerMove(kind)
     }
 
     @ViewBuilder
     private var multiplexerBadge: some View {
-        if let kind = item.multiplexer?.kind.rawValue {
+        if let kind = item.multiplexer?.kind.displayName {
             MultiplexerBadge(kind: kind)
         }
     }

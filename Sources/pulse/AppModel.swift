@@ -848,7 +848,7 @@ final class AppModel: ObservableObject {
     }
 
     private func focusMultiplexer(_ pane: MultiplexerPane) {
-        let kind = pane.kind.rawValue
+        let kind = pane.kind.displayName
         MultiplexerLauncher.focus(pane) { [weak self] result in
             switch result {
             case .success:

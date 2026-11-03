@@ -13,7 +13,7 @@ enum MultiplexerMoveResult: Equatable {
     case timedOut
 }
 
-/// herdr·tmux 패널로 이동하고, 그 클라이언트가 떠 있는 터미널 앱을 앞으로 꺼낸다.
+/// herdr·tmux 패널과 herdr 데스크톱 앱 터미널로 이동하고, 그 클라이언트가 떠 있는 터미널 앱을 앞으로 꺼낸다.
 enum MultiplexerLauncher {
     private static let logger = Logger(subsystem: "io.github.lcalmsky.pulse", category: "multiplexer")
     private static let defaultHerdrSocket = "~/.config/herdr/herdr.sock"
@@ -28,6 +28,7 @@ enum MultiplexerLauncher {
             switch pane.kind {
             case .herdr: result = moveHerdr(pane)
             case .tmux: result = moveTmux(pane)
+            case .herdrApp: result = moveHerdrApp(pane)
             }
             DispatchQueue.main.async { completion(result) }
         }
@@ -204,6 +205,37 @@ enum MultiplexerLauncher {
         let count = proc_listallpids(&pids, Int32(MemoryLayout<pid_t>.stride * pids.count))
         guard count > 0 else { return [] }
         return Array(pids.prefix(Int(count)))
+    }
+
+    // MARK: - herdr 앱
+
+    private static func moveHerdrApp(_ pane: MultiplexerPane) -> MultiplexerMoveResult {
+        guard let executable = herdrAppExecutable() else {
+            logger.error("herdr-app 실행 파일 없음")
+            return .executableMissing
+        }
+        let result = run(executable, ["do", "agent.focus", "--terminal", pane.paneId])
+        guard !result.timedOut else {
+            logger.error(
+                "herdr-app agent.focus 시간 초과: \(pane.paneId, privacy: .public) \(result.output, privacy: .public)"
+            )
+            return .timedOut
+        }
+        guard result.status == 0 else {
+            logger.error(
+                "herdr-app agent.focus 실패(\(result.status, privacy: .public)): \(pane.paneId, privacy: .public) \(result.output, privacy: .public)"
+            )
+            return .panelMissing
+        }
+        return bringForward(.app(Multiplexer.herdrAppBundleIdentifier))
+    }
+
+    private static func herdrAppExecutable() -> String? {
+        let candidates = ["~/.local/bin/herdr-app", "/Applications/Herdr.app/Contents/MacOS/Herdr"]
+            .map { NSString(string: $0).expandingTildeInPath }
+        return ExecutablePath.firstExecutable(in: candidates) {
+            FileManager.default.isExecutableFile(atPath: $0)
+        }
     }
 
     // MARK: - tmux

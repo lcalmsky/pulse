@@ -3,6 +3,15 @@ import Foundation
 public enum MultiplexerKind: String, Equatable {
     case herdr
     case tmux
+    case herdrApp = "herdr-app"
+
+    /// 배지와 문구에 쓰는 이름. herdr 데스크톱 앱도 TUI 와 같이 "herdr" 로 보인다.
+    public var displayName: String {
+        switch self {
+        case .herdrApp: return "herdr"
+        case .herdr, .tmux: return rawValue
+        }
+    }
 }
 
 /// 세션이 들어 있는 터미널 멀티플렉서의 패널. 값은 모두 세션 프로세스 환경에서 읽는다.
@@ -99,6 +108,14 @@ public enum Multiplexer {
                 socketPath: ProcessEnvironment.value(ProcessEnvironment.herdrSocketPathKey, inProcArgs: data),
                 workspaceId: ProcessEnvironment.value(ProcessEnvironment.herdrWorkspaceIdKey, inProcArgs: data),
                 tabId: ProcessEnvironment.value(ProcessEnvironment.herdrTabIdKey, inProcArgs: data)
+            )
+        }
+        // herdr 데스크톱 앱 터미널 안에서 tmux 나 herdr TUI 를 다시 띄울 수 있어, HC_TERMINAL_ID 는 앞의 둘이 없을 때만 쓴다.
+        if let terminalId = ProcessEnvironment.value(ProcessEnvironment.herdrAppTerminalIdKey, inProcArgs: data) {
+            return MultiplexerPane(
+                kind: .herdrApp,
+                paneId: terminalId,
+                socketPath: ProcessEnvironment.value(ProcessEnvironment.herdrAppSocketKey, inProcArgs: data)
             )
         }
         return nil
@@ -199,6 +216,8 @@ public enum Multiplexer {
     }
 
     public static let orcaBundleIdentifier = "com.stablyai.orca"
+
+    public static let herdrAppBundleIdentifier = "dev.herdr.app"
 
     public static func host(inProcArgs data: Data) -> MultiplexerHost? {
         let handle = ProcessEnvironment.value(ProcessEnvironment.orcaTerminalHandleKey, inProcArgs: data)

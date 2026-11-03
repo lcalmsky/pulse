@@ -13,6 +13,10 @@ public enum ProcessEnvironment {
     public static let herdrWorkspaceIdKey = "HERDR_WORKSPACE_ID"
     public static let herdrSocketPathKey = "HERDR_SOCKET_PATH"
 
+    /// herdr 데스크톱 앱(herdr-core) 안의 프로세스에 넣어 주는 터미널 변수들.
+    public static let herdrAppTerminalIdKey = "HC_TERMINAL_ID"
+    public static let herdrAppSocketKey = "HC_TERMINAL_SOCKET"
+
     /// tmux 패널 안의 프로세스에 tmux 가 넣어 주는 변수들. `TMUX` 는 소켓 경로로 시작한다.
     public static let tmuxPaneKey = "TMUX_PANE"
     public static let tmuxKey = "TMUX"

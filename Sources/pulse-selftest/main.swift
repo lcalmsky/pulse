@@ -4235,6 +4235,38 @@ expectEqual(
 expectEqual(
     Multiplexer.pane(inProcArgs: procArgs(
         argc: 1,
+        ["/bin/claude", "claude", "HC_TERMINAL_ID=t4", "HC_TERMINAL_SOCKET=/tmp/herdr-core.sock"]
+    )),
+    MultiplexerPane(kind: .herdrApp, paneId: "t4", socketPath: "/tmp/herdr-core.sock"),
+    "멀티플렉서: herdr 앱 터미널 감지"
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: procArgs(
+        argc: 1,
+        ["/bin/claude", "claude", "HERDR_PANE_ID=w1:p30", "HC_TERMINAL_ID=t4"]
+    )),
+    MultiplexerPane(kind: .herdr, paneId: "w1:p30"),
+    "멀티플렉서: herdr TUI 와 herdr 앱 터미널이 둘 다 있으면 herdr TUI"
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: procArgs(
+        argc: 1,
+        ["/bin/claude", "claude", "TMUX=/tmp/s,1,0", "TMUX_PANE=%3", "HC_TERMINAL_ID=t4"]
+    )),
+    MultiplexerPane(kind: .tmux, paneId: "%3", socketPath: "/tmp/s"),
+    "멀티플렉서: tmux 와 herdr 앱 터미널이 둘 다 있으면 tmux"
+)
+expectEqual(MultiplexerKind.herdrApp.displayName, "herdr", "멀티플렉서: herdr 앱 표시 이름")
+expectEqual(MultiplexerKind.tmux.displayName, "tmux", "멀티플렉서: tmux 표시 이름")
+let herdrAppPane = MultiplexerPane(kind: .herdrApp, paneId: "t4", socketPath: "/tmp/herdr-core.sock")
+expectEqual(
+    SessionClick.resolve(orcaTerminal: nil, multiplexer: herdrAppPane),
+    SessionClickAction.multiplexer(herdrAppPane),
+    "멀티플렉서: herdr 앱 터미널 클릭은 패널 이동"
+)
+expectEqual(
+    Multiplexer.pane(inProcArgs: procArgs(
+        argc: 1,
         ["/bin/claude", "claude", "TMUX=/tmp/tmux-501/default,123,0", "TMUX_PANE=%3"]
     )),
     MultiplexerPane(kind: .tmux, paneId: "%3", socketPath: "/tmp/tmux-501/default"),
