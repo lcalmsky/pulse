@@ -463,9 +463,16 @@ public enum LocalSessions {
             }
             status = "working"
         case "shell":
-            // 턴은 끝났지만 백그라운드 작업이 끝나면 모델이 다시 깨어날 수 있어 진행으로 둔다.
-            bucket = "working"
-            status = "background"
+            // 턴이 끝난 채 사용자 몫의 막힌 단계가 있으면 백그라운드 작업이 돌아도 사용자를 기다린다.
+            if (checklist?.counts?.blocked ?? 0) > 0 {
+                bucket = "wait"
+                status = "waiting_input"
+                message = checklist?.blockedAsk ?? L10n.waitingForReply
+            } else {
+                // 턴은 끝났지만 백그라운드 작업이 끝나면 모델이 다시 깨어날 수 있어 진행으로 둔다.
+                bucket = "working"
+                status = "background"
+            }
         case "idle":
             bucket = "done"
             status = "idle"

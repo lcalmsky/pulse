@@ -40,6 +40,8 @@ public struct DeadhdState: Equatable {
     public let compactions: DeadhdCompactions?
     public let lastTool: LastTool?
     public let summaryAvailable: Bool
+    /// 요약에는 없는, 사용자 몫의 막힌 단계가 요구하는 일. 데이터 파일에서 채운다.
+    public var blockedAsk: String? = nil
 
     public var hasChecklist: Bool {
         !isOff && summaryAvailable && counts != nil && (total ?? 0) > 0
@@ -127,6 +129,18 @@ public struct DeadhdState: Equatable {
             lastTool: lastTool(object["lastTool"]),
             summaryAvailable: summary != nil
         )
+    }
+
+    /// 데이터 파일의 체크리스트에서 첫 blocked 단계가 요구하는 일을 꺼낸다.
+    public static func blockedAsk(fromData data: Data) -> String? {
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let items = object["items"] as? [Any]
+        else { return nil }
+        for item in items {
+            guard let item = item as? [String: Any], string(item["state"]) == "blocked" else { continue }
+            return string(item["ask"])
+        }
+        return nil
     }
 
     private static func lastTool(_ value: Any?) -> LastTool? {

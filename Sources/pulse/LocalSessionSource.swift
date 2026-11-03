@@ -154,6 +154,15 @@ final class LocalSessionSource {
            state.dataPath.map({ fileManager.fileExists(atPath: $0) }) != true {
             state.pagePath = nil
         }
+        // 요약에는 막힌 단계의 'ask' 가 없어 데이터 파일에서 꺼낸다. 읽기에 실패하면 비워 둔다.
+        if (state.counts?.blocked ?? 0) > 0,
+           let dataPath = state.dataPath,
+           let attributes = try? fileManager.attributesOfItem(atPath: dataPath),
+           attributes[.type] as? FileAttributeType == .typeRegular,
+           ((attributes[.size] as? NSNumber)?.intValue ?? Int.max) <= Self.stateFileLimit,
+           let data = try? Data(contentsOf: URL(fileURLWithPath: dataPath)) {
+            state.blockedAsk = DeadhdState.blockedAsk(fromData: data)
+        }
         return state
     }
 

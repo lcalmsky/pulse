@@ -1217,6 +1217,60 @@ expectEqual(
     "상태 표: shell 진행 행 문구"
 )
 
+let blockedShellJSON = """
+{"sessionId":"local","summary":{"title":"t","counts":{"done":1,"now":0,"left":1,"blocked":1},"total":3,"states":["done","blocked","left"]}}
+"""
+let blockedShellState = DeadhdState.parse(Data(blockedShellJSON.utf8))!
+var askedShellState = blockedShellState
+askedShellState.blockedAsk = "운영 DB 에 DDL 을 적용해 주세요"
+let askedShell = localSession(status: "shell", deadhd: askedShellState)
+expectEqual(askedShell.bucket, "wait", "상태 표: 막힌 단계가 있는 shell 은 wait 버킷")
+expectEqual(askedShell.status, "waiting_input", "상태 표: 막힌 단계가 있는 shell status")
+expectEqual(askedShell.message, "운영 DB 에 DDL 을 적용해 주세요", "상태 표: 막힌 단계의 ask 를 문구로 쓴다")
+let askedShellGroup = Grouping.group(SessionsResponse(sessions: [askedShell]), now: now)
+expectEqual(askedShellGroup.attention.count, 1, "상태 표: 막힌 단계가 있는 shell 은 확인 필요 그룹")
+expectEqual(askedShellGroup.attention.first?.status, "운영 DB 에 DDL 을 적용해 주세요",
+            "상태 표: 확인 필요 행 문구는 ask")
+expectEqual(askedShellGroup.working.count, 0, "상태 표: 막힌 단계가 있는 shell 은 진행 그룹에 없다")
+
+let unaskedShell = localSession(status: "shell", deadhd: blockedShellState)
+expectEqual(unaskedShell.message, "답을 기다리고 있어요", "상태 표: ask 가 없으면 입력 대기 문구")
+expectEqual(Grouping.group(SessionsResponse(sessions: [unaskedShell]), now: now).attention.count, 1,
+            "상태 표: ask 가 없어도 막힌 단계가 있으면 확인 필요 그룹")
+
+let unblockedShellJSON = """
+{"sessionId":"local","summary":{"title":"t","counts":{"done":1,"now":0,"left":2,"blocked":0},"total":3,"states":["done","left","left"]}}
+"""
+let unblockedShell = localSession(status: "shell", deadhd: DeadhdState.parse(Data(unblockedShellJSON.utf8))!)
+expectEqual(unblockedShell.bucket, "working", "상태 표: 막힌 단계가 없는 shell 은 진행 버킷")
+expectEqual(unblockedShell.status, "background", "상태 표: 막힌 단계가 없는 shell status")
+let unblockedShellGroup = Grouping.group(SessionsResponse(sessions: [unblockedShell]), now: now)
+expectEqual(unblockedShellGroup.working.count, 1, "상태 표: 막힌 단계가 없는 shell 은 진행 그룹")
+expectEqual(unblockedShellGroup.attention.count, 0, "상태 표: 막힌 단계가 없는 shell 은 확인 필요 그룹에 없다")
+
+let offBlockedShellJSON = """
+{"sessionId":"local","offAt":"2026-10-20T00:00:00+00:00","summary":{"title":"t","counts":{"done":1,"now":0,"left":1,"blocked":1},"total":3,"states":["done","blocked","left"]}}
+"""
+let offBlockedShell = localSession(status: "shell", deadhd: DeadhdState.parse(Data(offBlockedShellJSON.utf8))!)
+expectEqual(offBlockedShell.bucket, "working", "상태 표: 꺼진 세션의 막힌 단계는 진행 버킷")
+
+let busyBlocked = localSession(status: "busy", deadhd: askedShellState)
+expectEqual(busyBlocked.bucket, "working", "상태 표: busy 는 막힌 단계가 있어도 진행 버킷")
+
+let blockedItemsJSON = """
+{"items":[{"state":"done"},{"state":"blocked","ask":"먼저 배포해 주세요"},{"state":"blocked","ask":"두 번째"}]}
+"""
+expectEqual(DeadhdState.blockedAsk(fromData: Data(blockedItemsJSON.utf8)), "먼저 배포해 주세요",
+            "상태 표: 첫 blocked 단계의 ask 를 꺼낸다")
+expectEqual(DeadhdState.blockedAsk(fromData: Data(#"{"items":[{"state":"blocked"}]}"#.utf8)), nil,
+            "상태 표: ask 가 없는 blocked 단계는 nil")
+expectEqual(DeadhdState.blockedAsk(fromData: Data(#"{"items":[{"state":"blocked","ask":"  "}]}"#.utf8)), nil,
+            "상태 표: 빈 ask 는 nil")
+expectEqual(DeadhdState.blockedAsk(fromData: Data("not json".utf8)), nil,
+            "상태 표: JSON 이 아니면 nil")
+expectEqual(DeadhdState.blockedAsk(fromData: Data(#"{"items":[{"state":"left","ask":"보류"}]}"#.utf8)), nil,
+            "상태 표: blocked 가 아닌 단계의 ask 는 무시한다")
+
 let idle = localSession(status: "idle")
 expectEqual(idle.bucket, "done", "상태 표: idle 은 완료 버킷")
 expectEqual(idle.status, "idle", "상태 표: idle status")
