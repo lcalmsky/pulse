@@ -81,6 +81,8 @@ final class FloatingPanelController: NSObject {
             .store(in: &cancellables)
 
         if options.remembersFrame {
+            panel.presentsAsStandardWindow = true
+            panel.onAccessibilityFrameChange = { [weak self] in self?.rememberAccessibilityFrame(sizeChanged: $0) }
             NotificationCenter.default.addObserver(
                 self, selector: #selector(rememberPosition),
                 name: NSWindow.didMoveNotification, object: panel
@@ -442,12 +444,29 @@ final class FloatingPanelController: NSObject {
 
     @objc private func rememberPosition() {
         guard isUserFrameChange else { return }
-        defaults.set(Double(panel.frame.origin.x), forKey: "panelOriginX")
-        defaults.set(Double(panel.frame.origin.y), forKey: "panelOriginY")
+        savePosition()
     }
 
     @objc private func rememberSize() {
         guard isUserFrameChange else { return }
+        saveSize()
+    }
+
+    /// Rectangle 같은 창 관리 앱이 옮기거나 키운 프레임을 사용자가 잡은 값으로 저장한다.
+    /// 저장하지 않으면 내용이 바뀔 때 자동 크기로, 화면 구성이 바뀔 때 이전 저장값으로 되돌아간다.
+    /// 위치만 옮긴 조작은 끌기처럼 위치만 저장해 자동 크기를 유지한다.
+    private func rememberAccessibilityFrame(sizeChanged: Bool) {
+        guard !applyingFrame else { return }
+        savePosition()
+        if sizeChanged { saveSize() }
+    }
+
+    private func savePosition() {
+        defaults.set(Double(panel.frame.origin.x), forKey: "panelOriginX")
+        defaults.set(Double(panel.frame.origin.y), forKey: "panelOriginY")
+    }
+
+    private func saveSize() {
         manualSize = true
         defaults.set(Double(panel.frame.width), forKey: "panelWidth")
         defaults.set(Double(panel.frame.height), forKey: "panelHeight")
@@ -465,8 +484,22 @@ final class PanelContentHeight: ObservableObject {
 /// borderless NSPanel 은 기본적으로 키 창이 되지 않는다. 목록 패널만 키 입력을 받는다.
 private final class ListPanel: NSPanel {
     var acceptsKeyboard = false
+    /// borderless 창은 접근성 subrole 이 `AXSystemDialog` 로 나가, Rectangle 같은 창 관리 앱이 크기 고정 창으로 보고 위치만 옮긴다.
+    var presentsAsStandardWindow = false
+    /// 다른 앱이 접근성 API 로 프레임을 바꾼 뒤 부른다. 마우스 버튼이 눌리지 않아 끌기 판정으로는 사용자 조작을 알 수 없다.
+    var onAccessibilityFrameChange: ((_ sizeChanged: Bool) -> Void)?
 
     override var canBecomeKey: Bool { acceptsKeyboard }
+
+    override func accessibilitySubrole() -> NSAccessibility.Subrole? {
+        presentsAsStandardWindow ? .standardWindow : super.accessibilitySubrole()
+    }
+
+    override func setAccessibilityFrame(_ frame: NSRect) {
+        let previousSize = self.frame.size
+        super.setAccessibilityFrame(frame)
+        onAccessibilityFrameChange?(self.frame.size != previousSize)
+    }
 }
 
 /// 비활성 패널에서 첫 클릭이 창 활성화에만 쓰이지 않고 버튼에 닿게 한다.
