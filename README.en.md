@@ -261,7 +261,7 @@ Pulse does not use system notifications, so it never asks for notification permi
 
 ## How it works
 
-Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A `shell` session has finished its turn with only background tasks left. The model may wake when they finish, so it stays in working and reads `Waiting on background tasks`. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A session with unfinished background tasks is never treated as stalled, however long it runs, because a session keeps `busy` after its turn ends while an async agent runs.
+Every 3 seconds it reads the session files and groups them by state. Waiting for an answer or permission is **attention**, `busy` or `shell` is **working**, and `idle` is **done**. A `shell` session has finished its turn with only background tasks left. The model may wake when they finish, so it stays in working and reads `Waiting on background tasks`. If its deadhd checklist has a blocked step, though, it is waiting on you, so it goes to **attention** and shows that step's `ask` as its text. It returns to working once no step is blocked. A working session with no new activity for more than 10 minutes is treated as stalled and placed in attention. A session with unfinished background tasks is never treated as stalled, however long it runs, because a session keeps `busy` after its turn ends while an async agent runs.
 
 <details>
 <summary>Where it reads and the rules</summary>
